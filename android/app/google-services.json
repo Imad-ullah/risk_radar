@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "418212768173-ulmrr6bdrjriu5c47fdptt1s69ciug14.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.riskradar",
+            "certificate_hash": "430dccee706f38f39a027094f269cab897ef31df"
+          }
+        },
+        {
           "client_id": "418212768173-s3ev6pbkuef7tjebf9upt5rqviothbp4.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -37,6 +45,13 @@
             {
               "client_id": "418212768173-s3ev6pbkuef7tjebf9upt5rqviothbp4.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "418212768173-jp2orta7gsf0bgeqbocpkg3td0slntql.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.riskradar"
+              }
             }
           ]
         }

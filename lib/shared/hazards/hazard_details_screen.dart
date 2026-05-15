@@ -1,0 +1,995 @@
+// lib/shared/hazards/hazard_details_screen.dart
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+// ✅ IMPORT YOUR APP COLORS
+import 'package:riskradar/shared/theme/app_colors.dart';
+
+// --- A fully functional, swipeable fullscreen image viewer ---
+class FullscreenImageViewer extends StatefulWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const FullscreenImageViewer({
+    super.key,
+    required this.imageUrls,
+    this.initialIndex = 0,
+  });
+
+  @override
+  State<FullscreenImageViewer> createState() => _FullscreenImageViewerState();
+}
+
+class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          'Image ${_currentIndex + 1} of ${widget.imageUrls.length}',
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        elevation: 0,
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.imageUrls.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          return Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                widget.imageUrls[index],
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                          (loadingProgress.expectedTotalBytes ?? 1)
+                          : null,
+                      color: AppColors.accentGold,
+                    ),
+                  );
+                },
+                errorBuilder: (_, _, _) =>
+                const Icon(Icons.broken_image, size: 50, color: Colors.white),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// --- Singleton class to manage audio playback ---
+class VoicePlayerManager {
+  static final VoicePlayerManager _instance = VoicePlayerManager._internal();
+  factory VoicePlayerManager() => _instance;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentUrl;
+
+  VoicePlayerManager._internal();
+
+  Stream<PlayerState> get playerStateStream => _audioPlayer.playerStateStream;
+  Stream<Duration?> get durationStream => _audioPlayer.durationStream;
+  Stream<Duration> get positionStream => _audioPlayer.positionStream;
+  String? get currentUrl => _currentUrl;
+
+  Future<void> play(String url) async {
+    if (_currentUrl == url) {
+      _audioPlayer.playing ? _audioPlayer.pause() : _audioPlayer.play();
+    } else {
+      try {
+        await _audioPlayer.stop();
+        await _audioPlayer.setUrl(url);
+        _currentUrl = url;
+        _audioPlayer.play();
+      } catch (e) {
+        debugPrint("Error playing audio: $e");
+        _currentUrl = null;
+      }
+    }
+  }
+
+  void stop() {
+    _audioPlayer.stop();
+    _currentUrl = null;
+  }
+
+  void dispose() {
+    _audioPlayer.dispose();
+    _currentUrl = null;
+  }
+}
+
+// --- Main Screen Widget ---
+class HazardDetailsScreen extends StatefulWidget {
+  final Map<String, dynamic> hazardData;
+
+  const HazardDetailsScreen({super.key, required this.hazardData});
+
+  @override
+  State<HazardDetailsScreen> createState() => _HazardDetailsScreenState();
+}
+
+class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
+  final VoicePlayerManager _voicePlayerManager = VoicePlayerManager();
+
+  @override
+  void dispose() {
+    _voicePlayerManager.stop();
+    super.dispose();
+  }
+
+  String _formatToLocalTime(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      DateTime utcDateTime;
+      if (isoString.endsWith('Z') || isoString.contains('+')) {
+        utcDateTime = DateTime.parse(isoString).toUtc();
+      } else {
+        utcDateTime = DateTime.parse("${isoString}Z").toUtc();
+      }
+      final localDateTime = utcDateTime.toLocal();
+      return DateFormat("E, MMM d, yyyy 'at' h:mm a").format(localDateTime);
+    } catch (e) {
+      debugPrint('Error parsing date ($isoString): $e');
+      return 'N/A';
+    }
+  }
+
+  Color _getSeverityColor(String? severity) {
+    switch (severity?.toLowerCase()) {
+      case 'high':
+        return Colors.red.shade700;
+      case 'moderate':
+      case 'medium':
+        return Colors.orange.shade700;
+      case 'low':
+        return Colors.green.shade700;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'resolved':
+        return Colors.teal;
+      case 'in_progress':
+      case 'in progress':
+        return Colors.blue.shade700;
+      case 'assigned':
+        return Colors.deepPurple.shade500;
+      case 'reported':
+        return Colors.brown.shade500;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  IconData _getHazardIcon(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'fire':
+        return Icons.local_fire_department_rounded;
+      case 'electrocution':
+        return Icons.bolt_rounded;
+      case 'hazardous chemicals':
+        return Icons.science_outlined;
+      case 'slips/trips':
+        return Icons.personal_injury_outlined;
+      case 'fall from height':
+        return Icons.personal_injury_rounded;
+      default:
+        return Icons.warning_amber_rounded;
+    }
+  }
+
+  Future<void> _openMap(double lat, double lng) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('Could not launch map.');
+    }
+  }
+
+  List<String> _parseStringToList(dynamic data) {
+    if (data == null) return [];
+    if (data is List) {
+      return data.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+    }
+    if (data is String && data.isNotEmpty) {
+      return data
+          .split(',')
+          .map((e) => e.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    return [];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hazardData = widget.hazardData;
+
+    final String title = hazardData['hazard_type'] ?? 'Hazard';
+    final String description =
+        hazardData['description'] ?? 'No description provided.';
+    final List<String> images =
+    _parseStringToList(hazardData['images'] ?? hazardData['image_url']);
+    final List<String> voiceUrls =
+    _parseStringToList(hazardData['voice_note_url']);
+
+    // Extract Reporter Name
+    String getReporterName() {
+      if (hazardData['reporter_name'] != null &&
+          hazardData['reporter_name'].isNotEmpty) {
+        return hazardData['reporter_name'];
+      }
+      if (hazardData['reporter'] != null) {
+        final reporter = hazardData['reporter'];
+        final firstName = reporter['first_name'] ?? '';
+        final lastName = reporter['last_name'] ?? '';
+        final fullName = '$firstName $lastName'.trim();
+        return fullName.isNotEmpty ? fullName : 'Unknown';
+      }
+      if (hazardData['workers'] != null) {
+        final worker = hazardData['workers'];
+        final firstName = worker['first_name'] ?? '';
+        final lastName = worker['last_name'] ?? '';
+        final fullName = '$firstName $lastName'.trim();
+        return fullName.isNotEmpty ? fullName : 'Unknown';
+      }
+      return 'Unknown';
+    }
+
+    String? getReporterImageUrl() {
+      if (hazardData['workers'] != null && hazardData['workers']['profile_image_url'] != null) {
+        return hazardData['workers']['profile_image_url'];
+      }
+      if (hazardData['reporter'] != null && hazardData['reporter']['profile_image_url'] != null) {
+        return hazardData['reporter']['profile_image_url'];
+      }
+      return null;
+    }
+
+    final String reporterName = getReporterName();
+    final String? reporterImageUrl = getReporterImageUrl();
+    final String severity = hazardData['severity'] ?? 'Unknown';
+    final String status = hazardData['status'] ?? 'Unknown';
+    final String createdAt = _formatToLocalTime(hazardData['created_at']);
+    final double? latitude = hazardData['latitude'] is String
+        ? double.tryParse(hazardData['latitude'])
+        : hazardData['latitude']?.toDouble();
+    final double? longitude = hazardData['longitude'] is String
+        ? double.tryParse(hazardData['longitude'])
+        : hazardData['longitude']?.toDouble();
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.brandTeal,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Hazard Details", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        elevation: 1,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HazardHeaderCard(
+              title: title,
+              severity: severity,
+              status: status,
+              icon: _getHazardIcon(title),
+              severityColor: _getSeverityColor(severity),
+              statusColor: _getStatusColor(status),
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: "Description"),
+            const SizedBox(height: 8),
+            Text(description,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6)),
+            const SizedBox(height: 24),
+            if (images.isNotEmpty) ...[
+              const _SectionHeader(title: "Photos"),
+              const SizedBox(height: 12),
+              ImageSlideshow(imageUrls: images),
+              const SizedBox(height: 24),
+            ],
+            if (voiceUrls.isNotEmpty) ...[
+              const _SectionHeader(title: "Voice Notes"),
+              const SizedBox(height: 12),
+              _VoiceNoteList(
+                  voiceUrls: voiceUrls, playerManager: _voicePlayerManager),
+              const SizedBox(height: 24),
+            ],
+            const _SectionHeader(title: "Details"),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Theme.of(context).dividerColor),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Column(
+                  children: [
+                    _DetailItem(
+                      icon: Icons.person_pin_circle_outlined,
+                      title: "Reported By",
+                      value: reporterName,
+                      imageUrl: reporterImageUrl,
+                    ),
+                    _DetailItem(
+                        icon: Icons.today_outlined,
+                        title: "Reported On",
+                        value: createdAt),
+                    if (latitude != null && longitude != null) ...[
+                      const Divider(height: 1, indent: 72, endIndent: 16), // ✅ Pushed the divider to align with text
+
+                      // ✅ Replaced generic ListTile with _DetailItem to ensure the map icon aligns flawlessly
+                      _DetailItem(
+                        icon: Icons.location_on_outlined,
+                        title: "Location",
+                        value: "Lat: $latitude, \nLng: $longitude",
+                        trailing: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.brandTeal,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.map_rounded, size: 18),
+                          label: const Text("Open"),
+                          onPressed: () => _openMap(latitude, longitude),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: "Site Inspectors"),
+            const SizedBox(height: 12),
+            _AssignedWorkerList(
+              assignHazardsList: hazardData['assign_hazards'],
+              formatAssignedTimestamp: _formatToLocalTime,
+              getStatusColor: _getStatusColor,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- UI HELPER WIDGETS ---
+
+class _AssignedWorkerList extends StatelessWidget {
+  final dynamic assignHazardsList;
+  final String Function(String?) formatAssignedTimestamp;
+  final Color Function(String?) getStatusColor;
+
+  const _AssignedWorkerList({
+    required this.assignHazardsList,
+    required this.formatAssignedTimestamp,
+    required this.getStatusColor,
+  });
+
+  String capitalize(String name) {
+    if (name.isEmpty) return '';
+    return name[0].toUpperCase() + name.substring(1).toLowerCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<dynamic> tasks =
+    (assignHazardsList is List) ? assignHazardsList : [];
+    final validTasks =
+    tasks.where((task) => task['hse_worker'] != null).toList();
+
+    if (validTasks.isEmpty) {
+      return Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(
+            child: Text(
+              "Not yet assigned to any inspector.",
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: validTasks.map((task) {
+        final worker = task['hse_worker'];
+        final workerName = worker != null
+            ? "${capitalize(worker['first_name'] ?? 'N/A')} ${capitalize(worker['last_name'] ?? '')}"
+            .trim()
+            : 'Unassigned';
+        final profileImage = worker?['profile_image_url'];
+        final status = task['status']?.toString() ?? 'unknown';
+        final assignedAt = formatAssignedTimestamp(task['assigned_at']);
+
+        // ✅ Updated Card to perfectly mirror the internal alignment math of _DetailItem
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center, // Vertically centered
+                    children: [
+                      CircleAvatar(
+                        radius: 20, // Exactly 40px wide
+                        backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        backgroundImage: profileImage != null && profileImage.toString().isNotEmpty
+                            ? NetworkImage(profileImage)
+                            : null,
+                        child: profileImage == null || profileImage.toString().isEmpty
+                            ? Text(workerName.isNotEmpty ? workerName[0] : '?')
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          workerName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      _StatusChip(
+                        label: status.replaceAll('_', ' ').toUpperCase(),
+                        color: getStatusColor(status),
+                      ),
+                    ],
+                  ),
+                ),
+                // Optional faint divider, pushing it to align with the text block
+                const Divider(height: 1, indent: 72, endIndent: 16),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center, // Vertically centered
+                    children: [
+                      SizedBox(
+                        width: 40, // Match the exact width of the Avatar above
+                        child: const Center(
+                          child: Icon(Icons.assignment_turned_in_outlined,
+                              color: AppColors.brandTeal, size: 24),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Assigned On",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Text(assignedAt,
+                                style: TextStyle(
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.color,
+                                    fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _HazardHeaderCard extends StatelessWidget {
+  final String title;
+  final String severity;
+  final String status;
+  final IconData icon;
+  final Color severityColor;
+  final Color statusColor;
+
+  const _HazardHeaderCard({
+    required this.title,
+    required this.severity,
+    required this.status,
+    required this.icon,
+    required this.severityColor,
+    required this.statusColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: severityColor.withValues(alpha: 0.15),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Icon(icon, color: severityColor, size: 48),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _StatusChip(label: severity, color: severityColor),
+                      _StatusChip(
+                          label: status.replaceAll('_', ' ').toUpperCase(),
+                          color: statusColor),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 20,
+          color: AppColors.accentGold,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+class ImageSlideshow extends StatefulWidget {
+  final List<String> imageUrls;
+  const ImageSlideshow({super.key, required this.imageUrls});
+
+  @override
+  State<ImageSlideshow> createState() => _ImageSlideshowState();
+}
+
+class _ImageSlideshowState extends State<ImageSlideshow> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(() {
+      if (_pageController.page?.round() != _currentPage) {
+        setState(() {
+          _currentPage = _pageController.page!.round();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildDot(int index) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      margin: const EdgeInsets.symmetric(horizontal: 4.0),
+      height: 8.0,
+      width: _currentPage == index ? 24.0 : 8.0,
+      decoration: BoxDecoration(
+        color: _currentPage == index
+            ? AppColors.accentGold
+            : Colors.white.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(5.0),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrls.isEmpty) return const SizedBox.shrink();
+
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.imageUrls.length,
+              itemBuilder: (context, index) {
+                final imageUrl = widget.imageUrls[index];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullscreenImageViewer(
+                          imageUrls: widget.imageUrls,
+                          initialIndex: index,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Hero(
+                    tag: imageUrl,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                          color: Colors.grey.shade200,
+                          child:
+                          const Icon(Icons.broken_image, color: Colors.grey)),
+                      loadingBuilder: (_, child, progress) => progress == null
+                          ? child
+                          : Container(
+                          color: Colors.grey.shade200,
+                          child: const Center(
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.brandTeal))),
+                    ),
+                  ),
+                );
+              },
+            ),
+            if (widget.imageUrls.length > 1)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(8.0),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.6),
+                        Colors.transparent
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                        widget.imageUrls.length, (index) => _buildDot(index)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ✅ FIX: Master alignment control for all detail items
+class _DetailItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final String? imageUrl;
+  final Widget? trailing; // Added to support the Location Map button natively
+
+  const _DetailItem({
+    required this.icon,
+    required this.title,
+    required this.value,
+    this.imageUrl,
+    this.trailing
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+      child: Row(
+        // Perfectly centers the text block vertically alongside the icon/avatar
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (imageUrl != null && imageUrl!.isNotEmpty)
+            CircleAvatar(
+              radius: 20, // 40px wide total
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundImage: NetworkImage(imageUrl!),
+            )
+          else
+          // Places icons in a strict 40px box so the text line starts exactly the same as the avatar
+            SizedBox(
+              width: 40,
+              child: Center(
+                child: Icon(icon, color: AppColors.brandTeal, size: 24),
+              ),
+            ),
+
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // Prevents Column from shifting up/down
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: TextStyle(
+                        color: Theme.of(context).textTheme.bodySmall?.color)),
+              ],
+            ),
+          ),
+
+          if (trailing != null) ...[
+            const SizedBox(width: 16),
+            trailing!,
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _StatusChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration:
+      BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 10,
+            letterSpacing: 0.8),
+      ),
+    );
+  }
+}
+
+class _VoiceNoteList extends StatelessWidget {
+  final List<String> voiceUrls;
+  final VoicePlayerManager playerManager;
+  const _VoiceNoteList({required this.voiceUrls, required this.playerManager});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(voiceUrls.length, (index) {
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+          child: VoiceNotePlayer(
+            key: ValueKey(voiceUrls[index]),
+            url: voiceUrls[index],
+            playerManager: playerManager,
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _PlayerData {
+  final PlayerState? playerState;
+  final Duration? duration;
+  final Duration? position;
+  _PlayerData(this.playerState, this.duration, this.position);
+}
+
+class VoiceNotePlayer extends StatelessWidget {
+  final String url;
+  final VoicePlayerManager playerManager;
+  const VoiceNotePlayer(
+      {super.key, required this.url, required this.playerManager});
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "$minutes:$seconds";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<String?>(
+      stream: playerManager.playerStateStream
+          .map((_) => playerManager.currentUrl)
+          .startWith(playerManager.currentUrl),
+      builder: (context, activeUrlSnapshot) {
+        final bool isActive = activeUrlSnapshot.data == url;
+
+        return StreamBuilder<_PlayerData>(
+          stream: Rx.combineLatest3(
+              playerManager.playerStateStream,
+              playerManager.durationStream,
+              playerManager.positionStream,
+                  (a, b, c) => _PlayerData(a, b, c)),
+          builder: (context, snapshot) {
+            final playerState = snapshot.data?.playerState;
+            final playing = playerState?.playing ?? false;
+            final duration = snapshot.data?.duration ?? Duration.zero;
+            final position =
+            isActive ? (snapshot.data?.position ?? Duration.zero) : Duration.zero;
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(isActive && playing
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_filled_rounded),
+                    iconSize: 36.0,
+                    color: AppColors.brandTeal,
+                    onPressed: () => playerManager.play(url),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Transform.translate(
+                      offset: const Offset(0.0, 8.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 20,
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 3.0,
+                                thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6.0),
+                                overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 12.0),
+                                activeTrackColor: AppColors.accentGold,
+                                inactiveTrackColor:
+                                AppColors.brandTeal.withValues(alpha: 0.2),
+                                thumbColor: AppColors.accentGold,
+                              ),
+                              child: Slider(
+                                value: position.inMilliseconds
+                                    .toDouble()
+                                    .clamp(0.0,
+                                    duration.inMilliseconds.toDouble()),
+                                max: duration.inMilliseconds.toDouble(),
+                                onChanged: (value) {
+                                  if (isActive) {
+                                    playerManager._audioPlayer
+                                        .seek(Duration(milliseconds: value.toInt()));
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding:
+                            const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(_formatDuration(position),
+                                    style: const TextStyle(fontSize: 12)),
+                                Text(_formatDuration(duration),
+                                    style: const TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}

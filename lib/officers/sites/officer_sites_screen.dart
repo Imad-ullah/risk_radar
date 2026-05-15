@@ -1,0 +1,812 @@
+// lib/officers/sites/officer_sites_screen.dart
+import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:riskradar/officers/sites/site_personnel_screen.dart';
+import 'package:riskradar/services/repositories/officer_repository.dart';
+import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:uuid/uuid.dart';
+
+class OfficerSitesScreen extends StatefulWidget {
+  const OfficerSitesScreen({super.key});
+
+  @override
+  State<OfficerSitesScreen> createState() => _OfficerSitesScreenState();
+}
+
+class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
+  final supabase = Supabase.instance.client;
+  final SyncRepository _syncRepository = SyncRepository();
+  late Future<List<Map<String, dynamic>>> _sitesFuture;
+  int? _numericOfficerUid;
+
+  @override
+  void initState() {
+    super.initState();
+    _sitesFuture = Future.value(OfficerRepository.instance.getOfficerSites() ?? []);
+    _initializeAndFetchData();
+  }
+
+  Future<void> _initializeAndFetchData() async {
+    await _fetchNumericOfficerUid();
+    if (mounted) {
+      setState(() {
+        _fetchSites();
+      });
+    }
+  }
+
+  Future<void> _fetchNumericOfficerUid() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final response = await supabase
+          .from('officers')
+          .select('officer_uid')
+          .eq('id', userId)
+          .single();
+
+      if (mounted) {
+        _numericOfficerUid = response['officer_uid'];
+      }
+    } catch (e) {
+      debugPrint("Error fetching numeric officer UID: $e");
+    }
+  }
+
+  void _fetchSites() {
+    if (_numericOfficerUid == null) {
+      final cached = OfficerRepository.instance.getOfficerSites() ?? [];
+      if (mounted) setState(() => _sitesFuture = Future.value(cached));
+      return;
+    }
+
+    _sitesFuture = supabase
+        .from('sites')
+        .select('*, workers!current_site_id(count), hse_workers!current_site_id(count)')
+        .eq('officer_uid', _numericOfficerUid!)
+        .order('name', ascending: true)
+        .then((data) async {
+      final rows = List<Map<String, dynamic>>.from(data);
+      await OfficerRepository.instance.saveOfficerSites(rows);
+      return rows;
+    }).catchError((error) {
+      debugPrint('Officer sites offline/error - using cached data: $error');
+      return OfficerRepository.instance.getOfficerSites() ?? <Map<String, dynamic>>[];
+    });
+  }
+
+  Future<void> _addOrEditSite({Map<String, dynamic>? site}) async {
+    final nameController = TextEditingController(text: site?['name'] ?? '');
+    final descController = TextEditingController(text: site?['description'] ?? '');
+    final isEditing = site != null;
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isEditing ? Icons.edit_location_alt_rounded : Icons.add_location_alt_rounded,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                isEditing ? 'Edit Site' : 'Add New Site',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Site Name',
+                    prefixIcon: const Icon(Icons.domain_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF2F2F7),
+                  ),
+                  validator: (value) =>
+                  value!.trim().isEmpty ? 'Site name is required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: descController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Description (Optional)',
+                    prefixIcon: const Icon(Icons.description_outlined),
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF2F2F7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(this.context);
+                try {
+                  if (isEditing) {
+                    await supabase.from('sites').update({
+                      'name': nameController.text.trim(),
+                      'description': descController.text.trim()
+                    }).eq('id', site['id']);
+                    await _upsertSiteLocally({
+                      ...site,
+                      'name': nameController.text.trim(),
+                      'description': descController.text.trim(),
+                    });
+                  } else {
+                    if (_numericOfficerUid == null) {
+                      throw Exception("Cannot create site: Officer identifier is missing.");
+                    }
+                    final payload = {
+                      'name': nameController.text.trim(),
+                      'description': descController.text.trim(),
+                      'officer_uid': _numericOfficerUid!
+                    };
+                    final inserted = await supabase.from('sites').insert(payload).select().single();
+                    await _upsertSiteLocally(Map<String, dynamic>.from(inserted));
+                  }
+                  if (mounted) {
+                    navigator.pop();
+                    setState(() => _fetchSites());
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(isEditing ? 'Site updated successfully' : 'Site added successfully'),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } on SocketException {
+                  final localId = site?['id']?.toString() ?? const Uuid().v4();
+                  final payload = {
+                    'id': localId,
+                    'name': nameController.text.trim(),
+                    'description': descController.text.trim(),
+                    ...?(_numericOfficerUid == null
+                        ? null
+                        : {'officer_uid': _numericOfficerUid}),
+                  };
+                  await _syncRepository.enqueueAction(
+                    id: 'officer_site_${isEditing ? 'update' : 'insert'}_${localId}_${DateTime.now().millisecondsSinceEpoch}',
+                    table: 'sites',
+                    action: isEditing ? 'update' : 'insert',
+                    payload: payload,
+                  );
+                  await _upsertSiteLocally(payload);
+                  if (mounted) {
+                    navigator.pop();
+                    setState(() => _fetchSites());
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Saved offline - site change will sync when online'),
+                        backgroundColor: Colors.orange,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(isEditing ? 'Update' : 'Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteSite(Map<String, dynamic> site) async {
+    final String id = site['id'];
+    final String name = site['name'];
+    final workersData = site['workers'] as List? ?? [];
+    final workerCount = workersData.isNotEmpty ? workersData[0]['count'] : 0;
+    final hseWorkersData = site['hse_workers'] as List? ?? [];
+    final hseWorkerCount = hseWorkersData.isNotEmpty ? hseWorkersData[0]['count'] : 0;
+    final totalWorkers = workerCount + hseWorkerCount;
+    final bool hasWorkers = totalWorkers > 0;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        title: Row(
+          children: [
+            Icon(
+              hasWorkers ? Icons.warning_amber_rounded : Icons.delete_forever_rounded,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                hasWorkers ? 'Warning: Site in Use' : 'Delete Site',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: hasWorkers
+            ? Text(
+          '"$name" is currently assigned to $totalWorkers worker(s) and may be linked to other records like resolved hazards.\n\nDeleting the site will automatically un-link it from all associated records. Are you sure you want to proceed?',
+        )
+            : Text(
+          'Are you sure you want to delete "$name"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Delete'),
+          )
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await supabase.from('sites').delete().eq('id', id);
+        await _removeSiteLocally(id);
+
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('"$name" deleted successfully.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _fetchSites());
+      } on SocketException {
+        await _syncRepository.enqueueAction(
+          id: 'officer_site_delete_${id}_${DateTime.now().millisecondsSinceEpoch}',
+          table: 'sites',
+          action: 'delete',
+          payload: {'id': id},
+        );
+        await _removeSiteLocally(id);
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Deleted "$name" offline - will sync when online.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _fetchSites());
+      } catch (e) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Error deleting site: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _upsertSiteLocally(Map<String, dynamic> site) async {
+    final sites = OfficerRepository.instance.getOfficerSites() ?? [];
+    final index = sites.indexWhere((item) => item['id'] == site['id']);
+    final normalised = {
+      'workers': const [{'count': 0}],
+      'hse_workers': const [{'count': 0}],
+      ...site,
+    };
+    if (index == -1) {
+      sites.insert(0, normalised);
+    } else {
+      sites[index] = {
+        ...sites[index],
+        ...normalised,
+      };
+    }
+    await OfficerRepository.instance.saveOfficerSites(sites);
+  }
+
+  Future<void> _removeSiteLocally(String id) async {
+    final sites = OfficerRepository.instance.getOfficerSites() ?? [];
+    sites.removeWhere((site) => site['id'] == id);
+    await OfficerRepository.instance.saveOfficerSites(sites);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: RefreshIndicator(
+        onRefresh: () async => setState(() => _fetchSites()),
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _sitesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final sites = snapshot.data ?? [];
+
+            if (sites.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.maps_home_work_rounded,
+                        size: 80,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'No sites found',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Create your first site to get started',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: () => _addOrEditSite(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Site'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                // Header Section
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${sites.length} ${sites.length == 1 ? 'Site' : 'Sites'}",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              "Manage your construction sites",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton.filled(
+                        icon: const Icon(Icons.add, size: 20),
+                        onPressed: () => _addOrEditSite(),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Sites List
+                Expanded(
+                  child: ListView.builder(
+                    // ADDED BOTTOM PADDING HERE TO CLEAR THE NAV BAR
+                    padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 100),
+                    itemCount: sites.length,
+                    itemBuilder: (context, index) {
+                      final site = sites[index];
+                      return _SiteCard(
+                        site: site,
+                        index: index,
+                        onEdit: () => _addOrEditSite(site: site),
+                        onDelete: () => _deleteSite(site),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SiteCard extends StatelessWidget {
+  const _SiteCard({
+    required this.site,
+    required this.index,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Map<String, dynamic> site;
+  final int index;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = site['description'];
+    final workersData = site['workers'] as List? ?? [];
+    final workerCount = workersData.isNotEmpty ? workersData[0]['count'] : 0;
+    final hseWorkersData = site['hse_workers'] as List? ?? [];
+    final hseWorkerCount = hseWorkersData.isNotEmpty ? hseWorkersData[0]['count'] : 0;
+    final totalWorkers = workerCount + hseWorkerCount;
+
+    // Color gradient based on index
+    final colors = [
+      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)], // Indigo to Purple
+      [const Color(0xFF0EA5E9), const Color(0xFF06B6D4)], // Sky to Cyan
+      [const Color(0xFFF59E0B), const Color(0xFFF97316)], // Amber to Orange
+      [const Color(0xFF10B981), const Color(0xFF059669)], // Emerald to Green
+      [const Color(0xFFEC4899), const Color(0xFFDB2777)], // Pink to Rose
+    ];
+    final colorPair = colors[index % colors.length];
+
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 300 + (index * 50)),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(opacity: value, child: child),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorPair[0].withValues(alpha: 0.95),
+              colorPair[1].withValues(alpha: 0.95),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: colorPair[0].withValues(alpha: 0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              // Navigates to the new personnel screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SitePersonnelScreen(
+                    siteId: site['id'],
+                    siteName: site['name'] ?? 'Unnamed Site',
+                  ),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.domain_rounded,
+                            size: 28,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              site['name'] ?? 'Unnamed Site',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                color: Colors.white,
+                              ),
+                            ),
+                            if (description != null && description.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  description,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    height: 1.4,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Divider
+                  Divider(color: Colors.white.withValues(alpha: 0.3), height: 1),
+
+                  const SizedBox(height: 16),
+
+                  // Worker Stats
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatBox(
+                          icon: Icons.people_alt_rounded,
+                          label: 'Workers',
+                          count: workerCount.toString(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatBox(
+                          icon: Icons.health_and_safety_rounded,
+                          label: 'Site Inspector',
+                          count: hseWorkerCount.toString(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatBox(
+                          icon: Icons.groups_rounded,
+                          label: 'Total',
+                          count: totalWorkers.toString(),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: const Text('Edit'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.25),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: onDelete,
+                          icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                          label: const Text('Delete'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.25),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatBox extends StatelessWidget {
+  const _StatBox({
+    required this.icon,
+    required this.label,
+    required this.count,
+  });
+
+  final IconData icon;
+  final String label;
+  final String count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white, size: 24),
+          const SizedBox(height: 4),
+          Text(
+            count,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 11,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+

@@ -9,11 +9,12 @@ plugins {
 android {
     namespace = "com.example.riskradar"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -22,7 +23,6 @@ android {
 
     defaultConfig {
         manifestPlaceholders["appAuthRedirectScheme"] = "com.googleusercontent.apps.418212768173-8ecla7efev8tjaq5c84aitomu2l72hqn"
-
         applicationId = "com.example.riskradar"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
@@ -37,9 +37,13 @@ android {
     }
 }
 
+dependencies {
+    // ✅ Kotlin DSL for desugaring library
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+}
+
 flutter {
     source = "../.."
 }
 
-// ✅ Add this line at the bottom of the file
 apply(plugin = "com.google.gms.google-services")
