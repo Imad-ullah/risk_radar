@@ -2,7 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:riskradar/services/providers/hazard_provider.dart';
+import 'package:riskradar/services/providers/notification_count_provider.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 
 // Screens
@@ -11,12 +14,13 @@ import 'package:riskradar/officers/screens/active_task.dart';
 import 'package:riskradar/officers/screens/team_overview.dart';
 import 'package:riskradar/officers/sites/officer_sites_screen.dart';
 import 'package:riskradar/officers/screens/officer_analytics_screen.dart'; // NEW SCREEN IMPORT
+import 'package:riskradar/officers/screens/officer_hazard_map_screen.dart';
 import '../settings/app_settings_screen.dart';
 import '../../shared/settings/about_app_screen.dart';
 import 'package:riskradar/shared/screens/shared_emergency_sos_screen.dart';
+import 'package:riskradar/shared/widgets/offline_banner.dart';
+import 'package:riskradar/shared/widgets/realtime_connection_indicator.dart';
 
-// Notifications
-import 'package:riskradar/officers/notifications/officer_hazard_notifier.dart';
 import 'package:riskradar/officers/notifications/notification_screen.dart';
 
 // BRAND COLORS
@@ -272,71 +276,108 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
   Widget _dashboardBody() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return RefreshIndicator(
-      onRefresh: _fetchData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Let's manage", style: TextStyle(fontSize: 22, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
-            const Text("Site Safety", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.accentGold)),
-            const SizedBox(height: 25),
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazardState = ref.watch(hazardProvider);
+        final activeHazardCount = hazardState.when(
+          data: (hazards) => hazards.length,
+          error: (error, stackTrace) => 0,
+          loading: () => 0,
+        );
 
-            // Top Row
-            Row(
+        return RefreshIndicator(
+          onRefresh: _fetchData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildStatCard(
-                      title: "System\nAnalytics",
-                      count: "Logs",
-                      icon: Icons.insights_rounded,
-                      color: const Color(0xFF2563EB), // Blue shade for analytics
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const OfficerAnalyticsScreen()));
-                      }
+                Text(
+                  "Let's manage",
+                  style: TextStyle(
+                    fontSize: 22,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                      title: "Resolved\nHazards",
-                      count: cache.resolvedHazardCount.toString(),
-                      icon: Icons.verified_user_rounded,
-                      color: const Color(0xFF10B981),
-                      onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (_) => const ResolvedHazardsScreen()));
-                        if (mounted) _fetchData();
-                      }
+                const Text(
+                  "Site Safety",
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accentGold,
                   ),
+                ),
+                const SizedBox(height: 25),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "System\nAnalytics",
+                        count: "Logs",
+                        icon: Icons.insights_rounded,
+                        color: const Color(0xFF2563EB),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OfficerAnalyticsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "Resolved\nHazards",
+                        count: cache.resolvedHazardCount.toString(),
+                        icon: Icons.verified_user_rounded,
+                        color: const Color(0xFF10B981),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ResolvedHazardsScreen(),
+                            ),
+                          );
+                          if (mounted) {
+                            _fetchData();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "View All\nHazards",
+                        count: activeHazardCount.toString(),
+                        icon: Icons.map_rounded,
+                        color: const Color(0xFF22D3EE),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OfficerHazardMapScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(child: SizedBox()),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Bottom Row
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                      title: "Generate\nReports",
-                      count: "PDF",
-                      icon: Icons.analytics_rounded,
-                      color: AppColors.accentGold,
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Report Generation Module coming soon.'))
-                        );
-                      }
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(child: SizedBox()), // Empty space to keep the layout balanced
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -462,10 +503,14 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               : null,
 
           actions: [
-            ListenableBuilder(
-              listenable: officerHazardNotifier,
-              builder: (context, child) {
-                final count = officerHazardNotifier.unreadCount;
+            const RealtimeConnectionIndicator(),
+            Consumer(
+              builder: (context, ref, child) {
+                final count = ref.watch(notificationCountProvider).when(
+                      data: (value) => value,
+                      error: (error, stackTrace) => 0,
+                      loading: () => 0,
+                    );
                 return Stack(
                   alignment: Alignment.center,
                   children: [
@@ -506,7 +551,14 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
           ],
         ),
 
-        body: IndexedStack(index: _selectedIndex, children: _screens),
+        body: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: IndexedStack(index: _selectedIndex, children: _screens),
+            ),
+          ],
+        ),
 
         floatingActionButton: _selectedIndex == 0 ? Padding(
           padding: const EdgeInsets.only(bottom: 90.0),

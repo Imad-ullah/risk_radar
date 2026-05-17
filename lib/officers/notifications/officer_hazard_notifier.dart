@@ -402,6 +402,23 @@ class OfficerHazardNotifier extends ChangeNotifier {
     return _permanentlyNotified.contains(hazardId);
   }
 
+  String _toTitleCase(String input) {
+    if (input.trim().isEmpty) return 'Hazard';
+    return input
+        .trim()
+        .split(RegExp(r'\s+'))
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+
+  String _buildNearbyTitle(Map<String, dynamic> hazard) {
+    return _toTitleCase(hazard['hazard_type']?.toString() ?? 'Hazard');
+  }
+
+  String _buildNearbyBody(Map<String, dynamic> hazard) {
+    return 'A hazard is nearby. Stay safe!\nWithin a 10 m radius.';
+  }
+
   /// Start realtime & location-based monitoring
   Future<void> startChecking() async {
     final officerAuthId = supabase.auth.currentUser?.id;
@@ -516,8 +533,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
           await _createNotification(
             hazardId: id,
             sourceTable: 'hazards',
-            title: 'New Hazard Reported!',
-            body: newHaz['description'] ?? 'A new hazard has been reported and assigned to you.',
+            title: '${_toTitleCase(newHaz['hazard_type']?.toString() ?? 'Hazard')} Reported',
+            body: newHaz['description'] ??
+                'A new hazard was reported for your site. Open to review and assign promptly.',
             severity: newHaz['severity'] ?? 'low',
             imageUrl: newHaz['image_url'],
           );
@@ -574,8 +592,8 @@ class OfficerHazardNotifier extends ChangeNotifier {
           await _createNotification(
             hazardId: id,
             sourceTable: src,
-            title: 'Nearby Hazard!',
-            body: h['description'] ?? 'A hazard is nearby!',
+            title: _buildNearbyTitle(h),
+            body: _buildNearbyBody(h),
             severity: h['severity'] ?? 'low',
             imageUrl: h['image_url'],
           );
@@ -614,7 +632,6 @@ class OfficerHazardNotifier extends ChangeNotifier {
         color = Colors.green;
         break;
     }
-
     try {
       await AwesomeNotifications().createNotification(
         content: NotificationContent(
@@ -633,18 +650,7 @@ class OfficerHazardNotifier extends ChangeNotifier {
         actionButtons: [
           NotificationActionButton(
             key: 'DETAILS',
-            label: 'Details',
-            actionType: ActionType.Default,
-          ),
-          NotificationActionButton(
-            key: 'NOTED',
-            label: 'Noted',
-            actionType: ActionType.DismissAction,
-          ),
-          NotificationActionButton(
-            key: 'RESOLVED',
-            label: 'Is Resolved',
-            actionType: ActionType.Default,
+            label: 'VIEW DETAILS',
           ),
         ],
       );

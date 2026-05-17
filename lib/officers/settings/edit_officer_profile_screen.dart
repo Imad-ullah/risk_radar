@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:riskradar/services/supabase_service.dart'; // **Ensure this path is correct**
+import 'package:riskradar/services/logger_service.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/services/sync_service.dart';
 
 class EditOfficerProfileScreen extends StatefulWidget {
   const EditOfficerProfileScreen({super.key});
@@ -72,10 +73,13 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
         _applyOfficerData(res);
         await OfficerRepository.instance.saveOfficerProfile(res);
       }
-    } on SocketException {
-      debugPrint('Officer edit profile offline - using cached profile.');
-    } catch (e) {
-      debugPrint('Error loading officer profile for edit: $e');
+    } on SocketException catch (e) {
+      LoggerService.warning(
+        'Officer edit profile offline - using cached profile.',
+        e,
+      );
+    } catch (e, s) {
+      LoggerService.error('Error loading officer profile for edit', e, s);
     }
 
     if(mounted) setState(() => _loading = false);
@@ -166,7 +170,10 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
     final status = await requiredPermission.request();
 
     if (!status.isGranted && mounted) {
-      _showMessage('Permission denied. Please enable access in settings.');
+      _showMessage(
+        'Permission denied. Please enable access in settings.',
+        isError: true,
+      );
       // Open app settings if permission is permanently denied
       if (status.isPermanentlyDenied) {
         openAppSettings();
@@ -189,7 +196,7 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      if(mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _saving = false);
       return;
     }
 
@@ -199,90 +206,69 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
         _birthDay == null ||
         _birthMonth == null ||
         _birthYear == null) {
-      _showMessage('Please fill in all required fields');
-      if(mounted) setState(() => _saving = false);
+      _showMessage('Please fill in all required fields', isError: true);
+      if (mounted) setState(() => _saving = false);
       return;
-    }
-
-    String? finalImageUrl = _imageUrl;
-    if (_imageFile != null) {
-      final uploaded = await SupabaseService().uploadProfileImage(
-        _imageFile!,
-        _firstName.text,
-        _lastName.text,
-      );
-      if (uploaded != null) {
-        finalImageUrl = uploaded;
-        // Invalidate old URL cache by updating the state variable
-        _imageUrl = uploaded;
-      }
     }
 
     final dob =
         '${_birthYear!}-${(_months.indexOf(_birthMonth!) + 1).toString().padLeft(2, '0')}-${_birthDay!.padLeft(2, '0')}';
 
     final updateData = {
+      'id': user.id,
       'first_name': _firstName.text.trim(),
       'last_name': _lastName.text.trim(),
       'email': _email.text.trim(),
       'dob': dob,
-      'profile_image_url': finalImageUrl,
+      'profile_image_url': _imageUrl,
+      if (_imageFile != null) 'image_paths': [_imageFile!.path],
     };
 
     try {
-      await Supabase.instance.client
-          .from('officers')
-          .update(updateData)
-          .eq('id', user.id);
+      await _syncRepository.enqueueAction(
+        id: 'officer_profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}',
+        table: 'officers',
+        action: 'update',
+        payload: updateData,
+      );
 
       await OfficerRepository.instance.saveOfficerProfile({
-        'id': user.id,
         'role': 'officer',
         'officer_uid': _officerUID,
         ...updateData,
       });
 
-      _showMessage("✅ Profile updated!");
-      await _loadOfficerData();
+      final syncResult = await SyncService.instance.run();
+      final savedOffline = syncResult.reason != null ||
+          syncResult.hasFailures ||
+          syncResult.pending > 0;
+
+      _showMessage(
+        savedOffline
+            ? 'Profile saved offline - will sync when online'
+            : 'Profile updated!',
+      );
+      if (!savedOffline) {
+        await _loadOfficerData();
+      }
       _imageFile = null;
 
-      // Close the edit screen upon successful save
-      if(mounted) Navigator.pop(context, true);
-
-    } on SocketException {
-      final offlinePayload = {
-        'id': user.id,
-        'first_name': _firstName.text.trim(),
-        'last_name': _lastName.text.trim(),
-        'email': _email.text.trim(),
-        'dob': dob,
-        'profile_image_url': _imageUrl,
-        if (_imageFile != null) 'image_paths': [_imageFile!.path],
-      };
-      await _syncRepository.enqueueAction(
-        id: 'officer_profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}',
-        table: 'officers',
-        action: 'update',
-        payload: offlinePayload,
-      );
-      await OfficerRepository.instance.saveOfficerProfile({
-        'role': 'officer',
-        'officer_uid': _officerUID,
-        ...offlinePayload,
-      });
-      _showMessage('Profile saved offline - will sync when online');
-      if(mounted) Navigator.pop(context, true);
-
-    } catch (e) {
-      _showMessage("❌ Error updating profile: $e");
+      if (mounted) Navigator.pop(context, true);
+    } catch (e, s) {
+      LoggerService.error('Error updating officer profile', e, s);
+      _showMessage('Error updating profile: $e', isError: true);
     }
 
-    if(mounted) setState(() => _saving = false);
+    if (mounted) setState(() => _saving = false);
   }
-
-  void _showMessage(String msg) {
+  void _showMessage(String msg, {bool isError = false}) {
     if(mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: isError ? Colors.red.shade700 : null,
+        ),
+      );
     }
   }
 
@@ -414,4 +400,5 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
     );
   }
 }
+
 

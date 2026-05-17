@@ -1,11 +1,11 @@
 abstract interface class AppUser {
-  dynamic get id;
-  dynamic get firstName;
-  dynamic get lastName;
-  dynamic get email;
-  dynamic get role;
-  dynamic get officerUid;
-  dynamic get profileImageUrl;
+  String? get id;
+  String? get firstName;
+  String? get lastName;
+  String? get email;
+  String? get role;
+  String? get officerUid;
+  String? get profileImageUrl;
 
   Map<String, dynamic> toMap();
 }
@@ -26,37 +26,37 @@ class Worker implements AppUser {
   });
 
   @override
-  final dynamic id;
+  final String? id;
   @override
-  final dynamic firstName;
+  final String? firstName;
   @override
-  final dynamic lastName;
+  final String? lastName;
   @override
-  final dynamic email;
+  final String? email;
   @override
-  final dynamic role;
+  final String? role;
   @override
-  final dynamic officerUid;
-  final dynamic workType;
+  final String? officerUid;
+  final String? workType;
   @override
-  final dynamic profileImageUrl;
-  final dynamic isActive;
-  final dynamic defaultSiteId;
-  final dynamic currentSiteId;
+  final String? profileImageUrl;
+  final bool? isActive;
+  final String? defaultSiteId;
+  final String? currentSiteId;
 
   factory Worker.fromMap(Map<String, dynamic> row) {
     return Worker(
-      id: row['id'],
-      firstName: row['first_name'],
-      lastName: row['last_name'],
-      email: row['email'],
-      role: row['role'],
-      officerUid: row['officer_uid'],
-      workType: row['work_type'],
-      profileImageUrl: row['profile_image_url'],
-      isActive: row['is_active'],
-      defaultSiteId: row['default_site_id'],
-      currentSiteId: row['current_site_id'],
+      id: _toStringOrNull(row['id']),
+      firstName: _toStringOrNull(row['first_name']),
+      lastName: _toStringOrNull(row['last_name']),
+      email: _toStringOrNull(row['email']),
+      role: _toStringOrNull(row['role']),
+      officerUid: _toStringOrNull(row['officer_uid']),
+      workType: _toStringOrNull(row['work_type']),
+      profileImageUrl: _toStringOrNull(row['profile_image_url']),
+      isActive: _toBoolOrNull(row['is_active']),
+      defaultSiteId: _toStringOrNull(row['default_site_id']),
+      currentSiteId: _toStringOrNull(row['current_site_id']),
     );
   }
 
@@ -94,37 +94,37 @@ class HseWorker implements AppUser {
   });
 
   @override
-  final dynamic id;
+  final String? id;
   @override
-  final dynamic firstName;
+  final String? firstName;
   @override
-  final dynamic lastName;
+  final String? lastName;
   @override
-  final dynamic email;
+  final String? email;
   @override
-  final dynamic role;
+  final String? role;
   @override
-  final dynamic officerUid;
-  final dynamic designation;
+  final String? officerUid;
+  final String? designation;
   @override
-  final dynamic profileImageUrl;
-  final dynamic isActive;
-  final dynamic isAvailable;
-  final dynamic currentSiteId;
+  final String? profileImageUrl;
+  final bool? isActive;
+  final bool? isAvailable;
+  final String? currentSiteId;
 
   factory HseWorker.fromMap(Map<String, dynamic> row) {
     return HseWorker(
-      id: row['id'],
-      firstName: row['first_name'],
-      lastName: row['last_name'],
-      email: row['email'],
-      role: row['role'],
-      officerUid: row['officer_uid'],
-      designation: row['designation'],
-      profileImageUrl: row['profile_image_url'],
-      isActive: row['is_active'],
-      isAvailable: row['is_available'],
-      currentSiteId: row['current_site_id'],
+      id: _toStringOrNull(row['id']),
+      firstName: _toStringOrNull(row['first_name']),
+      lastName: _toStringOrNull(row['last_name']),
+      email: _toStringOrNull(row['email']),
+      role: _toStringOrNull(row['role']),
+      officerUid: _toStringOrNull(row['officer_uid']),
+      designation: _toStringOrNull(row['designation']),
+      profileImageUrl: _toStringOrNull(row['profile_image_url']),
+      isActive: _toBoolOrNull(row['is_active']),
+      isAvailable: _toBoolOrNull(row['is_available']),
+      currentSiteId: _toStringOrNull(row['current_site_id']),
     );
   }
 
@@ -159,30 +159,30 @@ class Officer implements AppUser {
   });
 
   @override
-  final dynamic id;
+  final String? id;
   @override
-  final dynamic firstName;
+  final String? firstName;
   @override
-  final dynamic lastName;
+  final String? lastName;
   @override
-  final dynamic email;
+  final String? email;
   @override
-  final dynamic role;
+  final String? role;
   @override
-  final dynamic officerUid;
+  final String? officerUid;
   @override
-  final dynamic profileImageUrl;
+  final String? profileImageUrl;
   final String? dob;
 
   factory Officer.fromMap(Map<String, dynamic> row) {
     return Officer(
-      id: row['id'],
-      firstName: row['first_name'],
-      lastName: row['last_name'],
-      email: row['email'],
-      role: row['role'],
-      officerUid: row['officer_uid'],
-      profileImageUrl: row['profile_image_url'],
+      id: _toStringOrNull(row['id']),
+      firstName: _toStringOrNull(row['first_name']),
+      lastName: _toStringOrNull(row['last_name']),
+      email: _toStringOrNull(row['email']),
+      role: _toStringOrNull(row['role']),
+      officerUid: _toStringOrNull(row['officer_uid']),
+      profileImageUrl: _toStringOrNull(row['profile_image_url']),
       dob: row['dob']?.toString(),
     );
   }
@@ -200,4 +200,32 @@ class Officer implements AppUser {
       'dob': dob,
     };
   }
+}
+
+String? _toStringOrNull(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  final text = value.toString();
+  return text.isEmpty ? null : text;
+}
+
+bool? _toBoolOrNull(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  if (value is num) {
+    return value != 0;
+  }
+  final normalized = value.toString().trim().toLowerCase();
+  if (normalized == 'true' || normalized == '1') {
+    return true;
+  }
+  if (normalized == 'false' || normalized == '0') {
+    return false;
+  }
+  return null;
 }

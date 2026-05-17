@@ -1,4 +1,7 @@
 import '../database/database_helper.dart';
+import '../logger_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'sqlite_cache_store.dart';
 
 class HazardRepository {
@@ -20,6 +23,130 @@ class HazardRepository {
 
   final DatabaseHelper _databaseHelper;
   final SqliteCacheStore _cacheStore;
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  Future<List<Map<String, dynamic>>> fetchActiveHazardsForCurrentUser({
+    required String role,
+  }) async {
+    final String? userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    try {
+      switch (role) {
+        case 'officer':
+          return _fetchOfficerActiveHazards(userId);
+        case 'worker':
+          return _fetchWorkerActiveHazards(userId);
+        case 'hse_worker':
+          return _fetchHseActiveHazards(userId);
+        default:
+          return const <Map<String, dynamic>>[];
+      }
+    } catch (e, s) {
+      LoggerService.error('Failed to fetch active hazards for provider', e, s);
+      return getCachedActiveHazardsForRole(role);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCachedActiveHazardsForRole(
+    String? role,
+  ) async {
+    switch (role) {
+      case 'officer':
+        return await getOfficerActiveHazards() ?? const <Map<String, dynamic>>[];
+      case 'worker':
+        return getOngoingHazards();
+      case 'hse_worker':
+        return await getHseAssignedTasks() ?? const <Map<String, dynamic>>[];
+      default:
+        return const <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchOfficerActiveHazards(
+    String userId,
+  ) async {
+    final Map<String, dynamic>? officer = await _supabase
+        .from('officers')
+        .select('officer_uid')
+        .eq('id', userId)
+        .maybeSingle();
+    final String? officerUid = officer?['officer_uid']?.toString();
+    if (officerUid == null || officerUid.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final List<Map<String, dynamic>> reported = await _mapResponseRows(
+      _supabase
+          .from('hazards')
+          .select()
+          .eq('officer_uid', officerUid)
+          .not('status', 'in', '(resolved,"resolved by other")'),
+    );
+    final List<Map<String, dynamic>> assigned = await _mapResponseRows(
+      _supabase
+          .from('assign_hazards')
+          .select()
+          .eq('officer_uid', officerUid)
+          .not('status', 'in', '(resolved,"resolved by other")'),
+    );
+    final List<Map<String, dynamic>> rows = <Map<String, dynamic>>[
+      ...reported,
+      ...assigned,
+    ];
+    await saveOfficerActiveHazards(rows);
+    return rows;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchWorkerActiveHazards(
+    String userId,
+  ) async {
+    final List<Map<String, dynamic>> reported = await _mapResponseRows(
+      _supabase
+          .from('hazards')
+          .select()
+          .eq('worker_id', userId)
+          .not('status', 'in', '(resolved,"resolved by other")'),
+    );
+    final List<Map<String, dynamic>> assigned = await _mapResponseRows(
+      _supabase
+          .from('assign_hazards')
+          .select()
+          .eq('worker_id', userId)
+          .not('status', 'in', '(resolved,"resolved by other")'),
+    );
+    final List<Map<String, dynamic>> rows = <Map<String, dynamic>>[
+      ...reported,
+      ...assigned,
+    ];
+    await saveOngoingHazards(rows);
+    return rows;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchHseActiveHazards(
+    String userId,
+  ) async {
+    final List<Map<String, dynamic>> rows = await _mapResponseRows(
+      _supabase
+          .from('assign_hazards')
+          .select()
+          .eq('assigned_to', userId)
+          .not('status', 'in', '(resolved,"resolved by other")'),
+    );
+    await saveHseAssignedTasks(rows);
+    return rows;
+  }
+
+  Future<List<Map<String, dynamic>>> _mapResponseRows(
+    Future<List<Map<String, dynamic>>> query,
+  ) async {
+    final List<Map<String, dynamic>> rows = await query;
+    return rows
+        .map((Map<String, dynamic> row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
 
   Future<void> saveHazards(List<Map<String, dynamic>> rows) async {
     for (final row in rows) {

@@ -97,4 +97,20 @@ void main() {
     expect(action.params['p_hazard_id'], 'hazard-1');
     expect(action.params['p_assigned_to'], 'hse-1');
   });
+
+  test('allows hse worker to update own availability', () {
+    final action = policy.validateSyncAction(
+      item: {'table': 'hse_workers', 'action': 'update'},
+      payload: {
+        'id': 'hse-1',
+        'is_available': false,
+      },
+      role: 'hse_worker',
+      currentUserId: 'hse-1',
+    );
+
+    expect(action.table, 'hse_workers');
+    expect(action.action, 'update');
+    expect(action.payload['is_available'], false);
+  });
 }

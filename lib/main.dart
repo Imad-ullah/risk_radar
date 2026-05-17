@@ -1,24 +1,47 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'services/app_initializer.dart';
+import 'services/error_service.dart';
 import 'services/sync_service.dart';
 import 'shared/navigation/app_navigator.dart' as app_navigation;
 import 'shared/navigation/app_router.dart';
 import 'shared/widgets/emergency_permission_dialog.dart';
+import 'shared/widgets/error_boundary.dart';
 
 final navigatorKey = app_navigation.navigatorKey;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    ErrorService.reportFlutterError(details);
+  };
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stackTrace) {
+    ErrorService.report(
+      'Uncaught platform error',
+      error: error,
+      stackTrace: stackTrace,
+      fatal: true,
+    );
+    return true;
+  };
 
   try {
     await AppInitializer.initializeCritical();
-    runApp(const MyApp());
+    runApp(const ProviderScope(child: MyApp()));
   } catch (e, stackTrace) {
-    debugPrint('Failed to start app: $e');
+    ErrorService.report(
+      'Failed to start app',
+      error: e,
+      stackTrace: stackTrace,
+      fatal: true,
+    );
     runApp(_ErrorApp(error: e.toString(), stackTrace: stackTrace.toString()));
   }
 }
@@ -147,12 +170,14 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   ThemeMode _themeMode = ThemeMode.system;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     debugPrint('App started');
+    _startConnectivitySyncWatcher();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(AppInitializer.initializeDeferred());
@@ -165,8 +190,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _connectivitySub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _startConnectivitySyncWatcher() {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final hasInternet = results.any(
+        (result) =>
+            result == ConnectivityResult.mobile ||
+            result == ConnectivityResult.wifi ||
+            result == ConnectivityResult.ethernet ||
+            result == ConnectivityResult.vpn,
+      );
+
+      if (hasInternet) {
+        debugPrint('Connectivity restored. Running sync queue...');
+        unawaited(SyncService.instance.run());
+      }
+    });
   }
 
   @override
@@ -219,6 +262,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             onThemeChanged: _onThemeChanged,
           ),
           onUnknownRoute: AppRouter.onUnknownRoute,
+          builder: (context, child) {
+            return ErrorBoundary(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

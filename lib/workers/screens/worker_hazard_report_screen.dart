@@ -14,6 +14,7 @@ import 'package:riskradar/shared/hazards/voice_note_recorder.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/services/logger_service.dart';
 
 class WorkerReportHazardScreen extends StatefulWidget {
   final VoidCallback? onHazardReported;
@@ -39,14 +40,50 @@ class WorkerReportHazardScreen extends StatefulWidget {
 }
 
 class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
+  static const int _descriptionMinLength = 10;
+  static const int _descriptionMaxLength = 500;
+  static const String _hazardTypeRequiredMessage =
+      'Select at least one hazard type.';
+  static const String _descriptionRequiredMessage =
+      'Describe the hazard before submitting.';
+  static const String _descriptionTooShortMessage =
+      'Description must be at least 10 characters.';
+  static const String _descriptionTooLongMessage =
+      'Description must be 500 characters or fewer.';
+  static const String _severityRequiredMessage = 'Select a severity level.';
+  static const String _locationRequiredMessage =
+      'Location is required before submitting.';
+  static const String _locationDeniedMessage =
+      'Location permission denied. Enable location access to report a hazard.';
+  static const String _locationServiceDisabledMessage =
+      'Location services are disabled. Turn them on to report a hazard.';
+  static const String _photoRequiredMessage =
+      'Capture at least one photo of the hazard.';
+  static const String _formValidationMessage =
+      'Please fix the highlighted fields before submitting.';
+  static const String _stopRecordingMessage = 'Please stop recording first.';
+  static const String _stopPlaybackMessage = 'Please stop playback first.';
+  static const Set<String> _allowedSeverityLevels = <String>{
+    'Low',
+    'Moderate',
+    'High',
+  };
+
   // State variables
   List<String> _selectedHazardTypes = [];
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _descriptionController = TextEditingController();
   String _severity = 'Low';
   final List<XFile> _selectedImages = [];
   Position? _currentPosition;
   bool _isSubmitting = false;
   bool _isLoadingLocation = false;
+  AutovalidateMode _autovalidateMode = AutovalidateMode.onUserInteraction;
+  String? _hazardTypeError;
+  String? _severityError;
+  String? _locationError;
+  String? _imageError;
+  bool _hasSubmittedOnce = false;
   final supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
   final AuthRepository _authRepository = AuthRepository();
@@ -70,6 +107,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   @override
   void initState() {
     super.initState();
+    _descriptionController.addListener(_handleDescriptionChanged);
     _getCurrentLocation();
     _fetchWorkerDetails();
 
@@ -77,7 +115,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       _descriptionController.text = widget.initialDescription!;
     }
     if (widget.initialSeverity != null) {
-      _severity = widget.initialSeverity!;
+      _severity = _normalizeSeverity(widget.initialSeverity!);
     }
     if (widget.initialHazardTypes != null) {
       _selectedHazardTypes = widget.initialHazardTypes!;
@@ -89,8 +127,17 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
   @override
   void dispose() {
+    _descriptionController.removeListener(_handleDescriptionChanged);
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _handleDescriptionChanged() {
+    if (!mounted) return;
+    if (_hasSubmittedOnce) {
+      _formKey.currentState?.validate();
+    }
+    setState(() {});
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -133,18 +180,21 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
           _officerUid = workerData['officer_uid']?.toString();
         });
       }
-    } on SocketException {
+    } on SocketException catch (e) {
       // Offline — cached values already applied, nothing to do
-      debugPrint('ℹ️ [ReportHazard] Offline — using cached worker details.');
-    } catch (e) {
-      debugPrint('⚠️ [ReportHazard] Worker details fetch error: $e');
+      LoggerService.warning(
+        '[ReportHazard] Offline, using cached worker details.',
+        e,
+      );
+    } catch (e, s) {
+      LoggerService.error('[ReportHazard] Worker details fetch error', e, s);
       if (mounted) {
         // Only show snackbar if we also have no cached data
         if (_currentSiteId == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Could not verify your site assignment: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red.shade700,
             ),
           );
         }
@@ -166,6 +216,82 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     }
   }
 
+  String _normalizeSeverity(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'high') return 'High';
+    if (normalized == 'medium' || normalized == 'moderate') return 'Moderate';
+    if (normalized == 'low') return 'Low';
+    return 'Low';
+  }
+
+  String? _validateDescription(String? value) {
+    final String description = value?.trim() ?? '';
+    if (description.isEmpty) {
+      return _descriptionRequiredMessage;
+    }
+    if (description.length < _descriptionMinLength) {
+      return _descriptionTooShortMessage;
+    }
+    if (description.length > _descriptionMaxLength) {
+      return _descriptionTooLongMessage;
+    }
+    return null;
+  }
+
+  bool get _isReportFormValid {
+    return _validateDescription(_descriptionController.text) == null &&
+        _selectedHazardTypes.isNotEmpty &&
+        _allowedSeverityLevels.contains(_severity) &&
+        _currentPosition != null &&
+        _selectedImages.isNotEmpty;
+  }
+
+  String? _validateHazardTypes() {
+    return _selectedHazardTypes.isEmpty ? _hazardTypeRequiredMessage : null;
+  }
+
+  String? _validateSeverity() {
+    return _allowedSeverityLevels.contains(_severity)
+        ? null
+        : _severityRequiredMessage;
+  }
+
+  String? _validateLocation() {
+    if (_currentPosition != null) {
+      return null;
+    }
+    return _locationError ?? _locationRequiredMessage;
+  }
+
+  String? _validateImages() {
+    return _selectedImages.isEmpty ? _photoRequiredMessage : null;
+  }
+
+  bool _validateReportForm({required bool showErrors}) {
+    final bool isTextValid = _formKey.currentState?.validate() ?? false;
+    final String? hazardTypeError = _validateHazardTypes();
+    final String? severityError = _validateSeverity();
+    final String? locationError = _validateLocation();
+    final String? imageError = _validateImages();
+
+    if (showErrors && mounted) {
+      setState(() {
+        _autovalidateMode = AutovalidateMode.onUserInteraction;
+        _hasSubmittedOnce = true;
+        _hazardTypeError = hazardTypeError;
+        _severityError = severityError;
+        _locationError = locationError;
+        _imageError = imageError;
+      });
+    }
+
+    return isTextValid &&
+        hazardTypeError == null &&
+        severityError == null &&
+        locationError == null &&
+        imageError == null;
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // SUBMIT HAZARD — online: normal upload | offline: sync queue
   // ══════════════════════════════════════════════════════════════════════════
@@ -173,9 +299,22 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   Future<void> _submitHazard() async {
     if (_isSubmitting) return;
 
+    if (_isRecording || _isAudioPlaying) {
+      _showSnack(
+        _isRecording ? _stopRecordingMessage : _stopPlaybackMessage,
+        isError: true,
+      );
+      return;
+    }
+
+    if (!_validateReportForm(showErrors: true)) {
+      _showSnack(_formValidationMessage, isError: true);
+      return;
+    }
+
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
-      _showSnack("User not logged in");
+      _showSnack("User not logged in", isError: true);
       return;
     }
 
@@ -184,26 +323,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       return;
     }
 
-    if (_selectedHazardTypes.isEmpty) {
-      _showSnack("Please select at least one hazard type");
-      return;
-    }
-
-    if (_currentPosition == null) {
-      _showSnack("Location is mandatory. Please wait or retry.");
-      return;
-    }
-
-    if (_isRecording || _isAudioPlaying) {
-      _showSnack(_isRecording
-          ? "Please stop recording first."
-          : "Please stop playback first.");
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     final online = await _isOnline();
+    final String description = _descriptionController.text.trim();
 
     // ── OFFLINE PATH ──────────────────────────────────────────────────────
     if (!online) {
@@ -217,9 +340,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         'officer_uid': _officerUid,
         'current_site_id': _currentSiteId,
         'hazard_type': _selectedHazardTypes.join(', '),
-        'description': _descriptionController.text.isEmpty
-            ? null
-            : _descriptionController.text,
+        'description': description,
         'severity': _severity,
         'latitude': _currentPosition!.latitude,
         'longitude': _currentPosition!.longitude,
@@ -258,16 +379,16 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     }
 
     // ── ONLINE PATH ───────────────────────────────────────────────────────
-    List<String> imageUrls = [];
-    List<String> voiceNoteUrls = [];
+    final List<String> imageUrls = <String>[];
+    final List<String> voiceNoteUrls = <String>[];
 
     try {
       final recordedVoiceFiles =
           _voiceRecorderKey.currentState?.getAllRecordedFiles() ?? [];
 
-      List<Future> uploadTasks = [];
+      final List<Future<void>> uploadTasks = <Future<void>>[];
 
-      for (var imageFile in _selectedImages) {
+      for (final XFile imageFile in _selectedImages) {
         final fileBytes = await imageFile.readAsBytes();
         final fileName = "${const Uuid().v4()}_${imageFile.name}";
         uploadTasks.add(
@@ -306,9 +427,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         'officer_uid': _officerUid,
         'current_site_id': _currentSiteId,
         'hazard_type': _selectedHazardTypes.join(', '),
-        'description': _descriptionController.text.isEmpty
-            ? null
-            : _descriptionController.text,
+        'description': description,
         'severity': _severity,
         'latitude': _currentPosition!.latitude,
         'longitude': _currentPosition!.longitude,
@@ -341,14 +460,14 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         _navigateHome();
         widget.onHazardReported?.call();
       }
-    } catch (e) {
-      debugPrint('⚠️ [ReportHazard] Submit error: $e');
+    } catch (e, s) {
+      LoggerService.error('[ReportHazard] Submit error', e, s);
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error reporting hazard: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.red.shade700,
           ),
         );
       }
@@ -367,10 +486,14 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     );
   }
 
-  void _showSnack(String message) {
+  void _showSnack(String message, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : null,
+      ),
+    );
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -459,16 +582,17 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
   Future<void> _pickImage() async {
     if (_isRecording || _isAudioPlaying) {
-      _showSnack(_isRecording
-          ? "Please stop recording first."
-          : "Please stop playback first.");
+      _showSnack(
+        _isRecording ? _stopRecordingMessage : _stopPlaybackMessage,
+        isError: true,
+      );
       return;
     }
     try {
       final permissionStatus = await Permission.camera.request();
       if (!permissionStatus.isGranted) {
         if (!mounted) return;
-        _showSnack("Camera permission denied");
+        _showSnack("Camera permission denied", isError: true);
         return;
       }
       final XFile? pickedFile = await _picker.pickImage(
@@ -478,11 +602,15 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         imageQuality: 85,
       );
       if (pickedFile != null && mounted) {
-        setState(() => _selectedImages.add(pickedFile));
+        setState(() {
+          _selectedImages.add(pickedFile);
+          _imageError = null;
+        });
       }
-    } catch (e) {
+    } catch (e, s) {
+      LoggerService.error('[ReportHazard] Image capture failed', e, s);
       if (!mounted) return;
-      _showSnack("Failed to capture image: $e");
+      _showSnack("Failed to capture image: $e", isError: true);
     }
   }
 
@@ -490,23 +618,43 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     if (!mounted) return;
     setState(() => _isLoadingLocation = true);
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _showSnack("Location services are disabled.");
-        setState(() => _isLoadingLocation = false);
+        if (!mounted) return;
+        setState(() {
+          _currentPosition = null;
+          _isLoadingLocation = false;
+          _locationError = _locationServiceDisabledMessage;
+        });
+        _showSnack(_locationServiceDisabledMessage, isError: true);
         return;
       }
       LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() {
+          _currentPosition = null;
+          _isLoadingLocation = false;
+          _locationError = _locationDeniedMessage;
+        });
+        _showSnack(_locationDeniedMessage, isError: true);
+        return;
+      }
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied ||
             permission == LocationPermission.deniedForever) {
-          _showSnack("Location permission denied.");
-          setState(() => _isLoadingLocation = false);
+          if (!mounted) return;
+          setState(() {
+            _currentPosition = null;
+            _isLoadingLocation = false;
+            _locationError = _locationDeniedMessage;
+          });
+          _showSnack(_locationDeniedMessage, isError: true);
           return;
         }
       }
-      Position position = await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
@@ -515,11 +663,17 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       setState(() {
         _currentPosition = position;
         _isLoadingLocation = false;
+        _locationError = null;
       });
-    } catch (e) {
+    } catch (e, s) {
+      LoggerService.error('[ReportHazard] Location capture failed', e, s);
       if (!mounted) return;
-      setState(() => _isLoadingLocation = false);
-      _showSnack("Failed to get location: $e");
+      setState(() {
+        _currentPosition = null;
+        _isLoadingLocation = false;
+        _locationError = "Failed to get location: $e";
+      });
+      _showSnack("Failed to get location: $e", isError: true);
     }
   }
 
@@ -532,7 +686,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     if (selectedTypes != null &&
         selectedTypes is List<String> &&
         mounted) {
-      setState(() => _selectedHazardTypes = selectedTypes);
+      setState(() {
+        _selectedHazardTypes = selectedTypes;
+        _hazardTypeError = _validateHazardTypes();
+      });
     }
   }
 
@@ -544,28 +701,50 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   Widget build(BuildContext context) {
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
 
-    return Scaffold(
-      backgroundColor: isLightTheme ? const Color(0xFFF5F5F5) : null,
-      appBar: AppBar(
-        title: const Text("Report Hazard"),
-        centerTitle: true,
-        backgroundColor: const Color(0xFF1B3D3D),
-        foregroundColor: Colors.white,
-      ),
-      bottomNavigationBar: _buildInputBarSection(),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHazardTypeCard()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildSeveritySection()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildLocationSection()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildImagePreview()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _buildVoiceNotesSection()),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+    return Form(
+      key: _formKey,
+      autovalidateMode: _autovalidateMode,
+      child: Scaffold(
+        backgroundColor: isLightTheme ? const Color(0xFFF5F5F5) : null,
+        appBar: AppBar(
+          title: const Text("Report Hazard"),
+          centerTitle: true,
+          backgroundColor: const Color(0xFF1B3D3D),
+          foregroundColor: Colors.white,
+        ),
+        bottomNavigationBar: _buildInputBarSection(),
+        body: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _buildHazardTypeCard()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildInlineError(
+                  _hazardTypeError ?? _validateHazardTypes(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _buildSeveritySection()),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _buildLocationSection()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildInlineError(
+                  _isLoadingLocation
+                      ? null
+                      : _locationError ?? _validateLocation(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _buildImagePreview()),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _buildVoiceNotesSection()),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        ),
       ),
     );
   }
@@ -577,8 +756,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     final canSubmit = !_isSubmitting &&
         !_isRecording &&
         !_isAudioPlaying &&
-        _currentPosition != null &&
-        _selectedHazardTypes.isNotEmpty;
+        _isReportFormValid;
 
     final isInputDisabled = _isRecording || _isAudioPlaying;
 
@@ -612,17 +790,23 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: TextField(
+                      child: TextFormField(
                         controller: _descriptionController,
                         enabled: !isInputDisabled,
                         minLines: 1,
                         maxLines: 5,
-                        decoration: InputDecoration.collapsed(
-                            hintText: _isRecording
-                                ? "Recording..."
-                                : (_isAudioPlaying
-                                ? "Playing..."
-                                : "Type a description...")),
+                        maxLength: _descriptionMaxLength,
+                        validator: _validateDescription,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          counterText: '',
+                          errorMaxLines: 2,
+                          hintText: _isRecording
+                              ? "Recording..."
+                              : (_isAudioPlaying
+                              ? "Playing..."
+                              : "Type a description..."),
+                        ),
                       ),
                     ),
                   ),
@@ -785,6 +969,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
               _buildSeverityChip('High', Colors.red),
             ],
           ),
+          _buildInlineError(_severityError ?? _validateSeverity()),
         ],
       ),
     );
@@ -809,7 +994,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _severity = level),
+        onTap: () => setState(() {
+          _severity = level;
+          _severityError = _validateSeverity();
+        }),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -967,48 +1155,83 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   }
 
   Widget _buildImagePreview() {
-    if (_selectedImages.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 160,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
+    if (_selectedImages.isEmpty) {
+      return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        itemCount: _selectedImages.length,
-        itemBuilder: (context, index) {
-          final imageFile = _selectedImages[index];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: SizedBox(
-              width: 120,
-              height: 160,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(File(imageFile.path), fit: BoxFit.cover),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: IconButton(
-                        icon: const CircleAvatar(
-                          radius: 14,
-                          backgroundColor: Colors.black54,
-                          child: Icon(Icons.close,
-                              color: Colors.white, size: 16),
+        child: _buildInlineError(_imageError ?? _validateImages()),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            itemCount: _selectedImages.length,
+            itemBuilder: (context, index) {
+              final XFile imageFile = _selectedImages[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: SizedBox(
+                  width: 120,
+                  height: 160,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.file(File(imageFile.path), fit: BoxFit.cover),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: IconButton(
+                            icon: const CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.black54,
+                              child: Icon(Icons.close,
+                                  color: Colors.white, size: 16),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _selectedImages.removeAt(index);
+                                _imageError = _validateImages();
+                              });
+                            },
+                          ),
                         ),
-                        onPressed: () {
-                          setState(
-                                  () => _selectedImages.removeAt(index));
-                        },
-                      ),
-                    )
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: _buildInlineError(_imageError),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInlineError(String? message) {
+    if (message == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: Colors.red.shade700,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

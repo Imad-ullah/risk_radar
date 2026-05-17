@@ -1,11 +1,18 @@
 // lib/workers/screens/hse_worker_app_settings_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:riskradar/services/logger_service.dart';
+import 'package:riskradar/services/repositories/auth_repository.dart';
+import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/services/sync_service.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'hse_worker_sites_screen.dart';
 import 'hse_worker_view_profile_screen.dart';
 import 'hse_worker_emergency_details_screen.dart';
 
-class HSEWorkerAppSettingsScreen extends StatelessWidget {
+class HSEWorkerAppSettingsScreen extends StatefulWidget {
   final void Function(BuildContext) onAboutTap;
   final void Function(ThemeMode) onThemeChanged;
   final ThemeMode currentThemeMode;
@@ -18,7 +25,144 @@ class HSEWorkerAppSettingsScreen extends StatelessWidget {
   });
 
   // ✅ BRAND COLORS (Defining locally since it's used in the popup)
-  static const Color brandTeal = Color(0xFF1B3D3D);
+  static const Color brandTeal = AppColors.brandTeal;
+
+  @override
+  State<HSEWorkerAppSettingsScreen> createState() =>
+      _HSEWorkerAppSettingsScreenState();
+}
+
+class _HSEWorkerAppSettingsScreenState
+    extends State<HSEWorkerAppSettingsScreen> {
+  static const Color brandTeal = HSEWorkerAppSettingsScreen.brandTeal;
+  static const String _availabilityEnabledText =
+      'Available for new hazard assignments';
+  static const String _availabilityDisabledText =
+      'Paused for new hazard assignments';
+  static const String _availabilitySavedText =
+      'Availability update queued for sync';
+  static const String _availabilityFailedText =
+      'Failed to update availability';
+
+  final AuthRepository _authRepository = AuthRepository();
+  final SyncRepository _syncRepository = SyncRepository();
+
+  bool _isAvailable = true;
+  bool _isSavingAvailability = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailabilityFromCache();
+  }
+
+  void _loadAvailabilityFromCache() {
+    final Map<String, dynamic>? profile = _authRepository.getHseProfile();
+    final bool? cachedAvailability = _readBool(profile?['is_available']);
+    _isAvailable = cachedAvailability ?? true;
+  }
+
+  bool? _readBool(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    final String normalized = value.toString().trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0') {
+      return false;
+    }
+    return null;
+  }
+
+  Future<void> _handleAvailabilityChanged(bool value) async {
+    if (_isSavingAvailability) {
+      return;
+    }
+
+    final String? userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Sign in again to update availability'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
+    final bool previousValue = _isAvailable;
+    setState(() {
+      _isAvailable = value;
+      _isSavingAvailability = true;
+    });
+
+    try {
+      await _cacheAvailability(userId: userId, isAvailable: value);
+      await _syncRepository.enqueueAction(
+        id: 'hse_availability_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+        table: 'hse_workers',
+        action: 'update',
+        payload: {
+          'id': userId,
+          'is_available': value,
+        },
+      );
+      unawaited(SyncService.instance.run());
+
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(_availabilitySavedText),
+          backgroundColor: AppColors.brandTeal,
+        ),
+      );
+    } catch (e, s) {
+      LoggerService.error(_availabilityFailedText, e, s);
+      await _cacheAvailability(userId: userId, isAvailable: previousValue);
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isAvailable = previousValue;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(_availabilityFailedText),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingAvailability = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _cacheAvailability({
+    required String userId,
+    required bool isAvailable,
+  }) {
+    final Map<String, dynamic> currentProfile =
+        _authRepository.getHseProfile() ?? <String, dynamic>{};
+    return _authRepository.saveHseProfile({
+      ...currentProfile,
+      'id': userId,
+      'is_available': isAvailable,
+    });
+  }
 
   Future<void> _handleSignOut(BuildContext context) async {
     // ✅ NEW THEMED DIALOG DESIGN
@@ -153,8 +297,8 @@ class HSEWorkerAppSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = currentThemeMode == ThemeMode.dark ||
-        (currentThemeMode == ThemeMode.system &&
+    final isDark = widget.currentThemeMode == ThemeMode.dark ||
+        (widget.currentThemeMode == ThemeMode.system &&
             MediaQuery.of(context).platformBrightness == Brightness.dark);
 
     return Scaffold(
@@ -193,13 +337,39 @@ class HSEWorkerAppSettingsScreen extends StatelessWidget {
           ),
           const Divider(),
           ListTile(
+            leading: Icon(
+              _isAvailable
+                  ? Icons.assignment_turned_in_outlined
+                  : Icons.pause_circle_outline_rounded,
+              color: _isAvailable ? AppColors.brandTeal : AppColors.accentGold,
+            ),
+            title: const Text('Availability'),
+            subtitle: Text(
+              _isAvailable
+                  ? _availabilityEnabledText
+                  : _availabilityDisabledText,
+            ),
+            trailing: Switch(
+              value: _isAvailable,
+              onChanged:
+                  _isSavingAvailability ? null : _handleAvailabilityChanged,
+              activeThumbColor: AppColors.accentGold,
+              activeTrackColor: AppColors.brandTeal.withValues(alpha: 0.45),
+              inactiveThumbColor: Colors.grey.shade500,
+              inactiveTrackColor: Colors.grey.shade300,
+            ),
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.color_lens_outlined),
             title: const Text('Theme'),
             subtitle: Text(isDark ? 'Dark Mode' : 'Light Mode'),
             trailing: ThemeToggle(
               isDark: isDark,
               onChanged: (value) =>
-                  onThemeChanged(value ? ThemeMode.dark : ThemeMode.light),
+                  widget.onThemeChanged(
+                value ? ThemeMode.dark : ThemeMode.light,
+              ),
             ),
           ),
           const Divider(),
@@ -225,7 +395,7 @@ class HSEWorkerAppSettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.info_outline),
             title: const Text('About App'),
             subtitle: const Text('Learn more about this application'),
-            onTap: () => onAboutTap(context),
+            onTap: () => widget.onAboutTap(context),
           ),
           const Divider(),
           const SizedBox(height: 32),

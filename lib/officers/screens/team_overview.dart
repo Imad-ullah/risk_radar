@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 import '../labours/worker_profile_screen.dart';
 import 'dart:ui';
 
@@ -343,8 +344,8 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                     gradient: LinearGradient(
                       colors: [
                         // ✅ Replaced withOpacity
-                        const Color(0xFF6366F1).withAlpha((255 * 0.9).round()),
-                        const Color(0xFF8B5CF6).withAlpha((255 * 0.9).round()),
+                        const Color(0xFF11444D).withAlpha((255 * 0.96).round()),
+                        const Color(0xFF0A2830).withAlpha((255 * 0.96).round()),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -465,7 +466,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
-                                  foregroundColor: const Color(0xFF6366F1),
+                                  foregroundColor: const Color(0xFF11444D),
                                 ),
                                 onPressed: (selectedSiteId != null &&
                                     selectedSiteId != currentSiteId)
@@ -587,25 +588,24 @@ class _WorkersListScreenState extends State<WorkersListScreen>
 
   Widget _buildStatCard(
       String label, int count, VoidCallback onTap, Color color) {
+    const cardBase = Color(0xFF1B3D3D);
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              // ✅ Replaced withOpacity
-              colors: [color.withAlpha((255 * 0.8).round()), color],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: cardBase,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.surfaceTeal.withValues(alpha: 0.8),
+            ),
             boxShadow: [
               BoxShadow(
-                // ✅ Replaced withOpacity
-                color: color.withAlpha((255 * 0.3).round()),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -662,9 +662,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
         ? (worker['work_type'] ?? 'Unknown')
         : (worker['designation'] ?? 'Site Inspector'); // Changed designation default
     final siteName = worker['sites']?['name'] ?? 'No site assigned';
-    final cardColor = tableName == 'workers'
-        ? const Color(0xFF6366F1)
-        : const Color(0xFF8B5CF6);
+    const cardColor = Color(0xFF1B3D3D);
 
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 400 + (index * 50)),
@@ -679,14 +677,8 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       child: Container(
         margin: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              // ✅ Replaced withOpacity
-              cardColor.withAlpha((255 * 0.95).round()),
-              tableName == 'workers'
-                  ? const Color(0xFF4F46E5)
-                  : const Color(0xFF7C3AED),
-            ],
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1B3D3D), Color(0xFF1B3D3D)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -760,6 +752,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildWorkerInfo(String name, String subtitle, String siteName) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -777,7 +770,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             // ✅ Replaced withOpacity
-            color: Colors.white.withAlpha((255 * 0.25).round()),
+            color: isDark
+                ? Colors.white.withAlpha((255 * 0.16).round())
+                : Colors.white.withValues(alpha: 0.16),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
@@ -795,7 +790,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             Icon(
               Icons.location_on_outlined,
               // ✅ Replaced withOpacity
-              color: Colors.white.withAlpha((255 * 0.8).round()),
+              color: Colors.white70,
               size: 14,
             ),
             const SizedBox(width: 4),
@@ -804,7 +799,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                 siteName,
                 style: TextStyle(
                   // ✅ Replaced withOpacity
-                  color: Colors.white.withAlpha((255 * 0.9).round()),
+                  color: Colors.white70,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -818,7 +813,20 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildWorkerMenu(Map<String, dynamic> worker, String tableName) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final menuBg = isDark
+        ? const Color(0xFF1B3D3D)
+        : Color.lerp(AppColors.brandTeal, Colors.white, 0.82)!;
+    final menuText = isDark ? Colors.white : const Color(0xFF153336);
+
     return PopupMenuButton<String>(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      color: menuBg,
+      elevation: 12,
+      padding: const EdgeInsets.all(0),
+      constraints: const BoxConstraints(minWidth: 190),
       onSelected: (value) {
         if (value == 'view_profile') {
           Navigator.push(
@@ -837,26 +845,35 @@ class _WorkersListScreenState extends State<WorkersListScreen>
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'view_profile',
           child: ListTile(
-            leading: Icon(Icons.person_outline),
-            title: Text('View Profile'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+            leading: Icon(Icons.person_outline, color: menuText),
+            title: Text('View Profile', style: TextStyle(color: menuText)),
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'change_site',
           child: ListTile(
-            leading: Icon(Icons.unfold_more_outlined),
-            title: Text('Change Site'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+            leading: Icon(Icons.unfold_more_outlined, color: menuText),
+            title: Text('Change Site', style: TextStyle(color: menuText)),
           ),
         ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuDivider(
+          height: 10,
+          color: isDark ? Colors.white24 : Colors.black12,
+        ),
+        PopupMenuItem<String>(
           value: 'delete',
           child: ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 6),
             leading: Icon(Icons.delete_outline, color: Colors.red),
-            title: Text('Delete Worker', style: TextStyle(color: Colors.red)),
+            title: const Text('Delete Worker', style: TextStyle(color: Colors.red)),
           ),
         ),
       ],
@@ -870,6 +887,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       GlobalKey key,
       String tableName,
       ) {
+    final titleColor = Theme.of(context).colorScheme.onSurface;
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,11 +903,11 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                   gradient: LinearGradient(
                     colors: [
                       tableName == 'workers'
-                          ? const Color(0xFF6366F1)
-                          : const Color(0xFF8B5CF6),
+                          ? const Color(0xFF0F5B63)
+                          : const Color(0xFF1A6F79),
                       tableName == 'workers'
-                          ? const Color(0xFF4F46E5)
-                          : const Color(0xFF7C3AED),
+                          ? const Color(0xFF0B3B43)
+                          : const Color(0xFF0F4B55),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -900,9 +918,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
               const SizedBox(width: 12),
               Text(
                 title,
-                // Using headlineSmall style directly
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold, // Optional: add boldness
+                  color: titleColor,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -928,8 +946,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       padding: const EdgeInsets.all(32),
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        // ✅ Replaced deprecated surfaceVariant & withOpacity
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF0E2B33)
+            : const Color(0xFFE3F1F3),
         borderRadius: BorderRadius.circular(16),
         // ✅ Replaced withOpacity
         border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round())),
@@ -967,7 +986,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: loading
           ? _buildLoadingState(isDark)
           : FadeTransition(
@@ -977,11 +996,11 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             // No need for separate await, just call the combined function
             await _loadInitialData();
           },
-          color: const Color(0xFF6366F1),
+          color: const Color(0xFF0F5B63),
           child: SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -989,8 +1008,8 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                 Text(
                   'Manage your workforce efficiently',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    // ✅ Replaced deprecated surfaceVariant
-                      color: Theme.of(context).colorScheme.onSurfaceVariant
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1000,7 +1019,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                       'Workers',
                       _filteredWorkers.length,
                           () => _scrollToKey(_workersKey),
-                      const Color(0xFF6366F1),
+                      const Color(0xFF0F5B63),
                     ),
                     const SizedBox(width: 16),
                     _buildStatCard(
@@ -1008,7 +1027,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                       'Site Inspectors',
                       _filteredHseWorkers.length,
                           () => _scrollToKey(_hseWorkersKey),
-                      const Color(0xFF8B5CF6),
+                      const Color(0xFF1A6F79),
                     ),
                   ],
                 ),
@@ -1056,7 +1075,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             ),
             child: const CircularProgressIndicator(
               strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0F5B63)),
             ),
           ),
           const SizedBox(height: 24),
@@ -1070,17 +1089,22 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildSearchBar(bool isDark) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
       child: TextField(
         controller: _searchController,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           hintText: 'Search by worker name...',
-          // ✅ Replaced deprecated surfaceVariant
-          prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurfaceVariant),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-            icon: const Icon(Icons.clear),
+            icon: Icon(Icons.clear, color: theme.colorScheme.onSurfaceVariant),
             onPressed: () {
               _searchController.clear();
               // No need to call _filterLists here, listener handles it
@@ -1088,11 +1112,27 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           )
               : null,
           filled: true,
-          fillColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+          fillColor: isDark
+              ? Color.lerp(AppColors.brandTeal, Colors.black, 0.4)!
+              : Color.lerp(AppColors.brandTeal, Colors.white, 0.78)!,
           contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: AppColors.brandTeal,
+              width: 1.4,
+            ),
           ),
         ),
       ),
@@ -1104,4 +1144,6 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   // when switching tabs if this screen is used in a TabBarView.
   bool get wantKeepAlive => true;
 }
+
+
 

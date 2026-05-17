@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../firebase_options.dart';
+import '../../officers/notifications/officer_hazard_notifier.dart'
+    as officer_notifier;
 import '../../shared/hazards/hazard_details_screen.dart';
 import '../../shared/navigation/app_navigator.dart';
 import '../app_config.dart';
@@ -62,8 +64,10 @@ class NotificationHandlers {
         debugPrint('Supabase already initialized: $e');
       }
 
-      final hazardId = receivedAction.payload?['hazardId'];
+      final hazardId = receivedAction.payload?['hazardId']?.toString();
       final buttonKey = receivedAction.buttonKeyPressed;
+      final sourceTable =
+          receivedAction.payload?['sourceTable']?.toString() ?? 'hazards';
 
       if (hazardId == null) {
         debugPrint('No hazardId in notification payload');
@@ -72,17 +76,13 @@ class NotificationHandlers {
 
       debugPrint('Action: $buttonKey for hazard: $hazardId');
 
-      if (buttonKey == 'DETAILS') {
-        final hazardData =
-            await NotificationHazardDataService.fetchHazardData(hazardId);
+      if (buttonKey.isEmpty || buttonKey == 'DETAILS') {
+        final hazardData = await NotificationHazardDataService.fetchHazardData(
+          hazardId,
+          preferredSourceTable: sourceTable,
+        );
         if (hazardData != null) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            navigatorKey.currentState?.push(
-              MaterialPageRoute(
-                builder: (_) => HazardDetailsScreen(hazardData: hazardData),
-              ),
-            );
-          });
+          await _openHazardDetails(hazardData);
         } else {
           debugPrint('Could not fetch hazard details');
         }
@@ -101,36 +101,45 @@ class NotificationHandlers {
       debugPrint('Notification action error: $e');
     }
   }
+
+  static Future<void> _openHazardDetails(Map<String, dynamic> hazardData) async {
+    for (var i = 0; i < 8; i++) {
+      final nav = navigatorKey.currentState;
+      if (nav != null) {
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => HazardDetailsScreen(hazardData: hazardData),
+          ),
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    debugPrint('Navigator not ready; could not open hazard details');
+  }
 }
 
 class NotificationHazardDataService {
   static final _supabase = Supabase.instance.client;
 
-  static Future<Map<String, dynamic>?> fetchHazardData(String hazardId) async {
+  static Future<Map<String, dynamic>?> fetchHazardData(
+    String hazardId, {
+    required String preferredSourceTable,
+  }) async {
     try {
-      final hazard = await _supabase
-          .from('hazards')
-          .select()
-          .eq('id', hazardId)
-          .maybeSingle();
+      // Reuse officer notifier mapping and honor the notification payload first.
+      final orderedSources = preferredSourceTable == 'assign_hazards'
+          ? const ['assign_hazards', 'hazards']
+          : const ['hazards', 'assign_hazards'];
 
-      if (hazard != null) {
-        debugPrint('Hazard found in hazards table');
-        return hazard;
+      for (final source in orderedSources) {
+        final data = await officer_notifier.fetchFullHazardData(
+          hazardId,
+          sourceTable: source,
+        );
+        if (data != null) return data;
       }
-
-      debugPrint('Trying assign_hazards table...');
-      final assignedHazard = await _supabase
-          .from('assign_hazards')
-          .select()
-          .eq('id', hazardId)
-          .maybeSingle();
-
-      if (assignedHazard != null) {
-        debugPrint('Hazard found in assign_hazards table');
-      }
-
-      return assignedHazard;
+      return null;
     } catch (e) {
       debugPrint('Error fetching hazard data: $e');
       return null;

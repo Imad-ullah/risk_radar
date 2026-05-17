@@ -19,11 +19,18 @@ class ResolvedHazardsScreen extends StatefulWidget {
 class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
+  final ScrollController _scrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
 
   List<Map<String, dynamic>> _allHazards = [];
   List<Map<String, dynamic>> _filteredHazards = [];
 
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreHazards = true;
+  int _currentPage = 0;
   String? _error;
   DateTime _selectedDate = DateTime.now();
   late FixedExtentScrollController _calendarController;
@@ -44,13 +51,35 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
   void initState() {
     super.initState();
     _calendarController = FixedExtentScrollController(initialItem: 30);
+    _scrollController.addListener(_handleScroll);
     _loadResolvedCacheFirst();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _calendarController.dispose();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreHazards ||
+        _isLoading) {
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   Future<void> _loadResolvedCacheFirst() async {
@@ -64,12 +93,35 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
       _filterHazardsByDate(_selectedDate);
     }
 
-    await fetchResolvedHazards(showBlockingLoader: cached == null);
+    await fetchResolvedHazards(
+      showBlockingLoader: cached == null,
+      resetPagination: true,
+    );
   }
 
-  Future<void> fetchResolvedHazards({bool showBlockingLoader = true}) async {
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreHazards || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await fetchResolvedHazards(
+      showBlockingLoader: false,
+      resetPagination: false,
+    );
+  }
+
+  Future<void> fetchResolvedHazards({
+    bool showBlockingLoader = true,
+    bool resetPagination = true,
+  }) async {
     if (!mounted) {
       return;
+    }
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreHazards = true;
     }
     if (showBlockingLoader) {
       setState(() {
@@ -79,6 +131,8 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
     }
 
     try {
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
       final currentUserId = supabase.auth.currentUser?.id;
       final officerData = await supabase.from('officers').select('officer_uid').eq('id', currentUserId!).maybeSingle();
       final officerUid = officerData?['officer_uid'];
@@ -88,7 +142,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
           .select('*, workers(first_name, last_name, work_type, profile_image_url), sites(name)')
           .eq('officer_uid', officerUid ?? 0)
           .order('resolved_at', ascending: false)
-          .limit(100);
+          .range(pageStart, pageEnd);
 
       final List<Map<String, dynamic>> processedHazards = response.map((h) {
         final workerInfo = h['workers'] as Map<String, dynamic>?;
@@ -117,18 +171,29 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
         };
       }).toList();
 
+      final List<Map<String, dynamic>> updatedHazards = resetPagination
+          ? processedHazards
+          : <Map<String, dynamic>>[..._allHazards, ...processedHazards];
+
       if (!mounted) {
         return;
       }
-      await _hazardRepository.saveOfficerResolvedHazards(processedHazards);
+      await _hazardRepository.saveOfficerResolvedHazards(updatedHazards);
       setState(() {
-        _allHazards = processedHazards;
+        _allHazards = updatedHazards;
+        _hasMoreHazards = processedHazards.length == _pageSize;
         _isLoading = false;
+        _isLoadingMore = false;
       });
       _filterHazardsByDate(_selectedDate);
     } on SocketException {
       debugPrint('Officer resolved hazards offline - using cached data.');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching resolved hazards: $e');
       if (!mounted) {
@@ -137,6 +202,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
       setState(() {
         _error = 'Failed to load hazards. Please try again.';
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
@@ -222,11 +288,24 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
               child: _buildEmptyState(isDark),
             )
                 : RefreshIndicator(
-              onRefresh: () => fetchResolvedHazards(showBlockingLoader: false),
+              onRefresh: () => fetchResolvedHazards(
+                showBlockingLoader: false,
+                resetPagination: true,
+              ),
               child: ListView.builder(
+                controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 220, 20, 120),
-                itemCount: _filteredHazards.length,
+                itemCount: _filteredHazards.length +
+                    (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index == _filteredHazards.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator(color: _headerTeal),
+                      ),
+                    );
+                  }
                   return _buildTimelineItem(
                       _filteredHazards[index],
                       index,

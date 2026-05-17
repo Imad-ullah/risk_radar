@@ -83,58 +83,59 @@ class Hazard {
     'resolution_notes',
     'resolution_image_url',
     'resolution_voice_note_url',
+    'report_number',
     ...localUploadColumns,
   };
 
-  final dynamic id;
-  final dynamic workerId;
-  final dynamic hazardType;
-  final dynamic description;
-  final dynamic severity;
-  final dynamic latitude;
-  final dynamic longitude;
-  final dynamic status;
+  final String? id;
+  final String? workerId;
+  final String? hazardType;
+  final String? description;
+  final String? severity;
+  final double? latitude;
+  final double? longitude;
+  final String? status;
   final String? createdAt;
-  final dynamic imageUrl;
-  final dynamic orphaned;
+  final String? imageUrl;
+  final bool? orphaned;
   final String? resolvedAt;
-  final dynamic rankingScore;
-  final dynamic officerUid;
-  final dynamic voiceNoteUrl;
-  final dynamic assignedTo;
-  final dynamic currentSiteId;
+  final double? rankingScore;
+  final String? officerUid;
+  final String? voiceNoteUrl;
+  final String? assignedTo;
+  final String? currentSiteId;
   final String? assignedAt;
   final String? startedAt;
-  final dynamic resolutionNotes;
-  final dynamic resolutionImageUrl;
-  final dynamic resolutionVoiceNoteUrl;
-  final dynamic reportNumber;
+  final String? resolutionNotes;
+  final String? resolutionImageUrl;
+  final String? resolutionVoiceNoteUrl;
+  final String? reportNumber;
 
   factory Hazard.fromMap(Map<String, dynamic> row) {
     return Hazard(
-      id: row['id'],
-      workerId: row['worker_id'],
-      hazardType: row['hazard_type'],
-      description: row['description'],
-      severity: row['severity'],
-      latitude: row['latitude'],
-      longitude: row['longitude'],
-      status: row['status'],
+      id: _toStringOrNull(row['id']),
+      workerId: _toStringOrNull(row['worker_id']),
+      hazardType: _toStringOrNull(row['hazard_type']),
+      description: _toStringOrNull(row['description']),
+      severity: _toStringOrNull(row['severity']),
+      latitude: _toDoubleOrNull(row['latitude']),
+      longitude: _toDoubleOrNull(row['longitude']),
+      status: _toStringOrNull(row['status']),
       createdAt: row['created_at']?.toString(),
-      imageUrl: row['image_url'],
-      orphaned: row['orphaned'],
+      imageUrl: _toStringOrNull(row['image_url']),
+      orphaned: _toBoolOrNull(row['orphaned']),
       resolvedAt: row['resolved_at']?.toString(),
-      rankingScore: row['ranking_score'],
-      officerUid: row['officer_uid'],
-      voiceNoteUrl: row['voice_note_url'],
-      assignedTo: row['assigned_to'],
-      currentSiteId: row['current_site_id'],
+      rankingScore: _toDoubleOrNull(row['ranking_score']),
+      officerUid: _toStringOrNull(row['officer_uid']),
+      voiceNoteUrl: _toStringOrNull(row['voice_note_url']),
+      assignedTo: _toStringOrNull(row['assigned_to']),
+      currentSiteId: _toStringOrNull(row['current_site_id']),
       assignedAt: row['assigned_at']?.toString(),
       startedAt: row['started_at']?.toString(),
-      resolutionNotes: row['resolution_notes'],
-      resolutionImageUrl: row['resolution_image_url'],
-      resolutionVoiceNoteUrl: row['resolution_voice_note_url'],
-      reportNumber: row['report_number'],
+      resolutionNotes: _toStringOrNull(row['resolution_notes']),
+      resolutionImageUrl: _toStringOrNull(row['resolution_image_url']),
+      resolutionVoiceNoteUrl: _toStringOrNull(row['resolution_voice_note_url']),
+      reportNumber: _toStringOrNull(row['report_number']),
     );
   }
 
@@ -174,5 +175,43 @@ class Hazard {
 
   Map<String, dynamic> toMap({bool assigned = false}) {
     return assigned ? toAssignHazardsMap() : toHazardsMap();
+  }
+
+  static String? _toStringOrNull(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    final text = value.toString();
+    return text.isEmpty ? null : text;
+  }
+
+  static double? _toDoubleOrNull(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString());
+  }
+
+  static bool? _toBoolOrNull(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    final normalized = value.toString().trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0') {
+      return false;
+    }
+    return null;
   }
 }

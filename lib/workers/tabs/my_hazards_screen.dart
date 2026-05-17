@@ -18,10 +18,17 @@ class MyHazardsScreen extends StatefulWidget {
 class _MyHazardsScreenState extends State<MyHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
+  final ScrollController _scrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
 
   // isLoading = true only when zero cache exists
   bool isLoading = true;
   bool _isRefreshing = false;
+  bool _isLoadingMore = false;
+  bool _hasMoreHazards = true;
+  int _currentPage = 0;
   List<Map<String, dynamic>> hazards = [];
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -31,7 +38,34 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _loadMyHazards();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreHazards ||
+        isLoading) {
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -52,25 +86,47 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
     }
 
     // ── Step 2: Silent background refresh ────────────────────────────────
-    await _refreshFromSupabase();
+    await _refreshFromSupabase(resetPagination: true);
   }
 
   // Called by pull-to-refresh
   Future<void> fetchMyHazards() async {
-    await _refreshFromSupabase();
+    await _refreshFromSupabase(resetPagination: true);
   }
 
-  Future<void> _refreshFromSupabase() async {
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreHazards || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await _refreshFromSupabase(resetPagination: false);
+  }
+
+  Future<void> _refreshFromSupabase({required bool resetPagination}) async {
     if (!mounted) return;
-    setState(() => _isRefreshing = true);
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreHazards = true;
+      setState(() => _isRefreshing = true);
+    }
 
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
-      if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
       return;
     }
 
     try {
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
       // ── Fetch reported + assigned in parallel ─────────────────────────
       final Future<Map<String, dynamic>?> workerFuture = supabase
           .from('workers')
@@ -81,12 +137,16 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
       final Future<List<dynamic>> reportedFuture = supabase
           .from('hazards')
           .select()
-          .eq('worker_id', userId);
+          .eq('worker_id', userId)
+          .order('created_at', ascending: false)
+          .range(pageStart, pageEnd);
 
       final Future<List<dynamic>> assignedFuture = supabase
           .from('assign_hazards')
           .select()
-          .eq('worker_id', userId);
+          .eq('worker_id', userId)
+          .order('created_at', ascending: false)
+          .range(pageStart, pageEnd);
 
       final results = await Future.wait([
         workerFuture,
@@ -96,7 +156,14 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
 
       final worker = results[0] as Map<String, dynamic>?;
       if (worker == null) {
-        if (mounted) setState(() { hazards = []; isLoading = false; _isRefreshing = false; });
+        if (mounted) {
+          setState(() {
+            hazards = [];
+            isLoading = false;
+            _isRefreshing = false;
+            _isLoadingMore = false;
+          });
+        }
         return;
       }
 
@@ -140,24 +207,47 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
         };
       }).toList();
 
-      final combined = _sortByDate([...reported, ...normalizedAssigned]);
+      final fetchedPage = _sortByDate([...reported, ...normalizedAssigned]);
+      final combined = resetPagination
+          ? fetchedPage
+          : _sortByDate(<Map<String, dynamic>>[...hazards, ...fetchedPage]);
 
       // Persist reported hazards to cache (the canonical worker hazards key)
-      await _hazardRepository.saveHazards(reported);
+      final cachedReported = resetPagination
+          ? <Map<String, dynamic>>[]
+          : await _hazardRepository.getHazards();
+      await _hazardRepository.saveHazards(
+        <Map<String, dynamic>>[...cachedReported, ...reported],
+      );
 
       if (mounted) {
         setState(() {
           hazards = combined;
+          _hasMoreHazards =
+              reported.length == _pageSize || assigned.length == _pageSize;
           isLoading = false;
           _isRefreshing = false;
+          _isLoadingMore = false;
         });
       }
     } on SocketException {
       debugPrint('ℹ️ [MyHazards] Offline — showing cached data.');
-      if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
     } catch (e) {
       debugPrint('⚠️ [MyHazards] Refresh error: $e');
-      if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -254,10 +344,17 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
         child: hazards.isEmpty
             ? _buildEmptyState(theme)
             : ListView.builder(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(
               horizontal: 16, vertical: 12),
-          itemCount: hazards.length,
+          itemCount: hazards.length + (_isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
+            if (index == hazards.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
             return _buildHazardCard(
                 hazards[index], theme, isDark);
           },

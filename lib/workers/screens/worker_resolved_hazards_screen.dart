@@ -25,6 +25,10 @@ class _WorkerResolvedHazardsScreenState
     extends State<WorkerResolvedHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
+  final ScrollController _scrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
 
   List<Map<String, dynamic>> _allHazards = [];
   List<Map<String, dynamic>> _filteredHazards = [];
@@ -32,6 +36,9 @@ class _WorkerResolvedHazardsScreenState
   // loading = true only when there is zero cache to show
   bool loading = true;
   bool _isRefreshing = false;
+  bool _isLoadingMore = false;
+  bool _hasMoreHazards = true;
+  int _currentPage = 0;
 
   DateTime _selectedDate = DateTime.now();
   late FixedExtentScrollController _calendarController;
@@ -54,13 +61,35 @@ class _WorkerResolvedHazardsScreenState
   void initState() {
     super.initState();
     _calendarController = FixedExtentScrollController(initialItem: 30);
+    _scrollController.addListener(_handleScroll);
     _loadResolvedHazards();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _calendarController.dispose();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreHazards ||
+        loading) {
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -81,45 +110,85 @@ class _WorkerResolvedHazardsScreenState
     }
 
     // ── Step 2: Silent background refresh ────────────────────────────────
-    await _refreshFromSupabase();
+    await _refreshFromSupabase(resetPagination: true);
   }
 
-  Future<void> _refreshFromSupabase() async {
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreHazards || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await _refreshFromSupabase(resetPagination: false);
+  }
+
+  Future<void> _refreshFromSupabase({required bool resetPagination}) async {
     if (!mounted) return;
-    setState(() => _isRefreshing = true);
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreHazards = true;
+      setState(() => _isRefreshing = true);
+    }
 
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
-      if (mounted) setState(() { loading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          loading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
       return;
     }
 
     try {
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
       final data = await supabase
           .from('resolved_hazards')
           .select('*, hse_worker:assigned_to(*), workers:worker_id(*)')
           .eq('worker_id', userId)
-          .order('resolved_at', ascending: false);
+          .order('resolved_at', ascending: false)
+          .range(pageStart, pageEnd);
 
       final rows = List<Map<String, dynamic>>.from(data);
+      final List<Map<String, dynamic>> updatedRows = resetPagination
+          ? rows
+          : <Map<String, dynamic>>[..._allHazards, ...rows];
 
-      // Persist to cache — strip nested objects for storage
-      await _hazardRepository.saveResolvedHazards(rows);
+      // Persist to cache and keep all loaded pages available offline.
+      await _hazardRepository.saveResolvedHazards(updatedRows);
 
       if (mounted) {
         setState(() {
-          _allHazards = rows;
+          _allHazards = updatedRows;
+          _hasMoreHazards = rows.length == _pageSize;
           _filterHazardsByDate(_selectedDate);
           loading = false;
           _isRefreshing = false;
+          _isLoadingMore = false;
         });
       }
     } on SocketException {
       debugPrint('ℹ️ [ResolvedHazards] Offline — showing cached data.');
-      if (mounted) setState(() { loading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          loading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
     } catch (e) {
       debugPrint('⚠️ [ResolvedHazards] Refresh error: $e');
-      if (mounted) setState(() { loading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          loading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -216,7 +285,7 @@ class _WorkerResolvedHazardsScreenState
       child: Scaffold(
         backgroundColor: backgroundColor,
         body: RefreshIndicator(
-          onRefresh: _refreshFromSupabase,
+          onRefresh: () => _refreshFromSupabase(resetPagination: true),
           color: _headerTeal,
           child: Stack(
             children: [
@@ -230,10 +299,22 @@ class _WorkerResolvedHazardsScreenState
                 child: _buildEmptyState(isDark),
               )
                   : ListView.builder(
+                controller: _scrollController,
                 padding:
                 const EdgeInsets.fromLTRB(20, 220, 20, 120),
-                itemCount: _filteredHazards.length,
+                itemCount: _filteredHazards.length +
+                    (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index == _filteredHazards.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: _headerTeal,
+                        ),
+                      ),
+                    );
+                  }
                   return _buildTimelineItem(
                     _filteredHazards[index],
                     index,

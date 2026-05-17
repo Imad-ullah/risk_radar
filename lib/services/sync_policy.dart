@@ -107,6 +107,7 @@ class SyncPolicy {
     const hseWorkerColumns = {
       'id',
       'current_site_id',
+      'is_available',
       'profile_image_url',
       ...localUploadColumns,
     };
@@ -206,6 +207,20 @@ class SyncPolicy {
 
     if (table == 'hse_workers' && action == 'update' && role == 'hse_worker') {
       _requirePayloadOwner(payload, 'id', currentUserId);
+      return;
+    }
+
+    if (table == 'workers' && action == 'update' && role == 'worker') {
+      _requirePayloadOwner(payload, 'id', currentUserId);
+      final disallowed = payload.keys.where(
+        (key) => !{'id', 'profile_image_url', ...Hazard.localUploadColumns}
+            .contains(key),
+      );
+      if (disallowed.isNotEmpty) {
+        throw SyncValidationException(
+          'Workers can only update their profile photo. Disallowed: ${disallowed.join(', ')}.',
+        );
+      }
       return;
     }
 

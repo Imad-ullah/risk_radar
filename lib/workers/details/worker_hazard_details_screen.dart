@@ -1,57 +1,14 @@
 // lib/workers/details/worker_hazard_details_screen.dart
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:riskradar/services/logger_service.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
+import 'package:riskradar/shared/widgets/voice_note_player.dart' as shared_voice;
 
 // Import your fullscreen viewer
 import '../../shared/widgets/full_image_viewer.dart';
-
-// --- Singleton class to manage audio playback ---
-class VoicePlayerManager {
-  static final VoicePlayerManager _instance = VoicePlayerManager._internal();
-  factory VoicePlayerManager() => _instance;
-
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  String? _currentUrl;
-
-  VoicePlayerManager._internal();
-
-  Stream<PlayerState> get playerStateStream => _audioPlayer.playerStateStream;
-  Stream<Duration?> get durationStream => _audioPlayer.durationStream;
-  Stream<Duration> get positionStream => _audioPlayer.positionStream;
-  String? get currentUrl => _currentUrl;
-
-  Future<void> play(String url) async {
-    if (_currentUrl == url) {
-      _audioPlayer.playing ? _audioPlayer.pause() : _audioPlayer.play();
-    } else {
-      try {
-        await _audioPlayer.stop();
-        await _audioPlayer.setUrl(url);
-        _currentUrl = url;
-        _audioPlayer.play();
-      } catch (e) {
-        debugPrint("Error playing audio: $e");
-        _currentUrl = null;
-      }
-    }
-  }
-
-  void stop() {
-    _audioPlayer.stop();
-    _currentUrl = null;
-  }
-
-  void dispose() {
-    _audioPlayer.dispose();
-    _currentUrl = null;
-  }
-}
 
 // --- Main Screen Widget ---
 class WorkerHazardDetailsScreen extends StatefulWidget {
@@ -65,14 +22,6 @@ class WorkerHazardDetailsScreen extends StatefulWidget {
 }
 
 class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
-  final VoicePlayerManager _voicePlayerManager = VoicePlayerManager();
-
-  @override
-  void dispose() {
-    _voicePlayerManager.stop();
-    super.dispose();
-  }
-
   // Helper to capitalize names
   String _capitalizeName(String name) {
     if (name.isEmpty) return name;
@@ -90,7 +39,8 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
         dateTime = dateTime.toLocal();
       }
       return DateFormat("E, MMM d, yyyy 'at' h:mm a").format(dateTime);
-    } catch (e) {
+    } catch (Object error, StackTrace stackTrace) {
+      LoggerService.error('Invalid hazard timestamp.', error, stackTrace);
       return 'N/A';
     }
   }
@@ -112,8 +62,10 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
       case 'resolved':
+      case 'resolved by other':
         return Colors.teal;
       case 'in_progress':
+      case 'in progress':
         return Colors.blue.shade700;
       case 'assigned':
         return Colors.deepPurple.shade500;
@@ -142,24 +94,38 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
   }
 
   Future<void> _openMap(double lat, double lng) async {
-    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
-    final uri = Uri.parse(url);
+    final String url =
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final Uri uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      debugPrint('Could not launch map.');
+      LoggerService.warning('Could not launch map for $lat,$lng.');
     }
   }
 
-  List<String> _parseStringToList(dynamic data) {
+  List<String> _parseStringToList(Object? data) {
     if (data == null) return [];
-    if (data is List) {
-      return data.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+    if (data is Iterable<Object?>) {
+      return data
+          .map((Object? item) => item?.toString().trim() ?? '')
+          .where((String item) => item.isNotEmpty)
+          .toList();
     }
     if (data is String && data.isNotEmpty) {
-      return data.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+      return data
+          .split(',')
+          .map((String item) => item.trim())
+          .where((String item) => item.isNotEmpty)
+          .toList();
     }
     return [];
+  }
+
+  double? _toDoubleOrNull(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   @override
@@ -169,29 +135,40 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
 
     final hazardData = widget.hazardData;
-    final String title = hazardData['hazard_type'] ?? 'Hazard';
+    final String title = hazardData['hazard_type']?.toString() ?? 'Hazard';
     final String description =
-        hazardData['description'] ?? 'No description provided.';
+        hazardData['description']?.toString() ?? 'No description provided.';
     final List<String> images =
     _parseStringToList(hazardData['images'] ?? hazardData['image_url']);
 
     final String reporterName =
-    _capitalizeName(hazardData['reporter_name'] ?? 'Unknown');
+    _capitalizeName(hazardData['reporter_name']?.toString() ?? 'Unknown');
     final String assignedName =
-    _capitalizeName(hazardData['assigned_name'] ?? 'Not Assigned');
+    _capitalizeName(hazardData['assigned_name']?.toString() ?? 'Not Assigned');
 
-    final String severity = hazardData['severity'] ?? 'Unknown';
-    final String status = hazardData['status'] ?? 'Unknown';
+    final String severity = hazardData['severity']?.toString() ?? 'Unknown';
+    final String status = hazardData['status']?.toString() ?? 'Unknown';
+    final String statusLower = status.toLowerCase();
 
     final String createdAt =
-    _formatTimestamp(hazardData['created_at'], convertLocal: false);
+    _formatTimestamp(hazardData['created_at']?.toString(), convertLocal: false);
     final String assignedAt =
-    _formatTimestamp(hazardData['assigned_at'], convertLocal: true);
+    _formatTimestamp(hazardData['assigned_at']?.toString(), convertLocal: true);
 
     final List<String> voiceUrls =
     _parseStringToList(hazardData['voice_note_url']);
-    final double? latitude = hazardData['latitude'];
-    final double? longitude = hazardData['longitude'];
+    final List<String> resolutionImages =
+    _parseStringToList(hazardData['resolution_image_url']);
+    final List<String> resolutionVoiceUrls =
+    _parseStringToList(hazardData['resolution_voice_note_url']);
+    final String? resolutionNotes = hazardData['resolution_notes']?.toString();
+    final bool hasResolutionDetails =
+        (statusLower == 'resolved' || statusLower == 'resolved by other') &&
+            ((resolutionNotes?.trim().isNotEmpty ?? false) ||
+                resolutionImages.isNotEmpty ||
+                resolutionVoiceUrls.isNotEmpty);
+    final double? latitude = _toDoubleOrNull(hazardData['latitude']);
+    final double? longitude = _toDoubleOrNull(hazardData['longitude']);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -214,7 +191,7 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Updated Gradient Header Card
+            // Gradient header card
             _HazardHeaderCard(
               title: title,
               severity: severity,
@@ -259,8 +236,37 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
               const SizedBox(height: 12),
               _VoiceNoteList(
                   voiceUrls: voiceUrls,
-                  playerManager: _voicePlayerManager,
                   isDark: isDark),
+              const SizedBox(height: 24),
+            ],
+
+            _SectionHeader(title: "Status Timeline", isDark: isDark),
+            const SizedBox(height: 12),
+            _StatusTimeline(
+              currentStatus: status,
+              createdAt: createdAt,
+              assignedAt: assignedAt,
+              startedAt: _formatTimestamp(
+                hazardData['started_at']?.toString(),
+                convertLocal: true,
+              ),
+              resolvedAt: _formatTimestamp(
+                hazardData['resolved_at']?.toString(),
+                convertLocal: true,
+              ),
+              isDark: isDark,
+            ),
+            const SizedBox(height: 24),
+
+            if (hasResolutionDetails) ...[
+              _SectionHeader(title: "Resolution", isDark: isDark),
+              const SizedBox(height: 12),
+              _ResolutionSection(
+                notes: resolutionNotes,
+                imageUrls: resolutionImages,
+                voiceUrls: resolutionVoiceUrls,
+                isDark: isDark,
+              ),
               const SizedBox(height: 24),
             ],
 
@@ -383,7 +389,7 @@ class _HazardHeaderCard extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        // ✅ Gradient: Base Color -> Darker Shade
+        // Gradient: base color to darker shade
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -517,12 +523,10 @@ class _SectionHeader extends StatelessWidget {
 
 class _VoiceNoteList extends StatelessWidget {
   final List<String> voiceUrls;
-  final VoicePlayerManager playerManager;
   final bool isDark;
 
   const _VoiceNoteList(
       {required this.voiceUrls,
-        required this.playerManager,
         required this.isDark});
 
   @override
@@ -538,14 +542,244 @@ class _VoiceNoteList extends StatelessWidget {
             side: BorderSide(
                 color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
           ),
-          child: VoiceNotePlayer(
+          child: shared_voice.VoiceNotePlayer(
             key: ValueKey(voiceUrls[index]),
             url: voiceUrls[index],
-            playerManager: playerManager,
-            isDark: isDark,
           ),
         );
       }),
+    );
+  }
+}
+
+class _StatusTimeline extends StatelessWidget {
+  final String currentStatus;
+  final String createdAt;
+  final String assignedAt;
+  final String startedAt;
+  final String resolvedAt;
+  final bool isDark;
+
+  const _StatusTimeline({
+    required this.currentStatus,
+    required this.createdAt,
+    required this.assignedAt,
+    required this.startedAt,
+    required this.resolvedAt,
+    required this.isDark,
+  });
+
+  int get _currentStepIndex {
+    switch (currentStatus.toLowerCase()) {
+      case 'resolved':
+      case 'resolved by other':
+        return 3;
+      case 'in_progress':
+      case 'in progress':
+        return 2;
+      case 'assigned':
+        return 1;
+      case 'reported':
+      default:
+        return 0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<_TimelineStepData> steps = <_TimelineStepData>[
+      _TimelineStepData(
+        title: 'Reported',
+        timestamp: createdAt,
+        icon: Icons.report_problem_outlined,
+      ),
+      _TimelineStepData(
+        title: 'Assigned',
+        timestamp: assignedAt,
+        icon: Icons.assignment_ind_outlined,
+      ),
+      _TimelineStepData(
+        title: 'In Progress',
+        timestamp: startedAt,
+        icon: Icons.engineering_outlined,
+      ),
+      _TimelineStepData(
+        title: 'Resolved',
+        timestamp: resolvedAt,
+        icon: Icons.verified_outlined,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(
+        children: List<Widget>.generate(steps.length, (int index) {
+          final bool isComplete = index <= _currentStepIndex;
+          final bool isLast = index == steps.length - 1;
+          return _TimelineStep(
+            data: steps[index],
+            isComplete: isComplete,
+            isLast: isLast,
+            isDark: isDark,
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _TimelineStepData {
+  const _TimelineStepData({
+    required this.title,
+    required this.timestamp,
+    required this.icon,
+  });
+
+  final String title;
+  final String timestamp;
+  final IconData icon;
+}
+
+class _TimelineStep extends StatelessWidget {
+  const _TimelineStep({
+    required this.data,
+    required this.isComplete,
+    required this.isLast,
+    required this.isDark,
+  });
+
+  final _TimelineStepData data;
+  final bool isComplete;
+  final bool isLast;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color activeColor =
+        isComplete ? AppColors.brandTeal : Colors.grey.shade400;
+    final String timestampText = data.timestamp == 'N/A'
+        ? 'Pending'
+        : data.timestamp;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Column(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: activeColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    data.icon,
+                    color: isComplete ? AppColors.accentGold : Colors.white,
+                    size: 18,
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: activeColor.withValues(alpha: 0.35),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      data.title,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      timestampText,
+                      style: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResolutionSection extends StatelessWidget {
+  const _ResolutionSection({
+    required this.notes,
+    required this.imageUrls,
+    required this.voiceUrls,
+    required this.isDark,
+  });
+
+  final String? notes;
+  final List<String> imageUrls;
+  final List<String> voiceUrls;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final String? trimmedNotes = notes?.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (trimmedNotes != null && trimmedNotes.isNotEmpty) ...<Widget>[
+            Text(
+              trimmedNotes,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            if (imageUrls.isNotEmpty || voiceUrls.isNotEmpty)
+              const SizedBox(height: 16),
+          ],
+          if (imageUrls.isNotEmpty) ...<Widget>[
+            ImageSlideshow(imageUrls: imageUrls),
+            if (voiceUrls.isNotEmpty) const SizedBox(height: 16),
+          ],
+          if (voiceUrls.isNotEmpty)
+            _VoiceNoteList(voiceUrls: voiceUrls, isDark: isDark),
+        ],
+      ),
     );
   }
 }
@@ -705,136 +939,6 @@ class _DetailItem extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _PlayerData {
-  final PlayerState? playerState;
-  final Duration? duration;
-  final Duration? position;
-  _PlayerData(this.playerState, this.duration, this.position);
-}
-
-class VoiceNotePlayer extends StatelessWidget {
-  final String url;
-  final VoicePlayerManager playerManager;
-  final bool isDark;
-
-  const VoiceNotePlayer(
-      {super.key,
-        required this.url,
-        required this.playerManager,
-        required this.isDark});
-
-  String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return "$minutes:$seconds";
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<String?>(
-      stream: playerManager.playerStateStream
-          .map((_) => playerManager.currentUrl)
-          .startWith(playerManager.currentUrl),
-      builder: (context, activeUrlSnapshot) {
-        final bool isActive = activeUrlSnapshot.data == url;
-
-        return StreamBuilder<_PlayerData>(
-          stream: Rx.combineLatest3(
-              playerManager.playerStateStream,
-              playerManager.durationStream,
-              playerManager.positionStream,
-                  (a, b, c) => _PlayerData(a, b, c)),
-          builder: (context, snapshot) {
-            final playerState = snapshot.data?.playerState;
-            final playing = playerState?.playing ?? false;
-            final duration = snapshot.data?.duration ?? Duration.zero;
-            final position = isActive
-                ? (snapshot.data?.position ?? Duration.zero)
-                : Duration.zero;
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(isActive && playing
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_filled_rounded),
-                    iconSize: 40.0,
-                    color: AppColors.brandTeal,
-                    onPressed: () => playerManager.play(url),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Transform.translate(
-                      offset: const Offset(0.0, 8.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            height: 20,
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 3.0,
-                                thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 6.0),
-                                overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 12.0),
-                                activeTrackColor: AppColors.brandTeal,
-                                inactiveTrackColor:
-                                AppColors.brandTeal.withValues(alpha: 0.2),
-                                thumbColor: AppColors.brandTeal,
-                              ),
-                              child: Slider(
-                                value: position.inMilliseconds
-                                    .toDouble()
-                                    .clamp(0.0,
-                                    duration.inMilliseconds.toDouble()),
-                                max: duration.inMilliseconds.toDouble(),
-                                onChanged: (value) {
-                                  if (isActive) {
-                                    playerManager._audioPlayer.seek(
-                                        Duration(milliseconds: value.toInt()));
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(_formatDuration(position),
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.grey[400]
-                                            : Colors.grey[600])),
-                                Text(_formatDuration(duration),
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.grey[400]
-                                            : Colors.grey[600])),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

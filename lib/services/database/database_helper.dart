@@ -44,13 +44,7 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     await _createSyncQueueTable(db);
     await _createSitesTable(db);
-
-    if (oldVersion < 2) {
-      await db.execute('DROP TABLE IF EXISTS $hazardsTable');
-      await _createHazardsTable(db);
-    } else {
-      await _createHazardsTable(db);
-    }
+    await _migrateHazardsTableIfNeeded(db);
 
     if (oldVersion < 3) {
       await _createCacheTable(db);
@@ -63,7 +57,7 @@ class DatabaseHelper {
     await _createIndexes(db);
   }
 
-  Future<void> _createSyncQueueTable(Database db) async {
+  Future<void> _createSyncQueueTable(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $syncQueueTable (
         id TEXT PRIMARY KEY,
@@ -75,7 +69,7 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<void> _createHazardsTable(Database db) async {
+  Future<void> _createHazardsTable(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $hazardsTable (
         id TEXT NOT NULL,
@@ -89,7 +83,7 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<void> _createSitesTable(Database db) async {
+  Future<void> _createSitesTable(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $sitesTable (
         id TEXT PRIMARY KEY,
@@ -99,7 +93,7 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<void> _createCacheTable(Database db) async {
+  Future<void> _createCacheTable(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $cacheTable (
         cache_key TEXT PRIMARY KEY,
@@ -109,7 +103,7 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<void> _createIndexes(Database db) async {
+  Future<void> _createIndexes(DatabaseExecutor db) async {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at '
       'ON $syncQueueTable(created_at)',
@@ -118,6 +112,56 @@ class DatabaseHelper {
       'CREATE INDEX IF NOT EXISTS idx_hazards_status '
       'ON $hazardsTable(status)',
     );
+  }
+
+  Future<void> _migrateHazardsTableIfNeeded(Database db) async {
+    final tableInfo = await db.rawQuery('PRAGMA table_info($hazardsTable)');
+    if (tableInfo.isEmpty) {
+      await _createHazardsTable(db);
+      return;
+    }
+
+    final columnNames = tableInfo.map((row) => row['name'] as String).toSet();
+    const requiredColumns = {
+      'id',
+      'source_table',
+      'status',
+      'payload_json',
+      'created_at',
+      'updated_at',
+    };
+    if (requiredColumns.every(columnNames.contains)) return;
+
+    final legacyTable = '${hazardsTable}_legacy';
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      await txn.execute('DROP TABLE IF EXISTS $legacyTable');
+      await txn.execute('ALTER TABLE $hazardsTable RENAME TO $legacyTable');
+      await _createHazardsTable(txn);
+
+      final legacyRows = await txn.query(legacyTable);
+      for (final row in legacyRows) {
+        final id = row['id']?.toString();
+        if (id == null || id.isEmpty) continue;
+
+        final payloadJson = row['payload_json']?.toString();
+        await txn.insert(
+          hazardsTable,
+          {
+            'id': id,
+            'source_table': row['source_table']?.toString() ?? hazardsTable,
+            'status': row['status']?.toString(),
+            'payload_json': payloadJson == null || payloadJson.isEmpty
+                ? jsonEncode(row)
+                : payloadJson,
+            'created_at': row['created_at']?.toString(),
+            'updated_at': row['updated_at']?.toString() ?? now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await txn.execute('DROP TABLE IF EXISTS $legacyTable');
+    });
   }
 
   Future<void> _migrateCacheKeyColumn(Database db) async {

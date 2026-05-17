@@ -1,6 +1,7 @@
 // lib/app_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 
 // Import your existing screens
 import 'officer_emergency_details_screen.dart';
@@ -26,46 +27,100 @@ class AppSettingsScreen extends StatelessWidget {
   Future<void> _handleSignOut(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          'Confirm Logout',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        content: Text(
-          'Are you sure you want to log out?',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.brandTeal,
+                AppColors.brandTeal.withValues(alpha: 0.85),
+              ],
             ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.logout_rounded, color: Colors.white, size: 32),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Confirm Logout',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Are you sure you want to log out of RiskRadar?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: 28),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(foregroundColor: Colors.white),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.brandTeal,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: const Text(
+                      'Logout',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 
     if (confirm == true && context.mounted) {
       try {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Logging out...',
-              style: TextStyle(color: Theme.of(context).colorScheme.onInverseSurface),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.inverseSurface,
-          ),
+          const SnackBar(content: Text('Logging out...')),
         );
         await Supabase.instance.client.auth.signOut();
         if (context.mounted) {
@@ -74,13 +129,7 @@ class AppSettingsScreen extends StatelessWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Logout failed: ${e.toString()}',
-                style: TextStyle(color: Theme.of(context).colorScheme.onError),
-              ),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            SnackBar(content: Text('Logout failed: $e')),
           );
         }
       }
@@ -89,9 +138,7 @@ class AppSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = currentThemeMode == ThemeMode.dark ||
-        (currentThemeMode == ThemeMode.system &&
-            MediaQuery.of(context).platformBrightness == Brightness.dark);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
       canPop: false,
@@ -101,7 +148,7 @@ class AppSettingsScreen extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
         body: SafeArea(
           child: SingleChildScrollView(
             child: Padding(
@@ -142,11 +189,15 @@ class AppSettingsScreen extends StatelessWidget {
                   _CompactSettingsTile(
                     icon: Icons.color_lens_outlined,
                     title: isDark ? 'Dark Mode' : 'Light Mode',
-                    trailing: ThemeToggle(
-                      isDark: isDark,
-                      onChanged: (value) {
-                        onThemeChanged(value ? ThemeMode.dark : ThemeMode.light);
-                      },
+                    enableTileTap: true,
+                    trailing: Switch.adaptive(
+                      value: isDark,
+                      onChanged: (value) =>
+                          onThemeChanged(value ? ThemeMode.dark : ThemeMode.light),
+                      activeThumbColor: AppColors.accentGold,
+                      activeTrackColor: AppColors.brandTeal.withValues(alpha: 0.65),
+                      inactiveThumbColor: Colors.white,
+                      inactiveTrackColor: const Color(0xFF355F67),
                     ),
                     onTap: () {
                       onThemeChanged(isDark ? ThemeMode.light : ThemeMode.dark);
@@ -159,12 +210,12 @@ class AppSettingsScreen extends StatelessWidget {
                     icon: Icons.notifications_outlined,
                     title: 'Notifications',
                     onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text(
                           'Notification settings coming soon',
-                          style: TextStyle(color: Theme.of(context).colorScheme.onInverseSurface),
+                          style: TextStyle(color: Colors.white),
                         ),
-                        backgroundColor: Theme.of(context).colorScheme.inverseSurface,
+                        backgroundColor: AppColors.brandTeal,
                       ),
                     ),
                   ),
@@ -175,12 +226,12 @@ class AppSettingsScreen extends StatelessWidget {
                     icon: Icons.security_outlined,
                     title: 'Privacy & Security',
                     onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text(
                           'Privacy settings coming soon',
-                          style: TextStyle(color: Theme.of(context).colorScheme.onInverseSurface),
+                          style: TextStyle(color: Colors.white),
                         ),
-                        backgroundColor: Theme.of(context).colorScheme.inverseSurface,
+                        backgroundColor: AppColors.brandTeal,
                       ),
                     ),
                   ),
@@ -195,21 +246,39 @@ class AppSettingsScreen extends StatelessWidget {
                   const SizedBox(height: 32),
 
                   // Sign Out Button
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade600,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 56),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFE53845), Color(0xFFB0002C)],
                       ),
-                      elevation: 2,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF295F).withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    onPressed: () => _handleSignOut(context),
-                    icon: const Icon(Icons.logout, size: 22),
-                    label: const Text(
-                      'Sign Out',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 56),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () => _handleSignOut(context),
+                      icon: const Icon(Icons.logout, size: 22),
+                      label: const Text(
+                        'Sign Out',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -232,6 +301,7 @@ class _CompactSettingsTile extends StatelessWidget {
   final String title;
   final VoidCallback onTap;
   final Widget? trailing;
+  final bool enableTileTap;
 
   const _CompactSettingsTile({
     required this.icon,
@@ -239,26 +309,35 @@ class _CompactSettingsTile extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.trailing,
+    this.enableTileTap = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBase = isDark
+        ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
+        : AppColors.brandTeal;
+
     return InkWell(
-      onTap: onTap,
+      onTap: enableTileTap ? onTap : null,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: cardBase,
           border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+            color: isDark
+                ? AppColors.surfaceTeal.withValues(alpha: 0.8)
+                : AppColors.brandTeal.withValues(alpha: 0.22),
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -266,9 +345,7 @@ class _CompactSettingsTile extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: iconColor ?? (Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black),
+              color: iconColor ?? Colors.white,
               size: 26,
             ),
             const SizedBox(width: 16),
@@ -278,7 +355,7 @@ class _CompactSettingsTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurface,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -287,7 +364,7 @@ class _CompactSettingsTile extends StatelessWidget {
             else
               Icon(
                 Icons.chevron_right,
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: Colors.white70,
                 size: 24,
               ),
           ],
@@ -300,104 +377,3 @@ class _CompactSettingsTile extends StatelessWidget {
 // -----------------------------------------------------------
 // Theme Toggle Widget (Optimized for smaller size)
 // -----------------------------------------------------------
-class ThemeToggle extends StatelessWidget {
-  final bool isDark;
-  final ValueChanged<bool> onChanged;
-
-  const ThemeToggle({
-    super.key,
-    required this.isDark,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color trackLight = Colors.grey.shade300;
-    final Color trackDark = Colors.grey.shade800;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => onChanged(!isDark),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        width: 70,
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark
-                ? [trackDark, Colors.black54]
-                : [trackLight, Colors.white],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Icon(
-                  Icons.wb_sunny_rounded,
-                  size: 16,
-                  color: isDark ? Colors.white30 : Colors.orangeAccent.shade700,
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Icon(
-                  Icons.nightlight_round,
-                  size: 16,
-                  color: isDark ? Colors.indigoAccent.shade100 : Colors.black26,
-                ),
-              ),
-            ),
-            AnimatedAlign(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              alignment: isDark ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(
-                    isDark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
-                    size: 15,
-                    color: isDark ? Colors.white : Colors.orangeAccent.shade700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

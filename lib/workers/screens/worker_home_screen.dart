@@ -4,8 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:riskradar/services/providers/hazard_provider.dart';
+import 'package:riskradar/services/providers/notification_count_provider.dart';
 
 // --- Imports ---
 import 'worker_hazard_report_screen.dart';
@@ -16,6 +19,8 @@ import '../settings/worker_notification_screen.dart';
 import '../settings/worker_view_profile_screen.dart';
 import '../../shared/settings/about_app_screen.dart';
 import '../../shared/screens/shared_emergency_sos_screen.dart';
+import '../../shared/widgets/offline_banner.dart';
+import '../../shared/widgets/realtime_connection_indicator.dart';
 import '../settings/worker_hazard_notifier.dart';
 import '../tabs/ai_image.dart';
 import '../../shared/widgets/risk_radar_loader.dart';
@@ -530,59 +535,69 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
 
   Widget _dashboardBody() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return RefreshIndicator(
-      onRefresh: () async {
-        final userId = supabase.auth.currentUser?.id;
-        if (userId != null) await _refreshFromSupabase(userId);
-      },
-      color: _brandTeal,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Stay safe and",
-                style: TextStyle(
-                    fontSize: 22,
-                    color: isDark
-                        ? Colors.grey.shade400
-                        : Colors.grey.shade600)),
-            const Text("remain Vigilant",
-                style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: _accentGold)),
-            const SizedBox(height: 25),
-            Row(
+    return Consumer(
+      builder: (context, ref, child) {
+        final activeHazardCount = ref.watch(hazardProvider).when(
+              data: (hazards) => hazards.length,
+              error: (error, stackTrace) => 0,
+              loading: () => 0,
+            );
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            final userId = supabase.auth.currentUser?.id;
+            if (userId != null) await _refreshFromSupabase(userId);
+          },
+          color: _brandTeal,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildDashboardCard(
-                    title: "AI Scanner",
-                    subtitle: "Detect hazards instantly",
-                    icon: Icons.auto_awesome,
-                    buttonText: "Scan Now",
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const HazardScreen())),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildDashboardCard(
-                    title: "Hazards",
-                    subtitle: "View active risks",
-                    icon: Icons.warning_rounded,
-                    buttonText: "View",
-                    onTap: () => _onItemTapped(1),
-                  ),
+                Text("Stay safe and",
+                    style: TextStyle(
+                        fontSize: 22,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600)),
+                const Text("remain Vigilant",
+                    style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: _accentGold)),
+                const SizedBox(height: 25),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDashboardCard(
+                        title: "AI Scanner",
+                        subtitle: "Detect hazards instantly",
+                        icon: Icons.auto_awesome,
+                        buttonText: "Scan Now",
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const HazardScreen())),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildDashboardCard(
+                        title: "Hazards",
+                        subtitle: "$activeHazardCount active risks",
+                        icon: Icons.warning_rounded,
+                        buttonText: "View",
+                        onTap: () => _onItemTapped(1),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -708,10 +723,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
-          ListenableBuilder(
-            listenable: workerHazardNotifier,
-            builder: (context, _) {
-              final count = workerHazardNotifier.unreadCount;
+          const RealtimeConnectionIndicator(),
+          Consumer(
+            builder: (context, ref, _) {
+              final count = ref.watch(notificationCountProvider).when(
+                    data: (value) => value,
+                    error: (error, stackTrace) => 0,
+                    loading: () => 0,
+                  );
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -752,7 +771,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
           const SizedBox(width: 8),
         ],
       ),
-      body: screens[_selectedIndex],
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: screens[_selectedIndex]),
+        ],
+      ),
       floatingActionButton: _selectedIndex == 0
           ? Padding(
         padding: const EdgeInsets.only(bottom: 90.0),

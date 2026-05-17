@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/supabase_service.dart';
 import 'package:riskradar/officers/screens/officer_home_screen.dart';
+import 'package:riskradar/hse_worker/screens/hse_worker_dashboard.dart';
 import 'package:riskradar/workers/screens/worker_home_screen.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart'; // ✅ Import Added
 
@@ -36,9 +38,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   bool _isProfileSaved = false;
   bool _isLoadingProfile = true;
 
-  final List<String> _roles = ['Worker', 'Officer', 'HSE Worker'];
+  static const String _workerRole = 'Worker';
+  static const String _contractorRole = 'Contractor';
+  static const String _safetyRole = 'Safety Officer';
+
+  final List<String> _roles = [
+    _workerRole,
+    _safetyRole,
+    _contractorRole,
+  ];
   final List<String> _workTypes = ['Mason', 'Plumber', 'Electrician', 'Painter', 'Carpenter', 'Welder', 'Other'];
-  final List<String> _hseDesignations = ['HSE Inspector', 'Safety Engineer', 'Safety Supervisor', 'Technician', 'Other'];
+  final List<String> _hseDesignations = ['Safety Inspector', 'Safety Engineer', 'Safety Supervisor', 'Technician', 'Other'];
   final List<String> _days = List.generate(31, (i) => '${i + 1}');
   final List<String> _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   final List<String> _years = List.generate(80, (i) => '${DateTime.now().year - i}');
@@ -194,12 +204,137 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void _navigateToHomeScreen() {
     void onThemeChanged(ThemeMode mode) {}
     Widget screen;
-    if (_role == 'Officer') {
+    if (_role == _contractorRole) {
       screen = OfficerHomeScreen(currentThemeMode: ThemeMode.system, onThemeChanged: onThemeChanged);
+    } else if (_role == _safetyRole) {
+      screen = HSEWorkerHomeScreen(currentThemeMode: ThemeMode.system, onThemeChanged: onThemeChanged);
     } else {
       screen = WorkerHomeScreen(currentThemeMode: ThemeMode.system, onThemeChanged: onThemeChanged);
     }
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _changeAccount() async {
+    if (_isSaving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF1B3D3D),
+                const Color(0xFF1B3D3D).withValues(alpha: 0.85),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Change Account',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'You will be signed out and returned to login so you can use a different email.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: 28),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(foregroundColor: Colors.white),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF1B3D3D),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: const Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await Supabase.instance.client.auth.signOut();
+      await AuthRepository().clearAll();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Could not sign out. Please try again.', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _loadProfileIfExists() async {
@@ -211,12 +346,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     try {
       final officer = await Supabase.instance.client.from('officers').select().eq('id', user.id).maybeSingle();
       if (officer != null) {
-        setState(() { _role = 'Officer'; _firstNameController.text = officer['first_name'] ?? ''; _isProfileSaved = true; });
+        setState(() { _role = _contractorRole; _firstNameController.text = officer['first_name'] ?? ''; _isProfileSaved = true; });
         _navigateToHomeScreen(); return;
       }
       final worker = await Supabase.instance.client.from('workers').select().eq('id', user.id).maybeSingle();
       if (worker != null) {
-        setState(() { _role = 'Worker'; _firstNameController.text = worker['first_name'] ?? ''; _isProfileSaved = true; });
+        setState(() { _role = _workerRole; _firstNameController.text = worker['first_name'] ?? ''; _isProfileSaved = true; });
+        _navigateToHomeScreen(); return;
+      }
+      final safetyWorker = await Supabase.instance.client.from('hse_workers').select().eq('id', user.id).maybeSingle();
+      if (safetyWorker != null) {
+        setState(() { _role = _safetyRole; _firstNameController.text = safetyWorker['first_name'] ?? ''; _isProfileSaved = true; });
         _navigateToHomeScreen(); return;
       }
     } catch (e) { debugPrint("Error loading profile: $e"); }
@@ -226,12 +366,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _onSave() async {
     if (_isSaving || _isProfileSaved) return;
     if (_role == null || _firstNameController.text.trim().isEmpty || _imageFile == null) {
-      _showMessage('Please complete all required fields & upload a photo.'); return;
+      _showMessage('Please complete all required fields and upload a photo.', isError: true); return;
     }
     setState(() => _isSaving = true);
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      final imageUrl = await SupabaseService().uploadProfileImage(_imageFile!, user!.id, 'profile');
+      if (user == null) {
+        _showMessage('Your session expired. Please sign in again.', isError: true);
+        return;
+      }
 
       String? dobFormatted;
       if (_birthDay != null && _birthMonth != null && _birthYear != null) {
@@ -241,6 +384,34 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       // Safe parse
       int? officerUid = int.tryParse(_officerUIDController.text.trim());
+      if (_role == _workerRole || _role == _safetyRole) {
+        if (officerUid == null) {
+          await _showContractorUidDialog(
+            title: 'Contractor UID required',
+            message: 'Enter the contractor UID given by your contractor before continuing.',
+            icon: Icons.badge_outlined,
+          );
+          return;
+        }
+
+        final contractor = await Supabase.instance.client
+            .from('officers')
+            .select('id, first_name, last_name, officer_uid')
+            .eq('officer_uid', officerUid)
+            .maybeSingle();
+
+        if (contractor == null) {
+          await _showContractorUidDialog(
+            title: 'No contractor found',
+            message:
+                'We could not find a contractor assigned to UID $officerUid. Please check the UID and try again.',
+            icon: Icons.person_search_rounded,
+          );
+          return;
+        }
+      }
+
+      final imageUrl = await SupabaseService().uploadProfileImage(_imageFile!, user.id, 'profile');
 
       final data = {
         'id': user.id,
@@ -252,9 +423,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'created_at': DateTime.now().toIso8601String(),
       };
 
-      if (_role == 'Worker') {
+      if (_role == _workerRole) {
         await Supabase.instance.client.from('workers').insert({...data, 'officer_uid': officerUid, 'work_type': _workType});
-      } else if (_role == 'HSE Worker') {
+      } else if (_role == _safetyRole) {
         await Supabase.instance.client.from('hse_workers').insert({...data, 'officer_uid': officerUid, 'designation': _hseDesignation});
       } else {
         await Supabase.instance.client.from('officers').insert(data);
@@ -266,8 +437,78 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     setState(() => _isSaving = false);
   }
 
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  Future<void> _showContractorUidDialog({
+    required String title,
+    required String message,
+    required IconData icon,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6A050).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: const Color(0xFFE6A050)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF1B3D3D),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            color: Colors.grey.shade700,
+            height: 1.35,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Edit UID',
+              style: TextStyle(
+                color: Color(0xFF1B3D3D),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMessage(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isError ? const Color(0xFF8B1E24) : const Color(0xFF1B3D3D),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Text(
+          msg,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -393,15 +634,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     setState(() { _role = value; _workType = null; _hseDesignation = null; _officerUIDController.clear(); });
                   }, Icons.work_outline),
 
-                  if (_role == 'Worker' || _role == 'HSE Worker') ...[
+                  if (_role == _workerRole || _role == _safetyRole) ...[
                     const SizedBox(height: 20),
-                    _buildCustomTextField(_officerUIDController, "Officer UID", Icons.badge_outlined, type: TextInputType.number),
+                    _buildCustomTextField(_officerUIDController, "Contractor UID", Icons.badge_outlined, type: TextInputType.number),
                     const SizedBox(height: 20),
                     _buildCustomDropdown(
-                        _role == 'Worker' ? "Type of Work" : "Designation",
-                        _role == 'Worker' ? _workTypes : _hseDesignations,
-                        _role == 'Worker' ? _workType : _hseDesignation,
-                            (val) => setState(() => _role == 'Worker' ? _workType = val : _hseDesignation = val),
+                        _role == _workerRole ? "Trade / Work Type" : "Safety Role",
+                        _role == _workerRole ? _workTypes : _hseDesignations,
+                        _role == _workerRole ? _workType : _hseDesignation,
+                            (val) => setState(() => _role == _workerRole ? _workType = val : _hseDesignation = val),
                         Icons.category_outlined
                     ),
                   ],
@@ -447,7 +688,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 14),
+                  TextButton.icon(
+                    onPressed: _isSaving ? null : _changeAccount,
+                    style: TextButton.styleFrom(
+                      foregroundColor: tealColor,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 10,
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout_rounded, size: 18),
+                    label: const Text(
+                      'Change account',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(height: 26),
                 ],
               ),
             ),

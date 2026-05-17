@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,6 +17,10 @@ import 'hse_worker_view_profile_screen.dart';
 import '../../shared/settings/about_app_screen.dart';
 import '../../shared/screens/shared_emergency_sos_screen.dart';
 import '../../shared/widgets/risk_radar_loader.dart';
+import '../../shared/widgets/offline_banner.dart';
+import '../../shared/widgets/realtime_connection_indicator.dart';
+import 'package:riskradar/services/providers/hse_task_provider.dart';
+import 'package:riskradar/services/providers/notification_count_provider.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
 
@@ -517,82 +522,92 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _refreshFromSupabase,
-      color: _accentGold,
-      backgroundColor: _brandTeal,
-      child: Stack(
-        children: [
-          SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Let's become",
-                    style: TextStyle(
-                        fontSize: 22,
-                        color: isDark
-                            ? Colors.grey.shade400
-                            : Colors.grey.shade600)),
-                const Text("more Productive",
-                    style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: _accentGold)),
-                const SizedBox(height: 25),
+    return Consumer(
+      builder: (context, ref, child) {
+        final activeTaskCount = ref.watch(hseTaskProvider).when(
+              data: (hazards) => hazards.length,
+              error: (error, stackTrace) => activeTasks,
+              loading: () => activeTasks,
+            );
 
-                Row(
+        return RefreshIndicator(
+          onRefresh: _refreshFromSupabase,
+          color: _accentGold,
+          backgroundColor: _brandTeal,
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _buildThemedCard(
-                        icon: Icons.assignment_turned_in,
-                        title: "$activeTasks Active",
-                        subtitle: "Tasks in progress",
-                        buttonText: "View All",
-                        onTap: () => _onItemTapped(1),
-                        showProgress: true,
-                      ),
+                    Text("Let's become",
+                        style: TextStyle(
+                            fontSize: 22,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600)),
+                    const Text("more Productive",
+                        style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: _accentGold)),
+                    const SizedBox(height: 25),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildThemedCard(
+                            icon: Icons.assignment_turned_in,
+                            title: "$activeTaskCount Active",
+                            subtitle: "Tasks in progress",
+                            buttonText: "View All",
+                            onTap: () => _onItemTapped(1),
+                            showProgress: true,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildThemedCard(
+                            icon: Icons.engineering,
+                            title: "$teamCount",
+                            subtitle: "Total Workforce",
+                            buttonText: "View Workforce",
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => HSETeamMembersScreen(
+                                        currentSiteId: currentSiteId))),
+                            showProgress: false,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildThemedCard(
-                        icon: Icons.engineering,
-                        title: "$teamCount",
-                        subtitle: "Total Workforce",
-                        buttonText: "View Workforce",
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => HSETeamMembersScreen(
-                                    currentSiteId: currentSiteId))),
-                        showProgress: false,
-                      ),
-                    ),
+
+                    // Bottom padding for FAB + nav bar
+                    const SizedBox(height: 160),
                   ],
                 ),
-
-                // Bottom padding for FAB + nav bar
-                const SizedBox(height: 160),
-              ],
-            ),
-          ),
-          if (_isRefreshing)
-            Positioned(
-              top: 10,
-              right: 20,
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      _brandTeal.withValues(alpha: 0.5)),
-                ),
               ),
-            ),
-        ],
-      ),
+              if (_isRefreshing)
+                Positioned(
+                  top: 10,
+                  right: 20,
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          _brandTeal.withValues(alpha: 0.5)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -732,10 +747,14 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.white)),
           actions: [
-            ListenableBuilder(
-              listenable: workerHazardNotifier,
-              builder: (context, child) {
-                final count = workerHazardNotifier.unreadCount;
+            const RealtimeConnectionIndicator(),
+            Consumer(
+              builder: (context, ref, child) {
+                final count = ref.watch(notificationCountProvider).when(
+                      data: (value) => value,
+                      error: (error, stackTrace) => 0,
+                      loading: () => 0,
+                    );
                 return Stack(
                   alignment: Alignment.center,
                   children: [
@@ -778,13 +797,21 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
           ],
         ),
 
-        body: _screensInitialized
-            ? IndexedStack(
-          index: _selectedIndex,
-          children: _screens,
-        )
-            : const RiskRadarLoadingScreen(
-            message: 'Preparing screens...'),
+        body: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: _screensInitialized
+                  ? IndexedStack(
+                      index: _selectedIndex,
+                      children: _screens,
+                    )
+                  : const RiskRadarLoadingScreen(
+                      message: 'Preparing screens...',
+                    ),
+            ),
+          ],
+        ),
 
         floatingActionButton: _selectedIndex == 0
             ? Padding(

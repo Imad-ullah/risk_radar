@@ -13,6 +13,7 @@ dependencies:
 
   # AI + ENV
   connectivity_plus: 7.1.1
+  flutter_riverpod: ^3.3.1
 
   # UI
   cupertino_icons: 1.0.8
@@ -24,6 +25,9 @@ dependencies:
   cached_network_image: 3.4.1
   flutter_screenutil: 5.9.3
   fl_chart: 1.2.0
+  flutter_map: 8.2.2
+  latlong2: 0.9.1
+  google_maps_flutter: 2.12.3
 
   # Authentication + Backend
   supabase_flutter: 2.12.0

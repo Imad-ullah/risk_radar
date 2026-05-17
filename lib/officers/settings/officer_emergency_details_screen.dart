@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 
 class OfficerEmergencyDetailsScreen extends StatefulWidget {
   final String officerId;
@@ -21,7 +22,6 @@ class _OfficerEmergencyDetailsScreenState
   final _formKey = GlobalKey<FormState>();
   final SyncRepository _syncRepository = SyncRepository();
 
-  // Controllers
   final TextEditingController _contactNameController = TextEditingController();
   final TextEditingController _relationshipController = TextEditingController();
   final TextEditingController _allergiesController = TextEditingController();
@@ -43,7 +43,6 @@ class _OfficerEmergencyDetailsScreenState
 
   @override
   void dispose() {
-    // Dispose all controllers to prevent memory leaks
     _contactNameController.dispose();
     _relationshipController.dispose();
     _allergiesController.dispose();
@@ -57,7 +56,6 @@ class _OfficerEmergencyDetailsScreenState
     super.dispose();
   }
 
-  // --- Data Logic (Unchanged) ---
   Future<void> _loadEmergencyDetails() async {
     setState(() => _loading = true);
     final cached =
@@ -164,8 +162,9 @@ class _OfficerEmergencyDetailsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Emergency details saved successfully'),
-          backgroundColor: Colors.green),
+            content: Text('Emergency details saved successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context);
       }
@@ -199,8 +198,9 @@ class _OfficerEmergencyDetailsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error saving emergency details: $e'),
-              backgroundColor: Colors.red),
+            content: Text('Error saving emergency details: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -210,11 +210,8 @@ class _OfficerEmergencyDetailsScreenState
     }
   }
 
-  void _addPhoneNumber() {
-    setState(() {
-      _phoneControllers.add(TextEditingController());
-    });
-  }
+  void _addPhoneNumber() =>
+      setState(() => _phoneControllers.add(TextEditingController()));
 
   void _removePhoneNumber(int index) {
     setState(() {
@@ -227,248 +224,311 @@ class _OfficerEmergencyDetailsScreenState
     });
   }
 
-  // --- UI Build Method ---
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // A theme-aware input decoration with dark borders
-    final inputDecoration = InputDecoration(
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: colorScheme.outline, width: 1.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2.0),
-      ),
-      filled: true,
-      fillColor: colorScheme.surfaceContainer,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF121212) : AppColors.backgroundLight;
 
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerLowest,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Emergency Details'),
-        backgroundColor: colorScheme.surfaceContainerLowest,
-        elevation: 0,
-        foregroundColor: colorScheme.onSurface,
+        title: const Text(
+          'My Emergency Details',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: AppColors.brandTeal,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-        key: _formKey,
-        child: ListView(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          children: [
-            _buildSectionCard(
-              context: context,
-              title: 'Personal Contact',
-              icon: Icons.person_rounded,
-              children: [
-                TextFormField(
-                  controller: _contactNameController,
-                  decoration: inputDecoration.copyWith(
-                      labelText: 'Contact Name',
-                      hintText: 'e.g., Jane Doe'),
-                  validator: (value) =>
-                  value!.isEmpty ? 'Please enter a contact name' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _relationshipController,
-                  decoration: inputDecoration.copyWith(
-                      labelText: 'Relationship',
-                      hintText: 'e.g., Spouse, Sibling'),
-                ),
-                const SizedBox(height: 16),
-                ..._phoneControllers.asMap().entries.map((entry) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: TextFormField(
-                      controller: entry.value,
-                      decoration: inputDecoration.copyWith(
-                        labelText: 'Phone Number ${entry.key + 1}',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                              _phoneControllers.length > 1
-                                  ? Icons.remove_circle_outline
-                                  : Icons.add_circle_outline,
-                              color: _phoneControllers.length > 1
-                                  ? colorScheme.error
-                                  : colorScheme.primary),
-                          onPressed: () => _phoneControllers.length > 1
-                              ? _removePhoneNumber(entry.key)
-                              : _addPhoneNumber(),
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    _buildSectionCard(
+                      title: 'Personal Emergency Contact',
+                      icon: Icons.person_pin_rounded,
+                      isDark: isDark,
+                      children: [
+                        _buildTextField(
+                          controller: _contactNameController,
+                          label: 'Contact Name',
+                          isDark: isDark,
+                          validator: (value) => value!.isEmpty
+                              ? 'Please enter a contact name'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _relationshipController,
+                          label: 'Relationship',
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        ..._phoneControllers.asMap().entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: _buildTextField(
+                              controller: entry.value,
+                              label: 'Phone Number ${entry.key + 1}',
+                              isDark: isDark,
+                              inputType: TextInputType.phone,
+                              suffixIcon: _phoneControllers.length > 1
+                                  ? IconButton(
+                                      icon: const Icon(Icons.remove_circle,
+                                          color: Colors.redAccent),
+                                      onPressed: () =>
+                                          _removePhoneNumber(entry.key),
+                                    )
+                                  : null,
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter a phone number'
+                                  : null,
+                            ),
+                          );
+                        }),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: _addPhoneNumber,
+                            icon: const Icon(Icons.add_rounded,
+                                color: AppColors.brandTeal),
+                            label: const Text(
+                              'Add Number',
+                              style: TextStyle(
+                                color: AppColors.brandTeal,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionCard(
+                      title: 'Medical Information',
+                      icon: Icons.medical_services_rounded,
+                      isDark: isDark,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: _bloodType,
+                          items: [
+                            'A+',
+                            'A-',
+                            'B+',
+                            'B-',
+                            'AB+',
+                            'AB-',
+                            'O+',
+                            'O-'
+                          ]
+                              .map(
+                                (type) => DropdownMenuItem(
+                                  value: type,
+                                  child: Text(
+                                    type,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) => setState(() => _bloodType = value),
+                          dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                          decoration: _inputDecoration('Blood Type', isDark),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _allergiesController,
+                          label: 'Allergies',
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _conditionsController,
+                          label: 'Chronic Conditions',
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionCard(
+                      title: 'Emergency Services',
+                      icon: Icons.local_hospital_rounded,
+                      isDark: isDark,
+                      children: [
+                        _buildTextField(
+                          controller: _ambulanceController,
+                          label: 'Ambulance Number',
+                          isDark: isDark,
+                          inputType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _fireBrigadeController,
+                          label: 'Fire Brigade Number',
+                          isDark: isDark,
+                          inputType: TextInputType.phone,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionCard(
+                      title: 'Contact For Workers',
+                      icon: Icons.work_rounded,
+                      isDark: isDark,
+                      children: [
+                        Text(
+                          'This number will be visible to your Team for emergency contact.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: isDark ? Colors.grey[400] : Colors.grey[700],
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _supervisorController,
+                          label: 'Your Contact Number',
+                          isDark: isDark,
+                          inputType: TextInputType.phone,
+                          validator: (value) => value!.trim().isEmpty
+                              ? 'This contact number is required'
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _loading ? null : _saveEmergencyDetails,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.brandTeal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 4,
+                        ),
+                        child: const Text(
+                          'Save My Details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      keyboardType: TextInputType.phone,
-                      validator: (value) => value!.isEmpty
-                          ? 'Please enter a phone number'
-                          : null,
                     ),
-                  );
-                }),
-              ],
-            ),
-            _buildSectionCard(
-              context: context,
-              title: 'Medical Information',
-              icon: Icons.medical_services_rounded,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: _bloodType,
-                  items: [
-                    'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
-                  ]
-                      .map((type) =>
-                      DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) => setState(() => _bloodType = value),
-                  decoration:
-                  inputDecoration.copyWith(labelText: 'Blood Type'),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _allergiesController,
-                  decoration: inputDecoration.copyWith(
-                      labelText: 'Allergies',
-                      hintText: 'e.g., Penicillin, Peanuts'),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _conditionsController,
-                  decoration: inputDecoration.copyWith(
-                      labelText: 'Chronic Conditions',
-                      hintText: 'e.g., Asthma, Diabetes'),
-                ),
-              ],
-            ),
-            _buildSectionCard(
-              context: context,
-              title: 'Emergency Services',
-              icon: Icons.local_hospital_rounded,
-              children: [
-                TextFormField(
-                  controller: _ambulanceController,
-                  decoration:
-                  inputDecoration.copyWith(labelText: 'Ambulance Number'),
-                  keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _fireBrigadeController,
-                  decoration: inputDecoration.copyWith(
-                      labelText: 'Fire Brigade Number'),
-                  keyboardType: TextInputType.phone,
-                ),
-              ],
-            ),
-            _buildSectionCard(
-              context: context,
-              title: 'Contact For Workers',
-              icon: Icons.work_rounded,
-              children: [
-                Text(
-                  'This number will be visible to your Team for emergency contact.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _supervisorController,
-                  decoration: inputDecoration.copyWith(
-                    labelText: 'Your Contact Number',
-                    hintText: 'Enter professional contact number',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value!.trim().isEmpty
-                      ? 'This contact number is required'
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loading ? null : _saveEmergencyDetails,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
               ),
-              icon: const Icon(Icons.save_alt_rounded),
-              label: const Text('Save All Details'),
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required bool isDark,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.brandTeal.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: AppColors.brandTeal, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...children,
+        ],
       ),
     );
   }
 
-  /// A cleaner, more minimalist card widget.
-  Widget _buildSectionCard({
-    required BuildContext context,
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required bool isDark,
+    TextInputType inputType = TextInputType.text,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    return TextFormField(
+      controller: controller,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+      decoration: _inputDecoration(label, isDark).copyWith(suffixIcon: suffixIcon),
+      keyboardType: inputType,
+      validator: validator,
+    );
+  }
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 20),
-      // ✅ Shape no longer has a 'side' property, removing the border.
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+  InputDecoration _inputDecoration(String label, bool isDark) {
+    final fillColor = isDark ? const Color(0xFF2C2C2C) : Colors.grey[50];
+    final borderColor = isDark ? Colors.grey[700]! : Colors.grey[300]!;
+    final labelColor = isDark ? Colors.grey[400] : Colors.grey[600];
+
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: labelColor),
+      filled: true,
+      fillColor: fillColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: borderColor),
       ),
-      color: colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.outline,
-                    shape: BoxShape.circle,
-                  ),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: colorScheme.primaryContainer,
-                    child: Icon(icon,
-                        color: colorScheme.onPrimaryContainer, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 16, thickness: 0.5),
-            ...children,
-          ],
-        ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.brandTeal, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1),
       ),
     );
   }
 }
-

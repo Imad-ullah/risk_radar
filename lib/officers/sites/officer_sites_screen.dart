@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/officers/sites/site_personnel_screen.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:uuid/uuid.dart';
 
 class OfficerSitesScreen extends StatefulWidget {
@@ -87,167 +88,213 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
+        const dialogBg = Color(0xFF123636);
+        const fieldBg = Color(0x33FFFFFF);
+        const textColor = Colors.white;
 
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  isEditing ? Icons.edit_location_alt_rounded : Icons.add_location_alt_rounded,
-                  color: Theme.of(context).primaryColor,
-                ),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: dialogBg,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: AppColors.surfaceTeal.withValues(alpha: 0.8),
               ),
-              const SizedBox(width: 12),
-              Text(
-                isEditing ? 'Edit Site' : 'Add New Site',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: Form(
-            key: formKey,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Site Name',
-                    prefixIcon: const Icon(Icons.domain_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandTeal.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isEditing ? Icons.edit_location_alt_rounded : Icons.add_location_alt_rounded,
+                        color: AppColors.accentGold,
+                      ),
                     ),
-                    filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF2C2C2E)
-                        : const Color(0xFFF2F2F7),
-                  ),
-                  validator: (value) =>
-                  value!.trim().isEmpty ? 'Site name is required' : null,
+                    const SizedBox(width: 12),
+                    Text(
+                      isEditing ? 'Edit Site' : 'Add New Site',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: descController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: 'Description (Optional)',
-                    prefixIcon: const Icon(Icons.description_outlined),
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF2C2C2E)
-                        : const Color(0xFFF2F2F7),
+                const SizedBox(height: 14),
+                Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Site Name',
+                          labelStyle: TextStyle(color: textColor.withValues(alpha: 0.8)),
+                          prefixIcon: Icon(Icons.domain_rounded, color: AppColors.accentGold),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                            borderSide: BorderSide(
+                              color: textColor.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: fieldBg,
+                        ),
+                        validator: (value) =>
+                        value!.trim().isEmpty ? 'Site name is required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: descController,
+                        maxLines: 3,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          labelText: 'Description (Optional)',
+                          labelStyle: TextStyle(color: textColor.withValues(alpha: 0.8)),
+                          prefixIcon: Icon(Icons.description_outlined, color: AppColors.accentGold),
+                          alignLabelWithHint: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                            borderSide: BorderSide(
+                              color: textColor.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: fieldBg,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text('Cancel', style: TextStyle(color: textColor.withValues(alpha: 0.85))),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandTeal,
+                    foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) return;
+                        final navigator = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(this.context);
+                        try {
+                          if (isEditing) {
+                            await supabase.from('sites').update({
+                              'name': nameController.text.trim(),
+                              'description': descController.text.trim()
+                            }).eq('id', site['id']);
+                            await _upsertSiteLocally({
+                              ...site,
+                              'name': nameController.text.trim(),
+                              'description': descController.text.trim(),
+                            });
+                          } else {
+                            if (_numericOfficerUid == null) {
+                              throw Exception("Cannot create site: Officer identifier is missing.");
+                            }
+                            final payload = {
+                              'name': nameController.text.trim(),
+                              'description': descController.text.trim(),
+                              'officer_uid': _numericOfficerUid!
+                            };
+                            final inserted = await supabase.from('sites').insert(payload).select().single();
+                            await _upsertSiteLocally(Map<String, dynamic>.from(inserted));
+                          }
+                          if (mounted) {
+                            navigator.pop();
+                            setState(() => _fetchSites());
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(isEditing ? 'Site updated successfully' : 'Site added successfully'),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        } on SocketException {
+                          final localId = site?['id']?.toString() ?? const Uuid().v4();
+                          final payload = {
+                            'id': localId,
+                            'name': nameController.text.trim(),
+                            'description': descController.text.trim(),
+                            ...?(_numericOfficerUid == null
+                                ? null
+                                : {'officer_uid': _numericOfficerUid}),
+                          };
+                          await _syncRepository.enqueueAction(
+                            id: 'officer_site_${isEditing ? 'update' : 'insert'}_${localId}_${DateTime.now().millisecondsSinceEpoch}',
+                            table: 'sites',
+                            action: isEditing ? 'update' : 'insert',
+                            payload: payload,
+                          );
+                          await _upsertSiteLocally(payload);
+                          if (mounted) {
+                            navigator.pop();
+                            setState(() => _fetchSites());
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Saved offline - site change will sync when online'),
+                                backgroundColor: Colors.orange,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Error: ${e.toString()}'),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: Text(isEditing ? 'Update' : 'Add'),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final navigator = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(this.context);
-                try {
-                  if (isEditing) {
-                    await supabase.from('sites').update({
-                      'name': nameController.text.trim(),
-                      'description': descController.text.trim()
-                    }).eq('id', site['id']);
-                    await _upsertSiteLocally({
-                      ...site,
-                      'name': nameController.text.trim(),
-                      'description': descController.text.trim(),
-                    });
-                  } else {
-                    if (_numericOfficerUid == null) {
-                      throw Exception("Cannot create site: Officer identifier is missing.");
-                    }
-                    final payload = {
-                      'name': nameController.text.trim(),
-                      'description': descController.text.trim(),
-                      'officer_uid': _numericOfficerUid!
-                    };
-                    final inserted = await supabase.from('sites').insert(payload).select().single();
-                    await _upsertSiteLocally(Map<String, dynamic>.from(inserted));
-                  }
-                  if (mounted) {
-                    navigator.pop();
-                    setState(() => _fetchSites());
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(isEditing ? 'Site updated successfully' : 'Site added successfully'),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                } on SocketException {
-                  final localId = site?['id']?.toString() ?? const Uuid().v4();
-                  final payload = {
-                    'id': localId,
-                    'name': nameController.text.trim(),
-                    'description': descController.text.trim(),
-                    ...?(_numericOfficerUid == null
-                        ? null
-                        : {'officer_uid': _numericOfficerUid}),
-                  };
-                  await _syncRepository.enqueueAction(
-                    id: 'officer_site_${isEditing ? 'update' : 'insert'}_${localId}_${DateTime.now().millisecondsSinceEpoch}',
-                    table: 'sites',
-                    action: isEditing ? 'update' : 'insert',
-                    payload: payload,
-                  );
-                  await _upsertSiteLocally(payload);
-                  if (mounted) {
-                    navigator.pop();
-                    setState(() => _fetchSites());
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Saved offline - site change will sync when online'),
-                        backgroundColor: Colors.orange,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Error: ${e.toString()}'),
-                        backgroundColor: Colors.red,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Text(isEditing ? 'Update' : 'Add'),
-            ),
-          ],
         );
       },
     );
@@ -265,50 +312,80 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: Row(
-          children: [
-            Icon(
-              hasWorkers ? Icons.warning_amber_rounded : Icons.delete_forever_rounded,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                hasWorkers ? 'Warning: Site in Use' : 'Delete Site',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (_) {
+        const dialogBg = Color(0xFF123636);
+        const textColor = Colors.white;
+
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: dialogBg,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: AppColors.surfaceTeal.withValues(alpha: 0.8),
               ),
             ),
-          ],
-        ),
-        content: hasWorkers
-            ? Text(
-          '"$name" is currently assigned to $totalWorkers worker(s) and may be linked to other records like resolved hazards.\n\nDeleting the site will automatically un-link it from all associated records. Are you sure you want to proceed?',
-        )
-            : Text(
-          'Are you sure you want to delete "$name"? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      hasWorkers ? Icons.warning_amber_rounded : Icons.delete_forever_rounded,
+                      color: Colors.redAccent,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        hasWorkers ? 'Warning: Site in Use' : 'Delete Site',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  hasWorkers
+                      ? '"$name" is currently assigned to $totalWorkers worker(s) and may be linked to other records like resolved hazards.\n\nDeleting the site will automatically un-link it from all associated records. Are you sure you want to proceed?'
+                      : 'Are you sure you want to delete "$name"? This action cannot be undone.',
+                  style: TextStyle(color: textColor.withValues(alpha: 0.9)),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text('Cancel', style: TextStyle(color: textColor.withValues(alpha: 0.85))),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Delete'),
-          )
-        ],
-      ),
+        );
+      },
     );
 
     if (confirm == true && mounted) {
@@ -474,43 +551,39 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
               children: [
                 // Header Section
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                  padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+                  constraints: const BoxConstraints(minHeight: 56, maxHeight: 56),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).dividerColor,
-                        width: 1,
-                      ),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
+                        : Color.lerp(AppColors.brandTeal, Colors.white, 0.78)!,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.surfaceTeal.withValues(alpha: 0.8)
+                          : AppColors.brandTeal.withValues(alpha: 0.22),
                     ),
                   ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "${sites.length} ${sites.length == 1 ? 'Site' : 'Sites'}",
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "${sites.length} ${sites.length == 1 ? 'Site' : 'Sites'}",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
-                            Text(
-                              "Manage your construction sites",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                       IconButton.filled(
                         icon: const Icon(Icons.add, size: 20),
                         onPressed: () => _addOrEditSite(),
                         style: IconButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
+                          backgroundColor: AppColors.accentGold,
                           foregroundColor: Colors.white,
                         ),
                       ),

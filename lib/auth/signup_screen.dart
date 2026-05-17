@@ -44,6 +44,29 @@ class _SignupScreenState extends State<SignupScreen> {
     return null;
   }
 
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) return 'Email is required';
+    final emailRegex = RegExp(
+        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Enter a valid email address';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) return 'Please confirm your password';
+    if (value != _passwordController.text) return 'Passwords do not match';
+    return null;
+  }
+
+  String _firstValidationMessage() {
+    return _validateEmail(_emailController.text) ??
+        _validatePassword(_passwordController.text) ??
+        _validateConfirmPassword(_confirmPasswordController.text) ??
+        'Please check the highlighted fields.';
+  }
+
   // ---------------------------------------------------------------------------
   // ✅ SECURITY: Check cooldown before any auth attempt
   // ---------------------------------------------------------------------------
@@ -80,7 +103,10 @@ class _SignupScreenState extends State<SignupScreen> {
   // ✅ FIXED: Correct signup flow — sign up first, handle existing user error
   // ---------------------------------------------------------------------------
   Future<void> _signUpWithEmail() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showSnackBar(_firstValidationMessage());
+      return;
+    }
 
     // ✅ SECURITY: Check cooldown
     if (_isInCooldown()) {
@@ -548,6 +574,8 @@ class _SignupScreenState extends State<SignupScreen> {
           hintText: label,
           hintStyle: TextStyle(color: Colors.grey.shade500),
           border: InputBorder.none,
+          errorStyle: const TextStyle(height: 0, fontSize: 0),
+          errorMaxLines: 1,
           contentPadding: const EdgeInsets.symmetric(vertical: 18),
           filled: true,
           fillColor: Colors.transparent,

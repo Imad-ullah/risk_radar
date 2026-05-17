@@ -6,6 +6,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../shared/hazards/hazard_details_screen.dart';
 
@@ -25,8 +27,15 @@ class ViewAssignedHazardsScreen extends StatefulWidget {
 class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
+  final ScrollController _scrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
 
   bool isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreHazards = true;
+  int _currentPage = 0;
   List<Map<String, dynamic>> allHazards = [];
   List<Map<String, dynamic>> filteredHazards = [];
 
@@ -39,7 +48,34 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _loadHazardsCacheFirst();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreHazards ||
+        isLoading) {
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   Future<void> _loadHazardsCacheFirst() async {
@@ -59,7 +95,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
       setState(() => isLoading = true);
     }
 
-    await _fetchHazards(showBlockingLoader: cachedHazards == null);
+    await _fetchHazards(
+      showBlockingLoader: cachedHazards == null,
+      resetPagination: true,
+    );
   }
 
   void _applyFiltersAndSort() {
@@ -113,8 +152,28 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         _sortBy != 'newest';
   }
 
-  Future<void> _fetchHazards({bool showBlockingLoader = true}) async {
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreHazards || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await _fetchHazards(
+      showBlockingLoader: false,
+      resetPagination: false,
+    );
+  }
+
+  Future<void> _fetchHazards({
+    bool showBlockingLoader = true,
+    bool resetPagination = true,
+  }) async {
     if (!mounted) return;
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreHazards = true;
+    }
     if (showBlockingLoader) setState(() => isLoading = true);
     final currentUserId = supabase.auth.currentUser?.id;
     if (currentUserId == null) {
@@ -123,6 +182,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     }
 
     try {
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
       final officerProfile = await supabase
           .from('officers')
           .select('officer_uid')
@@ -166,7 +227,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
             sites:current_site_id(id, name)
           ''')
           .eq('officer_uid', officerUid)
-          .inFilter('status', ['reported', 'Reported']); // Catches both
+          .inFilter('status', ['reported', 'Reported'])
+          .order('created_at', ascending: false)
+          .range(pageStart, pageEnd); // Catches both
 
       // Fetch assigned tasks
       final assignedTasksResponse = await supabase
@@ -180,7 +243,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
             sites:current_site_id(id, name)
           ''')
           .eq('officer_uid', officerUid)
-          .inFilter('status', ['assigned', 'Assigned', 'in_progress', 'In_progress']); // Catches all variations
+          .inFilter('status', ['assigned', 'Assigned', 'in_progress', 'In_progress'])
+          .order('created_at', ascending: false)
+          .range(pageStart, pageEnd); // Catches all variations
 
       final List<Map<String, dynamic>> combinedHazards = [];
 
@@ -229,17 +294,30 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         combinedHazards.add(hazardMap);
       });
 
+      final List<Map<String, dynamic>> updatedHazards = resetPagination
+          ? combinedHazards
+          : <Map<String, dynamic>>[...allHazards, ...combinedHazards];
+
       if (mounted) {
-        await _hazardRepository.saveOfficerActiveHazards(combinedHazards);
+        await _hazardRepository.saveOfficerActiveHazards(updatedHazards);
         setState(() {
-          allHazards = combinedHazards;
+          allHazards = updatedHazards;
+          _hasMoreHazards = hazardsResponse.length == _pageSize ||
+              assignedTasksResponse.length == _pageSize;
+          _isLoadingMore = false;
         });
         _applyFiltersAndSort();
       }
     } on SocketException {
       debugPrint('Officer active hazards offline - using cached data.');
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
     } catch (e) {
       debugPrint('Error fetching hazards: $e');
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -267,20 +345,26 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
+            const panelBg = Color(0xFF123636);
+            final primaryText = Colors.white;
+            final secondaryText = Colors.white70;
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.75,
-              minChildSize: 0.5,
-              maxChildSize: 0.9,
+              initialChildSize: 0.62,
+              minChildSize: 0.45,
+              maxChildSize: 0.78,
               builder: (BuildContext context, ScrollController scrollController) {
                 return Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  decoration: BoxDecoration(
+                    color: panelBg,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    border: Border.all(
+                      color: AppColors.surfaceTeal.withValues(alpha: 0.7),
+                    ),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -294,7 +378,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                             height: 4,
                             margin: const EdgeInsets.only(bottom: 20),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFD1D1D6),
+                              color: Colors.white24,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -308,7 +392,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                               "Filters",
                               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: primaryText,
                               ),
                             ),
                             // ✅ CHANGED: Check against 'newest'
@@ -325,7 +409,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                   });
                                 },
                                 style: TextButton.styleFrom(
-                                  foregroundColor: Theme.of(context).colorScheme.error,
+                                  foregroundColor: AppColors.accentGold,
                                 ),
                               ),
                           ],
@@ -341,6 +425,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                 context: context,
                                 title: "Severity",
                                 icon: Icons.warning_amber_rounded,
+                                titleColor: primaryText,
                                 child: Wrap(
                                   spacing: 8.0,
                                   runSpacing: 8.0,
@@ -383,6 +468,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                 context: context,
                                 title: "Site",
                                 icon: Icons.location_on_outlined,
+                                titleColor: primaryText,
                                 child: Wrap(
                                   spacing: 8.0,
                                   runSpacing: 8.0,
@@ -413,6 +499,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                 context: context,
                                 title: "Sort By",
                                 icon: Icons.sort_rounded,
+                                titleColor: primaryText,
                                 child: Column(
                                   children: [
                                     _buildRadioTile(
@@ -422,6 +509,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                       value: 'newest',
                                       groupValue: tempSortBy,
                                       onChanged: (value) => setSheetState(() => tempSortBy = value!),
+                                      titleColor: primaryText,
+                                      subtitleColor: secondaryText,
                                     ),
                                     _buildRadioTile(
                                       context: context,
@@ -430,6 +519,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                       value: 'oldest',
                                       groupValue: tempSortBy,
                                       onChanged: (value) => setSheetState(() => tempSortBy = value!),
+                                      titleColor: primaryText,
+                                      subtitleColor: secondaryText,
                                     ),
                                   ],
                                 ),
@@ -446,8 +537,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: Theme.of(context).primaryColor,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.accentGold,
+                              foregroundColor: AppColors.brandTeal,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -462,12 +553,19 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                               _applyFiltersAndSort();
                               Navigator.pop(context);
                             },
-                            child: const Text(
-                              "Apply Filters",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.filter_alt_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Apply Filters",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -487,6 +585,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     required BuildContext context,
     required String title,
     required IconData icon,
+    required Color titleColor,
     required Widget child,
   }) {
     return Column(
@@ -494,13 +593,13 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+            Icon(icon, size: 20, color: AppColors.accentGold),
             const SizedBox(width: 8),
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: titleColor,
               ),
             ),
           ],
@@ -518,7 +617,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    final chipColor = color ?? Theme.of(context).primaryColor;
+    final chipColor = color ?? AppColors.brandTeal;
+    const unselectedBg = Color(0x33FFFFFF);
+    const unselectedBorder = Colors.white24;
+    const unselectedText = Colors.white;
 
     return InkWell(
       onTap: onTap,
@@ -528,12 +630,12 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? chipColor
-              : const Color(0xFFF2F2F7),
+              : unselectedBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? chipColor
-                : const Color(0xFFD1D1D6),
+                : unselectedBorder,
             width: 2,
           ),
         ),
@@ -542,7 +644,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
           style: TextStyle(
             color: isSelected
                 ? Colors.white
-                : const Color(0xFF3C3C43),
+                : unselectedText,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 14,
           ),
@@ -558,6 +660,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     required String value,
     required String groupValue,
     required ValueChanged<String?> onChanged,
+    required Color titleColor,
+    required Color subtitleColor,
   }) {
     final isSelected = value == groupValue;
 
@@ -569,13 +673,13 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-              : const Color(0xFFF2F2F7),
+              ? AppColors.brandTeal.withValues(alpha: 0.35)
+              : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? Theme.of(context).primaryColor
-                : const Color(0xFFD1D1D6),
+                ? AppColors.accentGold
+                : Colors.white24,
             width: 2,
           ),
         ),
@@ -590,9 +694,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               activeColor: Theme.of(context).primaryColor,
               fillColor: WidgetStateProperty.resolveWith<Color>((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return Theme.of(context).primaryColor;
+                  return AppColors.accentGold;
                 }
-                return const Color(0xFF8E8E93);
+                return Colors.white54;
               }),
             ),
             Expanded(
@@ -605,15 +709,15 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
                       color: isSelected
-                          ? Theme.of(context).primaryColor
-                          : const Color(0xFF1C1C1E),
+                          ? AppColors.accentGold
+                          : titleColor,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF8E8E93),
+                      color: subtitleColor,
                     ),
                   ),
                 ],
@@ -626,54 +730,49 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
   }
 
   Widget _buildSubHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final count = filteredHazards.length;
     final hazardText = count == 1 ? "Hazard" : "Hazards";
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      constraints: const BoxConstraints(minHeight: 56, maxHeight: 56),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+        color: isDark
+            ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
+            : Color.lerp(AppColors.brandTeal, Colors.white, 0.78)!,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? AppColors.surfaceTeal.withValues(alpha: 0.8)
+              : AppColors.brandTeal.withValues(alpha: 0.22),
         ),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "$count $hazardText",
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_hasActiveFilters)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
-                      children: [
-                        Icon(Icons.filter_alt,
-                          size: 14,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "Filters applied",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  if (_hasActiveFilters) ...[
+                    Icon(
+                      Icons.filter_alt,
+                      size: 16,
+                      color: AppColors.accentGold,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    "$count $hazardText",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
           ),
           if (_hasActiveFilters)
@@ -690,7 +789,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
             icon: const Icon(Icons.sort_rounded, size: 20),
             onPressed: _showFilterSheet,
             style: IconButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: AppColors.accentGold,
               foregroundColor: Colors.white,
             ),
           ),
@@ -701,8 +800,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -711,7 +811,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
           Expanded(
             child: allHazards.isEmpty
                 ? RefreshIndicator(
-              onRefresh: () => _fetchHazards(showBlockingLoader: false),
+              onRefresh: () => _fetchHazards(
+                showBlockingLoader: false,
+                resetPagination: true,
+              ),
               child: Stack(
                 children: [
                   ListView(),
@@ -763,11 +866,26 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               ),
             )
                 : RefreshIndicator(
-              onRefresh: () => _fetchHazards(showBlockingLoader: false),
+              onRefresh: () => _fetchHazards(
+                showBlockingLoader: false,
+                resetPagination: true,
+              ),
               child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: filteredHazards.length,
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                itemCount: filteredHazards.length +
+                    (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index == filteredHazards.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.brandTeal,
+                        ),
+                      ),
+                    );
+                  }
                   final hazard = filteredHazards[index];
                   return _HazardCard(
                     hazard: hazard,
@@ -834,11 +952,47 @@ class _HazardCard extends StatelessWidget {
   String _formatTimestamp(String? isoString) {
     if (isoString == null) return 'N/A';
     try {
-      final dateTime = DateTime.parse(isoString);
-      return DateFormat('MMM d, h:mm a').format(dateTime);
+      final raw = isoString.trim();
+      final parsed = (raw.endsWith('Z') || raw.contains('+'))
+          ? DateTime.parse(raw).toUtc()
+          : DateTime.parse('${raw}Z').toUtc();
+      return DateFormat('MMM d, h:mm a').format(parsed.toLocal());
     } catch (e) {
       return 'N/A';
     }
+  }
+
+  String _hazardSvgAsset(String? type) {
+    final t = (type ?? '').toLowerCase();
+    if (t.contains('fire')) return 'assets/hazards/fire_warning.svg';
+    if (t.contains('electric') || t.contains('shock')) {
+      return 'assets/hazards/electric_shock.svg';
+    }
+    if (t.contains('slip') || t.contains('trip') || t.contains('wet')) {
+      return 'assets/hazards/slip_falling.svg';
+    }
+    if (t.contains('stair')) return 'assets/hazards/stairs_fall.svg';
+    if (t.contains('fall')) return 'assets/hazards/falling_objects.svg';
+    if (t.contains('radio') && t.contains('active')) {
+      return 'assets/hazards/radio_active.svg';
+    }
+    if (t.contains('temperature')) return 'assets/hazards/high_temperature.svg';
+    if (t.contains('high heat') || t.contains('heat')) {
+      return 'assets/hazards/high_heat.svg';
+    }
+    if (t.contains('machine') || t.contains('crush')) {
+      return 'assets/hazards/machine_crush.svg';
+    }
+    if (t.contains('explosion') || t.contains('explosive')) {
+      return 'assets/hazards/explosion.svg';
+    }
+    if (t.contains('freeze') || t.contains('ice')) return 'assets/hazards/freeze.svg';
+    if (t.contains('lift') || t.contains('load')) {
+      return 'assets/hazards/load_lifting.svg';
+    }
+    if (t.contains('wave')) return 'assets/hazards/radio_waves.svg';
+    if (t.contains('magnetic')) return 'assets/hazards/magnetic_field.svg';
+    return 'assets/hazards/fire_warning.svg';
   }
 
   Widget _buildDetailRow({required IconData icon, required String text}) {
@@ -898,6 +1052,7 @@ class _HazardCard extends StatelessWidget {
     final bool hasVoiceNotes = voiceUrls.isNotEmpty;
     final primaryColor = getPrimaryColor(severity);
     final secondaryColor = getSecondaryColor(severity);
+    final severityColor = getPrimaryColor(severity);
 
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 300 + (index * 50)),
@@ -913,14 +1068,14 @@ class _HazardCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [primaryColor.withAlpha(242), secondaryColor],
+            colors: [primaryColor.withValues(alpha: 0.95), secondaryColor],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: primaryColor.withAlpha(102),
+              color: primaryColor.withValues(alpha: 0.4),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -954,9 +1109,11 @@ class _HazardCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
-                          child: Text(
-                            hazardEmoji(title),
-                            style: const TextStyle(fontSize: 28),
+                          child: SvgPicture.asset(
+                            _hazardSvgAsset(title),
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
@@ -983,7 +1140,7 @@ class _HazardCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withAlpha(64),
+                                    color: severityColor.withValues(alpha: 0.85),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(

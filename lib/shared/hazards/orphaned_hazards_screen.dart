@@ -14,15 +14,50 @@ class OrphanedHazardsScreen extends StatefulWidget {
 
 class _OrphanedHazardsScreenState extends State<OrphanedHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
+  final ScrollController _scrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
+
   bool isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreHazards = true;
+  int _currentPage = 0;
   bool isOfficer = false;
   List<Map<String, dynamic>> hazards = [];
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _checkIfOfficer();
     fetchOrphanedHazards();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreHazards ||
+        isLoading) {
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   Future<void> _checkIfOfficer() async {
@@ -43,9 +78,33 @@ class _OrphanedHazardsScreenState extends State<OrphanedHazardsScreen> {
   }
 
   Future<void> fetchOrphanedHazards() async {
-    setState(() => isLoading = true);
+    await _fetchOrphanedHazards(resetPagination: true);
+  }
+
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreHazards || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await _fetchOrphanedHazards(resetPagination: false);
+  }
+
+  Future<void> _fetchOrphanedHazards({required bool resetPagination}) async {
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreHazards = true;
+      setState(() => isLoading = true);
+    }
     try {
-      final hazardData = await supabase.from('hazards').select().order('created_at', ascending: false);
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
+      final hazardData = await supabase
+          .from('hazards')
+          .select()
+          .order('created_at', ascending: false)
+          .range(pageStart, pageEnd);
       final workerData = await supabase.from('workers').select();
       final existingWorkerIds = workerData.map((w) => w['id'].toString()).toSet();
 
@@ -59,13 +118,24 @@ class _OrphanedHazardsScreenState extends State<OrphanedHazardsScreen> {
         }
       }
 
-      setState(() {
-        hazards = orphaned;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          hazards = resetPagination
+              ? orphaned
+              : <Map<String, dynamic>>[...hazards, ...orphaned];
+          _hasMoreHazards = hazardData.length == _pageSize;
+          isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching orphaned hazards: $e');
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -205,9 +275,16 @@ class _OrphanedHazardsScreenState extends State<OrphanedHazardsScreen> {
             : hazards.isEmpty
             ? const Center(child: Text("No orphaned hazards at the moment."))
             : ListView.builder(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: hazards.length,
+          itemCount: hazards.length + (_isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
+            if (index == hazards.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
             final hazard = hazards[index];
             final String title = hazard['hazard_type'] ?? 'No type';
             final String description = hazard['description'] ?? 'No description';

@@ -67,18 +67,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     actionButtons: [
       NotificationActionButton(
         key: 'DETAILS',
-        label: 'Details',
-        actionType: ActionType.Default,
-      ),
-      NotificationActionButton(
-        key: 'NOTED',
-        label: 'Noted',
-        actionType: ActionType.DismissAction,
-      ),
-      NotificationActionButton(
-        key: 'RESOLVED',
-        label: 'Is Resolved',
-        actionType: ActionType.Default,
+        label: 'VIEW DETAILS',
       ),
     ],
   );
@@ -163,7 +152,6 @@ class FirebaseMessagingService {
         color = Colors.green;
         break;
     }
-
     AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: hazardId.hashCode,
@@ -181,18 +169,7 @@ class FirebaseMessagingService {
       actionButtons: [
         NotificationActionButton(
           key: 'DETAILS',
-          label: 'Details',
-          actionType: ActionType.Default,
-        ),
-        NotificationActionButton(
-          key: 'NOTED',
-          label: 'Noted',
-          actionType: ActionType.DismissAction,
-        ),
-        NotificationActionButton(
-          key: 'RESOLVED',
-          label: 'Is Resolved',
-          actionType: ActionType.Default,
+          label: 'VIEW DETAILS',
         ),
       ],
     );

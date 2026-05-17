@@ -27,6 +27,10 @@ class _WorkerOngoingHazardsScreenState
     extends State<WorkerOngoingHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
+  final ScrollController _scrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
 
   // --- State Variables ---
   List<Map<String, dynamic>> allHazards = [];
@@ -43,6 +47,9 @@ class _WorkerOngoingHazardsScreenState
 
   // True while a background Supabase refresh is running (shows subtle indicator)
   bool _isRefreshing = false;
+  bool _isLoadingMore = false;
+  bool _hasMoreHazards = true;
+  int _currentPage = 0;
 
   StreamSubscription<Position>? _positionStream;
 
@@ -53,6 +60,7 @@ class _WorkerOngoingHazardsScreenState
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _startLocationTracking();
     _loadHazards();
   }
@@ -60,7 +68,28 @@ class _WorkerOngoingHazardsScreenState
   @override
   void dispose() {
     _positionStream?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreHazards ||
+        isLoading) {
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -128,25 +157,47 @@ class _WorkerOngoingHazardsScreenState
     }
 
     // ── Step 2: Silent background refresh ────────────────────────────────
-    await _refreshFromSupabase();
+    await _refreshFromSupabase(resetPagination: true);
   }
 
   // ── Called by pull-to-refresh and filter Apply button ─────────────────────
   Future<void> fetchOngoingHazards() async {
-    await _refreshFromSupabase();
+    await _refreshFromSupabase(resetPagination: true);
   }
 
-  Future<void> _refreshFromSupabase() async {
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreHazards || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await _refreshFromSupabase(resetPagination: false);
+  }
+
+  Future<void> _refreshFromSupabase({required bool resetPagination}) async {
     if (!mounted) return;
-    if (mounted) setState(() => _isRefreshing = true);
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreHazards = true;
+      setState(() => _isRefreshing = true);
+    }
 
     try {
       final user = supabase.auth.currentUser;
       if (user == null) {
-        if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+            _isRefreshing = false;
+            _isLoadingMore = false;
+          });
+        }
         return;
       }
       final String userId = user.id;
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
 
       // Get worker info — try workers table first, then hse_workers
       var workerData = await supabase
@@ -162,7 +213,14 @@ class _WorkerOngoingHazardsScreenState
           .maybeSingle();
 
       if (workerData == null) {
-        if (mounted) setState(() { allHazards = []; isLoading = false; _isRefreshing = false; });
+        if (mounted) {
+          setState(() {
+            allHazards = [];
+            isLoading = false;
+            _isRefreshing = false;
+            _isLoadingMore = false;
+          });
+        }
         return;
       }
 
@@ -171,6 +229,7 @@ class _WorkerOngoingHazardsScreenState
       final currentSiteId = workerData['current_site_id']?.toString();
 
       List<Map<String, dynamic>> combined = [];
+      bool reachedLastPage = true;
 
       // ── MODE A: MY HAZARDS ONLY ───────────────────────────────────────
       if (_onlyMyHazards) {
@@ -178,15 +237,21 @@ class _WorkerOngoingHazardsScreenState
           supabase
               .from('hazards')
               .select('*, workers!hazards_worker_id_fkey (*)')
-              .eq('worker_id', workerId),
+              .eq('worker_id', workerId)
+              .order('created_at', ascending: false)
+              .range(pageStart, pageEnd),
           supabase
               .from('worker_active_hazards_view')
               .select()
-              .or('worker_id.eq.$workerId,assigned_to.eq.$workerId'),
+              .or('worker_id.eq.$workerId,assigned_to.eq.$workerId')
+              .order('created_at', ascending: false)
+              .range(pageStart, pageEnd),
         ]);
 
         final reportedByMe = results[0] as List<dynamic>;
         final assignedToMe = results[1] as List<dynamic>;
+        reachedLastPage =
+            reportedByMe.length < _pageSize && assignedToMe.length < _pageSize;
         combined = [
           ...reportedByMe.cast<Map<String, dynamic>>(),
           ...assignedToMe.cast<Map<String, dynamic>>(),
@@ -197,7 +262,13 @@ class _WorkerOngoingHazardsScreenState
       else {
         if (officerUid == null || currentSiteId == null) {
           debugPrint('⚠️ [OngoingHazards] Missing site context.');
-          if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+          if (mounted) {
+            setState(() {
+              isLoading = false;
+              _isRefreshing = false;
+              _isLoadingMore = false;
+            });
+          }
           return;
         }
 
@@ -207,41 +278,65 @@ class _WorkerOngoingHazardsScreenState
               .select('*, workers!hazards_worker_id_fkey (*)')
               .eq('officer_uid', officerUid)
               .eq('current_site_id', currentSiteId)
-              .eq('status', 'reported'),
+              .eq('status', 'reported')
+              .order('created_at', ascending: false)
+              .range(pageStart, pageEnd),
           supabase
               .from('worker_active_hazards_view')
               .select()
               .eq('officer_uid', officerUid)
               .eq('current_site_id', currentSiteId)
-              .inFilter('status', ['assigned', 'Assigned', 'in_progress', 'In Progress']),
+              .inFilter('status', ['assigned', 'Assigned', 'in_progress', 'In Progress'])
+              .order('created_at', ascending: false)
+              .range(pageStart, pageEnd),
         ]);
 
         final hazardsResponse = results[0] as List<dynamic>;
         final assignedResponse = results[1] as List<dynamic>;
+        reachedLastPage =
+            hazardsResponse.length < _pageSize && assignedResponse.length < _pageSize;
         combined = [
           ...hazardsResponse.cast<Map<String, dynamic>>(),
           ...assignedResponse.cast<Map<String, dynamic>>(),
         ];
       }
 
+      final List<Map<String, dynamic>> updatedHazards = resetPagination
+          ? combined
+          : <Map<String, dynamic>>[...allHazards, ...combined];
+
       // Persist to cache
-      await _hazardRepository.saveOngoingHazards(combined);
+      await _hazardRepository.saveOngoingHazards(updatedHazards);
 
       if (!mounted) return;
       setState(() {
-        allHazards = combined;
+        allHazards = updatedHazards;
+        _hasMoreHazards = !reachedLastPage;
         isLoading = false;
         _isRefreshing = false;
+        _isLoadingMore = false;
       });
       _applyFiltersAndSort();
 
     } on SocketException {
       // Offline — cached data already visible, nothing to do
       debugPrint('ℹ️ [OngoingHazards] Offline — showing cached data.');
-      if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
     } catch (e) {
       debugPrint('⚠️ [OngoingHazards] Refresh error: $e');
-      if (mounted) setState(() { isLoading = false; _isRefreshing = false; });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isRefreshing = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -631,10 +726,22 @@ class _WorkerOngoingHazardsScreenState
                               .bodySmall
                               ?.color)))
                   : ListView.builder(
+                controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(
                     12, 12, 12, 100),
-                itemCount: filteredHazards.length,
+                itemCount: filteredHazards.length +
+                    (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index == filteredHazards.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.brandTeal,
+                        ),
+                      ),
+                    );
+                  }
                   return _CompactHazardCard(
                     hazard: filteredHazards[index],
                     index: index,

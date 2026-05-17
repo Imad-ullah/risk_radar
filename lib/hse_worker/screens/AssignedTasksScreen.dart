@@ -14,8 +14,9 @@ import 'package:riskradar/services/repositories/hazard_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
 import 'package:riskradar/shared/hazards/hazard_details_screen.dart'
     hide VoiceNotePlayer;
+import 'package:riskradar/shared/models/hazard.dart';
 
-import 'hazard_resolution_verification_screen.dart';
+import 'hse_worker_resolution_form_screen.dart';
 
 class AssignedTasksScreen extends StatefulWidget {
   const AssignedTasksScreen({super.key});
@@ -31,8 +32,16 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   final HazardRepository _hazardRepository = HazardRepository();
   final SyncRepository _syncRepository = SyncRepository();
   late TabController _tabController;
+  final ScrollController _activeScrollController = ScrollController();
+  final ScrollController _queueScrollController = ScrollController();
+
+  static const int _pageSize = 20;
+  static const double _loadMoreScrollThreshold = 0.8;
 
   bool isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreTasks = true;
+  int _currentPage = 0;
   List<Map<String, dynamic>> inProgressTasks = [];
   List<Map<String, dynamic>> assignedTasks = [];
 
@@ -51,15 +60,42 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _activeScrollController.addListener(_handleScroll);
+    _queueScrollController.addListener(_handleScroll);
     _loadTasksCacheFirst();
     _startElapsedTimer();
   }
 
   @override
   void dispose() {
+    _activeScrollController.dispose();
+    _queueScrollController.dispose();
     _tabController.dispose();
     _elapsedTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    final ScrollController activeController = _tabController.index == 0
+        ? _activeScrollController
+        : _queueScrollController;
+    if (!activeController.hasClients ||
+        _isLoadingMore ||
+        !_hasMoreTasks ||
+        isLoading) {
+      return;
+    }
+
+    final ScrollPosition position = activeController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final double triggerOffset =
+        position.maxScrollExtent * _loadMoreScrollThreshold;
+    if (position.pixels >= triggerOffset) {
+      _loadNextPage();
+    }
   }
 
   void _startElapsedTimer() {
@@ -161,12 +197,20 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
 
     if (cachedTasks != null) {
       _applyTaskRows(cachedTasks, cachedProfile);
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     } else {
       setState(() => isLoading = true);
     }
 
-    await fetchTasks(showBlockingLoader: cachedTasks == null);
+    await fetchTasks(
+      showBlockingLoader: cachedTasks == null,
+      resetPagination: true,
+    );
   }
 
   void _applyTaskRows(List<dynamic> rows, Map<String, dynamic>? hseProfile) {
@@ -217,14 +261,41 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     assignedTasks = loadedAssigned;
   }
 
-  Future<void> fetchTasks({bool showBlockingLoader = true}) async {
+  Future<void> _loadNextPage() async {
+    if (!_hasMoreTasks || _isLoadingMore) {
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    await fetchTasks(
+      showBlockingLoader: false,
+      resetPagination: false,
+    );
+  }
+
+  Future<void> fetchTasks({
+    bool showBlockingLoader = true,
+    bool resetPagination = true,
+  }) async {
     if (!mounted) return;
+    if (resetPagination) {
+      _currentPage = 0;
+      _hasMoreTasks = true;
+    }
     if (showBlockingLoader) setState(() => isLoading = true);
 
     try {
+      final int pageStart = _currentPage * _pageSize;
+      final int pageEnd = pageStart + _pageSize - 1;
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
-        if (mounted) setState(() => isLoading = false);
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+            _isLoadingMore = false;
+          });
+        }
         return;
       }
 
@@ -246,9 +317,22 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
             )
           ''')
           .eq('assigned_to', userId)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .range(pageStart, pageEnd);
 
-      await _hazardRepository.saveHseAssignedTasks(response);
+      final List<Map<String, dynamic>> cachedRows = resetPagination
+          ? <Map<String, dynamic>>[]
+          : await _hazardRepository.getHseAssignedTasks() ??
+              <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> responseRows =
+          List<Map<String, dynamic>>.from(response);
+      final List<Map<String, dynamic>> combinedRows =
+          <Map<String, dynamic>>[
+        ...cachedRows,
+        ...responseRows,
+      ];
+
+      await _hazardRepository.saveHseAssignedTasks(combinedRows);
       if (hseProfileRes != null) {
         final currentProfile = _authRepository.getHseProfile();
         await _authRepository.saveHseProfile({
@@ -259,16 +343,28 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
 
       if (mounted) {
         setState(() {
-          _applyTaskRows(response, hseProfileRes);
+          _applyTaskRows(combinedRows, hseProfileRes);
+          _hasMoreTasks = responseRows.length == _pageSize;
           isLoading = false;
+          _isLoadingMore = false;
         });
       }
     } on SocketException {
       debugPrint("ℹ️ HSE tasks offline - using cached data.");
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     } catch (e) {
       debugPrint("❌ Error fetching tasks: $e");
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -289,7 +385,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
           .eq('id', assignmentId);
 
       await _updateTaskInLocalCache(assignmentId, updateData);
-      await fetchTasks(showBlockingLoader: false);
+      await fetchTasks(showBlockingLoader: false, resetPagination: true);
 
       scaffoldMessenger.showSnackBar(SnackBar(
         content: Text(newStatus == 'in_progress' ? "Task started!" : "Task resolved!"),
@@ -444,19 +540,22 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         await _updateTaskStatus(assignmentId, 'in_progress');
       }
     } else if (statusLower == 'in_progress') {
-      final result = await Navigator.push(
+      await _openResolutionForm(task);
+    }
+  }
+
+  Future<void> _openResolutionForm(Map<String, dynamic> task) async {
+    final result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => HazardResolutionVerificationScreen(
-            taskData: task,
-            assignmentId: assignmentId,
+          builder: (context) => HseWorkerResolutionFormScreen(
+            hazard: Hazard.fromMap(task),
           ),
         ),
       );
 
-      if (result == true) {
-        fetchTasks(showBlockingLoader: false);
-      }
+    if (result == true) {
+      fetchTasks(showBlockingLoader: false, resetPagination: true);
     }
   }
 
@@ -600,11 +699,24 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: () => fetchTasks(showBlockingLoader: false),
+      onRefresh: () => fetchTasks(
+        showBlockingLoader: false,
+        resetPagination: true,
+      ),
       child: ListView.builder(
+        controller:
+            isActive ? _activeScrollController : _queueScrollController,
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
-        itemCount: tasks.length,
+        itemCount: tasks.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
+          if (index == tasks.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: CircularProgressIndicator(color: _tealColor),
+              ),
+            );
+          }
           return _buildDesignCard(tasks[index], index, isActive);
         },
       ),
@@ -644,6 +756,10 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
       },
       child: GestureDetector(
         onTap: () {
+          if (isActive) {
+            _openResolutionForm(task);
+            return;
+          }
           Navigator.push(context, MaterialPageRoute(builder: (_) => HazardDetailsScreen(hazardData: task)));
         },
         child: Container(
