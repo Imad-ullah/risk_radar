@@ -1,6 +1,7 @@
 // lib/shared/hazards/hazard_details_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
@@ -202,21 +203,49 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
     }
   }
 
-  IconData _getHazardIcon(String? type) {
-    switch (type?.toLowerCase()) {
-      case 'fire':
-        return Icons.local_fire_department_rounded;
-      case 'electrocution':
-        return Icons.bolt_rounded;
-      case 'hazardous chemicals':
-        return Icons.science_outlined;
-      case 'slips/trips':
-        return Icons.personal_injury_outlined;
-      case 'fall from height':
-        return Icons.personal_injury_rounded;
-      default:
-        return Icons.warning_amber_rounded;
+  String _hazardSvgAsset(String? type) {
+    final String normalized = (type ?? '').toLowerCase();
+    if (normalized.contains('fire')) return 'assets/hazards/fire_warning.svg';
+    if (normalized.contains('electric') ||
+        normalized.contains('shock') ||
+        normalized.contains('electrocution')) {
+      return 'assets/hazards/electric_shock.svg';
     }
+    if (normalized.contains('slip') || normalized.contains('wet')) {
+      return 'assets/hazards/slip_falling.svg';
+    }
+    if (normalized.contains('stair')) return 'assets/hazards/stairs_fall.svg';
+    if (normalized.contains('fall')) {
+      return 'assets/hazards/falling_objects.svg';
+    }
+    if (normalized.contains('radio') && normalized.contains('active')) {
+      return 'assets/hazards/radio_active.svg';
+    }
+    if (normalized.contains('temperature')) {
+      return 'assets/hazards/high_temperature.svg';
+    }
+    if (normalized.contains('heat')) return 'assets/hazards/high_heat.svg';
+    if (normalized.contains('machine') || normalized.contains('crush')) {
+      return 'assets/hazards/machine_crush.svg';
+    }
+    if (normalized.contains('explosive') || normalized.contains('blast')) {
+      return 'assets/hazards/explosion.svg';
+    }
+    if (normalized.contains('freeze') ||
+        normalized.contains('ice') ||
+        normalized.contains('cold')) {
+      return 'assets/hazards/freeze.svg';
+    }
+    if (normalized.contains('lift') ||
+        normalized.contains('load') ||
+        normalized.contains('manual')) {
+      return 'assets/hazards/load_lifting.svg';
+    }
+    if (normalized.contains('wave')) return 'assets/hazards/radio_waves.svg';
+    if (normalized.contains('magnetic')) {
+      return 'assets/hazards/magnetic_field.svg';
+    }
+    return 'assets/hazards/fire_warning.svg';
   }
 
   Future<void> _openMap(double lat, double lng) async {
@@ -317,7 +346,7 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
               title: title,
               severity: severity,
               status: status,
-              icon: _getHazardIcon(title),
+              iconAsset: _hazardSvgAsset(title),
               severityColor: _getSeverityColor(severity),
               statusColor: _getStatusColor(status),
             ),
@@ -554,7 +583,7 @@ class _HazardHeaderCard extends StatelessWidget {
   final String title;
   final String severity;
   final String status;
-  final IconData icon;
+  final String iconAsset;
   final Color severityColor;
   final Color statusColor;
 
@@ -562,7 +591,7 @@ class _HazardHeaderCard extends StatelessWidget {
     required this.title,
     required this.severity,
     required this.status,
-    required this.icon,
+    required this.iconAsset,
     required this.severityColor,
     required this.statusColor,
   });
@@ -577,7 +606,22 @@ class _HazardHeaderCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            Icon(icon, color: severityColor, size: 48),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: SvgPicture.asset(
+                  iconAsset,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,6 +16,7 @@ import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
 import 'package:riskradar/services/logger_service.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 
 class WorkerReportHazardScreen extends StatefulWidget {
   final VoidCallback? onHazardReported;
@@ -701,52 +703,71 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   Widget build(BuildContext context) {
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
 
-    return Form(
-      key: _formKey,
-      autovalidateMode: _autovalidateMode,
-      child: Scaffold(
-        backgroundColor: isLightTheme ? const Color(0xFFF5F5F5) : null,
-        appBar: AppBar(
-          title: const Text("Report Hazard"),
-          centerTitle: true,
-          backgroundColor: const Color(0xFF1B3D3D),
-          foregroundColor: Colors.white,
-        ),
-        bottomNavigationBar: _buildInputBarSection(),
-        body: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHazardTypeCard()),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildInlineError(
-                  _hazardTypeError ?? _validateHazardTypes(),
+    return PopScope<Object?>(
+      canPop: !_isRecording && !_isAudioPlaying,
+      onPopInvokedWithResult: _handlePopInvokedWithResult,
+      child: Form(
+        key: _formKey,
+        autovalidateMode: _autovalidateMode,
+        child: Scaffold(
+          backgroundColor: isLightTheme ? const Color(0xFFF5F5F5) : null,
+          appBar: AppBar(
+            title: const Text("Report Hazard"),
+            centerTitle: true,
+            backgroundColor: const Color(0xFF1B3D3D),
+            foregroundColor: Colors.white,
+          ),
+          bottomNavigationBar: _buildInputBarSection(),
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildHazardTypeCard()),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildInlineError(
+                    _hazardTypeError ?? _validateHazardTypes(),
+                  ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            SliverToBoxAdapter(child: _buildSeveritySection()),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            SliverToBoxAdapter(child: _buildLocationSection()),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildInlineError(
-                  _isLoadingLocation
-                      ? null
-                      : _locationError ?? _validateLocation(),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(child: _buildSeveritySection()),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(child: _buildLocationSection()),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildInlineError(
+                    _isLoadingLocation
+                        ? null
+                        : _locationError ?? _validateLocation(),
+                  ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            SliverToBoxAdapter(child: _buildImagePreview()),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            SliverToBoxAdapter(child: _buildVoiceNotesSection()),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(child: _buildImagePreview()),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(child: _buildVoiceNotesSection()),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _handlePopInvokedWithResult(
+    bool didPop,
+    Object? result,
+  ) async {
+    if (didPop) return;
+
+    await _voiceRecorderKey.currentState?.discardActiveSession();
+    if (!mounted) return;
+    setState(() {
+      _isRecording = false;
+      _isAudioPlaying = false;
+    });
+    await Navigator.of(context).maybePop();
   }
 
   Widget _buildInputBarSection() {
@@ -759,6 +780,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         _isReportFormValid;
 
     final isInputDisabled = _isRecording || _isAudioPlaying;
+    const double inputBarHeight = 56;
 
     return Container(
       padding: EdgeInsets.only(
@@ -773,94 +795,117 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isLightTheme
-                    ? Colors.white
-                    : theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                    color:
-                    theme.colorScheme.outline.withValues(alpha: 0.2)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: inputBarHeight,
+                maxHeight: 140,
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: TextFormField(
-                        controller: _descriptionController,
-                        enabled: !isInputDisabled,
-                        minLines: 1,
-                        maxLines: 5,
-                        maxLength: _descriptionMaxLength,
-                        validator: _validateDescription,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          counterText: '',
-                          errorMaxLines: 2,
-                          hintText: _isRecording
-                              ? "Recording..."
-                              : (_isAudioPlaying
-                              ? "Playing..."
-                              : "Type a description..."),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isLightTheme
+                      ? Colors.white
+                      : AppColors.brandTeal.withValues(alpha: 0.70),
+                  borderRadius: BorderRadius.circular(inputBarHeight / 2),
+                  border: Border.all(
+                    color: isLightTheme
+                        ? AppColors.brandTeal.withValues(alpha: 0.18)
+                        : AppColors.accentGold.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                        child: TextFormField(
+                          controller: _descriptionController,
+                          enabled: !isInputDisabled,
+                          minLines: 1,
+                          maxLines: 5,
+                          maxLength: _descriptionMaxLength,
+                          validator: _validateDescription,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            counterText: '',
+                            errorMaxLines: 2,
+                            hintStyle: TextStyle(
+                              color: isLightTheme
+                                  ? AppColors.brandTeal.withValues(alpha: 0.56)
+                                  : Colors.white.withValues(alpha: 0.66),
+                            ),
+                            hintText: _isRecording
+                                ? "Recording..."
+                                : (_isAudioPlaying
+                                    ? "Playing..."
+                                    : "Type a description..."),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.camera_alt,
-                        color: isInputDisabled
-                            ? Colors.grey
-                            : theme.colorScheme.primary),
-                    onPressed: isInputDisabled ? null : _pickImage,
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      _isRecording
-                          ? Icons.stop_circle_outlined
-                          : Icons.mic,
-                      color: _isAudioPlaying
-                          ? Colors.grey
-                          : (_isRecording
-                          ? Colors.red
-                          : theme.colorScheme.primary),
-                      size: 26,
+                    IconButton(
+                      icon: Icon(Icons.camera_alt,
+                          color: isInputDisabled
+                              ? theme.disabledColor
+                              : theme.colorScheme.onSurface),
+                      onPressed: isInputDisabled ? null : _pickImage,
                     ),
-                    onPressed: _isAudioPlaying ? null : _toggleRecording,
-                  ),
-                ],
+                    IconButton(
+                      icon: Icon(
+                        _isRecording ? Icons.stop_circle_outlined : Icons.mic,
+                        color: _isAudioPlaying
+                            ? theme.disabledColor
+                            : theme.colorScheme.onSurface,
+                        size: 26,
+                      ),
+                      onPressed: _isAudioPlaying ? null : _toggleRecording,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
           SizedBox(
-            height: 48,
+            height: inputBarHeight,
             width: 56,
             child: ElevatedButton(
               onPressed: canSubmit ? _submitHazard : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                canSubmit ? Colors.blue : Colors.grey.shade400,
+                    canSubmit ? AppColors.accentGold : theme.disabledColor,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24.0),
+                  borderRadius: BorderRadius.circular(inputBarHeight / 2),
                 ),
                 padding: EdgeInsets.zero,
               ),
               child: _isSubmitting
                   ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 3, color: Colors.white))
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Colors.white,
+                      ),
+                    )
                   : Icon(
-                Icons.send,
-                color: canSubmit
-                    ? Colors.black
-                    : Colors.grey.shade700,
-              ),
+                      Icons.send,
+                      color: canSubmit
+                          ? AppColors.brandTeal
+                          : theme.colorScheme.onSurface.withValues(
+                              alpha: 0.54,
+                            ),
+                    ),
             ),
           ),
         ],
@@ -876,6 +921,67 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         onRecordingStateChanged: _handleRecordingStateChanged,
         onPlaybackStateChanged: _handlePlaybackStateChanged,
       ),
+    );
+  }
+
+  String? _selectedHazardIconAsset() {
+    if (_selectedHazardTypes.isEmpty) return null;
+
+    const Map<String, String> hazardIconAssets = <String, String>{
+      'Fire': 'assets/hazards/fire_warning.svg',
+      'Explosives': 'assets/hazards/explosion.svg',
+      'Radio Waves': 'assets/hazards/radio_waves.svg',
+      'Freeze': 'assets/hazards/freeze.svg',
+      'Magnetic Field': 'assets/hazards/magnetic_field.svg',
+      'Machine Crush': 'assets/hazards/machine_crush.svg',
+      'Falling Objects': 'assets/hazards/falling_objects.svg',
+      'High Temperature': 'assets/hazards/high_temperature.svg',
+      'High Heat': 'assets/hazards/high_heat.svg',
+      'Stairs Falls': 'assets/hazards/stairs_fall.svg',
+      'Radioactive': 'assets/hazards/radio_active.svg',
+      'Slip / Wet Floor': 'assets/hazards/slip_falling.svg',
+      'Electrical / Shock': 'assets/hazards/electric_shock.svg',
+      'Manual Handling': 'assets/hazards/load_lifting.svg',
+      'Chemical Exposure': 'assets/hazards/fire_warning.svg',
+      'PPE Missing': 'assets/hazards/fire_warning.svg',
+      'Flooding': 'assets/hazards/fire_warning.svg',
+      'Biological Hazard': 'assets/hazards/fire_warning.svg',
+      'Noise': 'assets/hazards/fire_warning.svg',
+      'Dust / Air Quality': 'assets/hazards/fire_warning.svg',
+      'Poor Lighting': 'assets/hazards/fire_warning.svg',
+      'Traffic / Vehicles': 'assets/hazards/fire_warning.svg',
+      'Equipment Failure': 'assets/hazards/fire_warning.svg',
+      'Working at Heights': 'assets/hazards/fire_warning.svg',
+      'Confined Spaces': 'assets/hazards/fire_warning.svg',
+      'Scaffolding Hazard': 'assets/hazards/fire_warning.svg',
+      'Vibration': 'assets/hazards/fire_warning.svg',
+      'Collapsing Structures': 'assets/hazards/fire_warning.svg',
+      'Insects / Wildlife': 'assets/hazards/fire_warning.svg',
+      'Uneven Ground': 'assets/hazards/fire_warning.svg',
+      'Unstable Excavation': 'assets/hazards/fire_warning.svg',
+      'Crane Operation': 'assets/hazards/fire_warning.svg',
+      'Overhead Power Lines': 'assets/hazards/fire_warning.svg',
+      'Crowded Work Area': 'assets/hazards/fire_warning.svg',
+      'Gas Leak': 'assets/hazards/fire_warning.svg',
+    };
+
+    return hazardIconAssets[_selectedHazardTypes.first];
+  }
+
+  Widget _buildSelectedHazardIcon() {
+    final String? iconAsset = _selectedHazardIconAsset();
+    if (iconAsset == null) {
+      return const Icon(
+        Icons.warning_amber_rounded,
+        color: Colors.white,
+        size: 32,
+      );
+    }
+
+    return SvgPicture.asset(
+      iconAsset,
+      width: 32,
+      height: 32,
     );
   }
 
@@ -912,8 +1018,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                     color: Colors.white.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.warning_amber_rounded,
-                      color: Colors.white, size: 32),
+                  child: _buildSelectedHazardIcon(),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

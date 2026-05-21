@@ -11,6 +11,7 @@ import 'services/error_service.dart';
 import 'services/sync_service.dart';
 import 'shared/navigation/app_navigator.dart' as app_navigation;
 import 'shared/navigation/app_router.dart';
+import 'shared/theme/app_colors.dart';
 import 'shared/widgets/emergency_permission_dialog.dart';
 import 'shared/widgets/error_boundary.dart';
 
@@ -288,6 +289,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.brandTeal,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.25,
+        ),
+        actionTextColor: AppColors.accentGold,
+        closeIconColor: Colors.white,
+        behavior: SnackBarBehavior.floating,
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:uuid/uuid.dart';
 
 // Callback definitions
@@ -50,10 +51,13 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
 
   bool _isRecorderReady = false;
   bool _isRecording = false;
+  bool _isRecordingPaused = false;
   bool _playerReady = false;
 
   StreamSubscription? _recorderSubscription;
   StreamSubscription? _playerSubscription;
+  Timer? _recordingDurationTimer;
+  final Stopwatch _recordingStopwatch = Stopwatch();
 
   final List<VoiceNote> _voiceNotes = [];
   String? _currentPlayingId;
@@ -77,11 +81,14 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
     _isRecorderReady = true;
 
     _recorderSubscription = _recorder.onProgress?.listen((event) {
-      if (event.decibels != null && mounted && _isRecording) {
-        double amplitude = (event.decibels!.abs() / 80).clamp(0.0, 1.0);
+      if (event.decibels != null &&
+          mounted &&
+          _isRecording &&
+          !_isRecordingPaused) {
+        final double amplitude =
+            (event.decibels!.abs() / 80).clamp(0.0, 1.0);
         setState(() {
           _currentWaveformData.add(amplitude);
-          _currentRecordingDuration = event.duration;
           if (_currentWaveformData.length > 100) {
             _currentWaveformData.removeAt(0);
           }
@@ -104,11 +111,50 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
 
   @override
   void dispose() {
+    _recordingDurationTimer?.cancel();
     _recorderSubscription?.cancel();
     _playerSubscription?.cancel();
-    _recorder.closeRecorder();
-    _player.closePlayer();
+    unawaited(_disposeAudioResources());
     super.dispose();
+  }
+
+  Future<void> _disposeAudioResources() async {
+    if (_isRecording) {
+      await _recorder.stopRecorder();
+    }
+    if (_currentPlayingId != null) {
+      await _player.stopPlayer();
+    }
+    await _recorder.closeRecorder();
+    await _player.closePlayer();
+  }
+
+  Future<void> discardActiveSession() async {
+    _recordingDurationTimer?.cancel();
+    _recordingDurationTimer = null;
+    _recordingStopwatch.stop();
+
+    if (_isRecordingPaused) {
+      await _recorder.resumeRecorder();
+    }
+    if (_isRecording) {
+      await _recorder.stopRecorder();
+    }
+    if (_currentPlayingId != null) {
+      await _player.stopPlayer();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isRecording = false;
+      _isRecordingPaused = false;
+      _currentPlayingId = null;
+      _currentPlayPosition = Duration.zero;
+      _currentWaveformData.clear();
+      _currentRecordingDuration = Duration.zero;
+    });
+    widget.onRecordingStateChanged(false);
+    widget.onPlaybackStateChanged?.call(false);
   }
 
   Future<void> startRecording() async {
@@ -116,36 +162,97 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
 
     final dir = await getTemporaryDirectory();
     final path = "${dir.path}/${const Uuid().v4()}.m4a";
+    if (!mounted) return;
     setState(() {
       _currentWaveformData.clear();
       _currentRecordingDuration = Duration.zero;
+      _isRecordingPaused = false;
     });
     await _recorder.startRecorder(toFile: path, codec: Codec.aacMP4);
+    _startRecordingClock();
+    if (!mounted) return;
     setState(() => _isRecording = true);
     widget.onRecordingStateChanged(true);
   }
 
+  Future<void> toggleRecordingPause() async {
+    if (!_isRecording) return;
+
+    if (_isRecordingPaused) {
+      await _recorder.resumeRecorder();
+      if (!mounted) return;
+      _resumeRecordingClock();
+      setState(() => _isRecordingPaused = false);
+      return;
+    }
+
+    await _recorder.pauseRecorder();
+    if (!mounted) return;
+    _pauseRecordingClock();
+    setState(() => _isRecordingPaused = true);
+  }
+
   Future<void> stopRecording() async {
     if (!_isRecording) return;
+    final Duration recordedDuration = _recordingStopwatch.elapsed;
+    final List<double> recordedWaveformData =
+        List<double>.from(_currentWaveformData);
+    _stopRecordingClock();
+    if (_isRecordingPaused) {
+      await _recorder.resumeRecorder();
+    }
     final recordedPath = await _recorder.stopRecorder();
-    if (recordedPath != null && _currentRecordingDuration > const Duration(milliseconds: 500)) {
+    if (recordedPath != null &&
+        recordedDuration > const Duration(milliseconds: 500)) {
       final voiceNote = VoiceNote(
         id: const Uuid().v4(),
         file: File(recordedPath),
-        duration: _currentRecordingDuration,
-        waveformData: List.from(_currentWaveformData),
+        duration: recordedDuration,
+        waveformData: recordedWaveformData,
         createdAt: DateTime.now(),
       );
+      if (!mounted) return;
       setState(() {
         _voiceNotes.add(voiceNote);
       });
     }
+    if (!mounted) return;
     setState(() {
       _isRecording = false;
+      _isRecordingPaused = false;
       _currentWaveformData.clear();
       _currentRecordingDuration = Duration.zero;
     });
     widget.onRecordingStateChanged(false);
+  }
+
+  void _startRecordingClock() {
+    _recordingDurationTimer?.cancel();
+    _recordingStopwatch
+      ..reset()
+      ..start();
+    _recordingDurationTimer =
+        Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted || !_isRecording || _isRecordingPaused) return;
+      setState(() {
+        _currentRecordingDuration = _recordingStopwatch.elapsed;
+      });
+    });
+  }
+
+  void _pauseRecordingClock() {
+    _recordingStopwatch.stop();
+    _currentRecordingDuration = _recordingStopwatch.elapsed;
+  }
+
+  void _resumeRecordingClock() {
+    _recordingStopwatch.start();
+  }
+
+  void _stopRecordingClock() {
+    _recordingDurationTimer?.cancel();
+    _recordingDurationTimer = null;
+    _recordingStopwatch.stop();
   }
 
   Future<void> _playVoiceNote(String voiceNoteId) async {
@@ -249,14 +356,32 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
     );
   }
 
-  /// ## MODIFIED WIDGET: Glassy black (light theme) and white (dark theme)
   Widget _buildVoiceNoteItem(VoiceNote voiceNote) {
     final isPlaying = _currentPlayingId == voiceNote.id;
     final progress = isPlaying && voiceNote.duration.inMilliseconds > 0
-        ? (_currentPlayPosition.inMilliseconds / voiceNote.duration.inMilliseconds).clamp(0.0, 1.0)
+        ? (_currentPlayPosition.inMilliseconds / voiceNote.duration.inMilliseconds)
+            .clamp(0.0, 1.0)
         : 0.0;
 
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
+    final Color surfaceColor = isLightTheme
+        ? AppColors.brandTeal
+        : AppColors.surfaceTeal.withValues(alpha: 0.70);
+    final Color borderColor = isLightTheme
+        ? AppColors.accentGold.withValues(alpha: 0.34)
+        : AppColors.accentGold.withValues(alpha: 0.30);
+    final Color primaryTextColor = Colors.white;
+    final Color secondaryTextColor = isLightTheme
+        ? Colors.white.withValues(alpha: 0.78)
+        : Colors.white.withValues(alpha: 0.74);
+    final Color playButtonColor =
+        isPlaying ? AppColors.brandTeal : AppColors.accentGold;
+    final Color inactiveControlColor = isLightTheme
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: 0.22);
+    final Color playbackIconColor = _isRecording
+        ? Colors.white
+        : (isPlaying ? Colors.white : AppColors.brandTeal);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20.0),
@@ -266,11 +391,17 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20.0),
-            // **CHANGE**: Glassy black for light theme, glassy white for dark theme
-            color: isLightTheme ? Colors.black.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.15),
-            border: Border.all(
-              color: isLightTheme ? Colors.black.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.2),
-            ),
+            color: surfaceColor,
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.brandTeal.withValues(
+                  alpha: isLightTheme ? 0.22 : 0.24,
+                ),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -280,9 +411,13 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
                   width: 36, height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _isRecording ? Colors.grey.withValues(alpha: 0.5) : (isPlaying ? Colors.orange : Colors.green),
+                    color: _isRecording ? inactiveControlColor : playButtonColor,
                   ),
-                  child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 18),
+                  child: Icon(
+                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: playbackIconColor,
+                    size: 18,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -292,25 +427,36 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
                   children: [
                     GestureDetector(
                       child: Builder(
-                          builder: (context) {
-                            return CustomPaint(
-                              painter: VoiceNoteWaveformPainter(
-                                waveformData: voiceNote.waveformData,
-                                progress: progress,
-                                isLightTheme: isLightTheme,
+                        builder: (context) {
+                          return CustomPaint(
+                            painter: VoiceNoteWaveformPainter(
+                              waveformData: voiceNote.waveformData,
+                              progress: progress,
+                              isLightTheme: isLightTheme,
+                              playedColor: AppColors.accentGold,
+                              unplayedColor: secondaryTextColor.withValues(
+                                alpha: 0.48,
                               ),
-                              size: const Size(double.infinity, 30),
-                            );
-                          }
+                              handleColor: primaryTextColor,
+                            ),
+                            size: const Size(double.infinity, 30),
+                          );
+                        },
                       ),
                       onTapDown: (details) {
-                        final RenderBox box = context.findRenderObject() as RenderBox;
-                        final positionFraction = (details.localPosition.dx / box.size.width).clamp(0.0, 1.0);
+                        final RenderBox box =
+                            context.findRenderObject() as RenderBox;
+                        final positionFraction =
+                            (details.localPosition.dx / box.size.width)
+                                .clamp(0.0, 1.0);
                         _seekInVoiceNote(voiceNote.id, positionFraction);
                       },
                       onHorizontalDragUpdate: (details) {
-                        final RenderBox box = context.findRenderObject() as RenderBox;
-                        final positionFraction = (details.localPosition.dx / box.size.width).clamp(0.0, 1.0);
+                        final RenderBox box =
+                            context.findRenderObject() as RenderBox;
+                        final positionFraction =
+                            (details.localPosition.dx / box.size.width)
+                                .clamp(0.0, 1.0);
                         _seekInVoiceNote(voiceNote.id, positionFraction);
                       },
                     ),
@@ -319,17 +465,21 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _formatDuration(isPlaying ? _currentPlayPosition : Duration.zero),
+                          _formatDuration(
+                            isPlaying ? _currentPlayPosition : Duration.zero,
+                          ),
                           style: TextStyle(
-                              fontSize: 10,
-                              // **CHANGE**: Light text color for both themes for contrast
-                              color: isLightTheme ? Colors.white.withValues(alpha: 0.8) : Colors.white70,
-                              fontWeight: FontWeight.w500
+                            fontSize: 10,
+                            color: secondaryTextColor,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         Text(
                           _formatDuration(voiceNote.duration),
-                          style: TextStyle(fontSize: 10, color: isLightTheme ? Colors.white.withValues(alpha: 0.8) : Colors.white70),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: secondaryTextColor,
+                          ),
                         ),
                       ],
                     ),
@@ -343,9 +493,15 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
                   width: 28, height: 28,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isLightTheme ? Colors.white.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
+                    color: isLightTheme
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : Colors.white.withValues(alpha: 0.10),
                   ),
-                  child: Icon(Icons.delete_outline, color: isLightTheme ? Colors.white : Colors.red.shade300, size: 16),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: isLightTheme ? Colors.white : AppColors.accentGold,
+                    size: 16,
+                  ),
                 ),
               ),
             ],
@@ -357,12 +513,33 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
 
   Widget _buildCurrentRecording() {
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
+    final Color recordingSurfaceColor = isLightTheme
+        ? AppColors.accentGold.withValues(alpha: 0.14)
+        : AppColors.brandTeal.withValues(alpha: 0.82);
+    final Color recordingBorderColor =
+        AppColors.accentGold.withValues(alpha: 0.42);
+    final Color recordingTextColor =
+        isLightTheme ? AppColors.brandTeal : Colors.white;
+    final Color recordingWaveColor = isLightTheme
+        ? AppColors.brandTeal
+        : AppColors.accentGold;
+    final IconData pauseResumeIcon =
+        _isRecordingPaused ? Icons.play_arrow_rounded : Icons.pause_rounded;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isLightTheme ? Colors.red.shade50 : Colors.red.withValues(alpha: 0.15),
+        color: recordingSurfaceColor,
         borderRadius: BorderRadius.circular(20.0),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+        border: Border.all(color: recordingBorderColor),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brandTeal.withValues(
+              alpha: isLightTheme ? 0.08 : 0.28,
+            ),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -370,8 +547,39 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
             onTap: stopRecording,
             child: Container(
               width: 36, height: 36,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.red),
-              child: const Icon(Icons.stop, color: Colors.white, size: 20),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accentGold,
+              ),
+              child: const Icon(
+                Icons.stop,
+                color: AppColors.brandTeal,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: toggleRecordingPause,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isLightTheme
+                    ? AppColors.brandTeal.withValues(alpha: 0.12)
+                    : Colors.white.withValues(alpha: 0.12),
+                border: Border.all(
+                  color: isLightTheme
+                      ? AppColors.brandTeal.withValues(alpha: 0.22)
+                      : Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Icon(
+                pauseResumeIcon,
+                color: recordingTextColor,
+                size: 22,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -387,6 +595,9 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
                       progress: 0.0,
                       isRecording: true,
                       isLightTheme: isLightTheme,
+                      playedColor: recordingWaveColor,
+                      unplayedColor: recordingWaveColor.withValues(alpha: 0.36),
+                      handleColor: recordingWaveColor,
                     ),
                     size: const Size(double.infinity, 30),
                   ),
@@ -394,11 +605,22 @@ class VoiceNoteRecorderState extends State<VoiceNoteRecorder> {
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.red)),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.accentGold,
+                      ),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       _formatDuration(_currentRecordingDuration),
-                      style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: recordingTextColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -416,21 +638,31 @@ class VoiceNoteWaveformPainter extends CustomPainter {
   final double progress;
   final bool isRecording;
   final bool isLightTheme;
+  final Color playedColor;
+  final Color unplayedColor;
+  final Color handleColor;
 
   VoiceNoteWaveformPainter({
     required this.waveformData,
     required this.progress,
     this.isRecording = false,
     this.isLightTheme = false,
+    this.playedColor = AppColors.accentGold,
+    this.unplayedColor = AppColors.surfaceTeal,
+    this.handleColor = AppColors.brandTeal,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (waveformData.isEmpty) {
       final paint = Paint()
-        ..color = Colors.grey.shade400
+        ..color = unplayedColor
         ..strokeWidth = 2;
-      canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint);
+      canvas.drawLine(
+        Offset(0, size.height / 2),
+        Offset(size.width, size.height / 2),
+        paint,
+      );
       return;
     }
 
@@ -438,17 +670,14 @@ class VoiceNoteWaveformPainter extends CustomPainter {
     final barWidth = size.width / max(waveformData.length, 1);
     final progressPosition = size.width * progress.clamp(0.0, 1.0);
 
-    // **CHANGE**: Consistent light colors for contrast on glassy backgrounds
-    const playedColor = Colors.white;
-    final unplayedColor = Colors.white.withValues(alpha: 0.4);
-    const handleColor = Colors.white;
-
     for (int i = 0; i < waveformData.length; i++) {
       final x = i * barWidth + barWidth / 2;
-      final barHeight = (waveformData[i] * size.height * 0.8).clamp(2.0, size.height * 0.8);
+      final barHeight = (waveformData[i] * size.height * 0.8)
+          .clamp(2.0, size.height * 0.8);
       final y1 = (size.height - barHeight) / 2;
       final y2 = y1 + barHeight;
-      paint.color = isRecording ? Colors.redAccent : (x <= progressPosition ? playedColor : unplayedColor);
+      paint.color =
+          x <= progressPosition || isRecording ? playedColor : unplayedColor;
       canvas.drawLine(Offset(x, y1), Offset(x, y2), paint);
     }
 
@@ -464,6 +693,9 @@ class VoiceNoteWaveformPainter extends CustomPainter {
         oldDelegate.waveformData.length != waveformData.length ||
         oldDelegate.progress != progress ||
         oldDelegate.isRecording != isRecording ||
-        oldDelegate.isLightTheme != isLightTheme;
+        oldDelegate.isLightTheme != isLightTheme ||
+        oldDelegate.playedColor != playedColor ||
+        oldDelegate.unplayedColor != unplayedColor ||
+        oldDelegate.handleColor != handleColor;
   }
 }

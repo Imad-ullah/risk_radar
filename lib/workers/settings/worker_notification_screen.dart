@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/workers/settings/worker_hazard_notifier.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
+import 'package:riskradar/services/logger_service.dart';
 
 import '../../shared/hazards/hazard_details_screen.dart';
 
@@ -217,15 +218,22 @@ class WorkerNotificationScreen extends StatelessWidget {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // NOTIFICATION TAP — cache fallback when offline
-  // ══════════════════════════════════════════════════════════════════════════
 
+  // ══════════════════════════════════════════════════════════════════════════
   Future<void> _onNotificationTap(
       BuildContext context, dynamic notification) async {
     workerHazardNotifier.markAsRead(notification.hazardId);
 
-    // ── Step 1: Try cache first (instant, no network needed) ─────────────
+    final freshHazard = await _fetchAndParseHazardData(
+        notification.hazardId, notification.sourceTable);
+    if (freshHazard != null) {
+      if (context.mounted) {
+        Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => HazardDetailsScreen(hazardData: freshHazard)));
+      }
+      return;
+    }
+
     final cachedHazard = await _findInCache(notification.hazardId);
     if (cachedHazard != null) {
       final parsed = _parseHazardData(
@@ -235,69 +243,32 @@ class WorkerNotificationScreen extends StatelessWidget {
         Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => HazardDetailsScreen(hazardData: parsed)));
       }
-      // Still try to refresh from Supabase in background silently
-      _backgroundFetchAndUpdate(
-          notification.hazardId, notification.sourceTable);
       return;
     }
 
-    // ── Step 2: No cache — must fetch from Supabase ───────────────────────
-    if (!context.mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) =>
-      const Center(child: CircularProgressIndicator()),
-    );
-
-    final hazardData = await _fetchAndParseHazardData(
-        notification.hazardId, notification.sourceTable);
-
     if (context.mounted) {
-      Navigator.pop(context); // close loading dialog
-
-      if (hazardData != null) {
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) =>
-                HazardDetailsScreen(hazardData: hazardData)));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                '📴 You\'re offline. Hazard details unavailable.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hazard details unavailable.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
-  // ── Look for hazard in both cached lists ──────────────────────────────────
   Future<Map<String, dynamic>?> _findInCache(String hazardId) async {
     final ongoing = await _hazardRepository.getOngoingHazards();
     final match =
-    ongoing.where((h) => h['id']?.toString() == hazardId).toList();
+        ongoing.where((h) => h['id']?.toString() == hazardId).toList();
     if (match.isNotEmpty) return match.first;
 
     final myHazards = await _hazardRepository.getHazards();
     final match2 =
-    myHazards.where((h) => h['id']?.toString() == hazardId).toList();
+        myHazards.where((h) => h['id']?.toString() == hazardId).toList();
     if (match2.isNotEmpty) return match2.first;
 
     return null;
   }
-
-  // ── Silent background fetch — updates cache without blocking UI ───────────
-  Future<void> _backgroundFetchAndUpdate(
-      String hazardId, String sourceTable) async {
-    try {
-      await _fetchAndParseHazardData(hazardId, sourceTable);
-    } catch (_) {
-      // Non-fatal — cached data already shown
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
   // PARSE — applies to both cached and fresh Supabase data
   // ══════════════════════════════════════════════════════════════════════════
 
@@ -337,13 +308,19 @@ class WorkerNotificationScreen extends StatelessWidget {
       'profile_image_url': reporterImageUrl,
     };
 
-    final List officersList = rawHazard['all_assigned_officers'] ?? [];
+    final List officersList = rawHazard['all_assigned_officers'] ??
+        rawHazard['assign_hazards'] ??
+        [];
     String assignedName = '';
     if (officersList.isNotEmpty) {
-      final firstHse = officersList.first['hse_worker'];
-      assignedName =
-          '${firstHse['first_name'] ?? ''} ${firstHse['last_name'] ?? ''}'
-              .trim();
+      final firstAssignment = officersList.first;
+      final firstHse =
+          firstAssignment is Map ? firstAssignment['hse_worker'] : null;
+      if (firstHse is Map) {
+        assignedName =
+            '${firstHse['first_name'] ?? ''} ${firstHse['last_name'] ?? ''}'
+                .trim();
+      }
     } else if (rawHazard['hse_worker'] != null) {
       final w = rawHazard['hse_worker'];
       assignedName = '${w['first_name']} ${w['last_name']}';
@@ -353,6 +330,35 @@ class WorkerNotificationScreen extends StatelessWidget {
     } else {
       assignedName = rawHazard['assigned_to_name'] ?? 'Not Assigned';
     }
+    if (assignedName.isEmpty) {
+      assignedName = rawHazard['assigned_to_name'] ?? 'Not Assigned';
+    }
+
+    final bool hasFlatInspector = rawHazard['hse_first_name'] != null ||
+        rawHazard['hse_last_name'] != null ||
+        rawHazard['assigned_to_name'] != null;
+    final List normalizedOfficersList = officersList.isNotEmpty
+        ? officersList
+        : (rawHazard['hse_worker'] != null
+            ? [rawHazard]
+            : (hasFlatInspector
+                ? [
+                    {
+                      'assigned_at': rawHazard['assigned_at'],
+                      'status': rawHazard['status'],
+                      'hse_worker': {
+                        'id': rawHazard['assigned_to'],
+                        'first_name': rawHazard['hse_first_name'] ??
+                            rawHazard['assigned_to_name'] ??
+                            'Site Inspector',
+                        'last_name': rawHazard['hse_last_name'] ?? '',
+                        'profile_image_url': rawHazard['hse_profile_image_url'],
+                        'designation': rawHazard['hse_designation'],
+                        'role': rawHazard['hse_role'] ?? 'hse_worker',
+                      },
+                    }
+                  ]
+                : []));
 
     final images = (rawHazard['image_url'] != null &&
         rawHazard['image_url'].toString().isNotEmpty)
@@ -366,9 +372,7 @@ class WorkerNotificationScreen extends StatelessWidget {
     return {
       ...rawHazard,
       'workers': passedWorkerInfo,
-      'assign_hazards': officersList.isNotEmpty
-          ? officersList
-          : (rawHazard['hse_worker'] != null ? [rawHazard] : []),
+      'assign_hazards': normalizedOfficersList,
       'hazard_type': rawHazard['hazard_type'] ?? 'No Type',
       'description': rawHazard['description'] ?? 'No description provided.',
       'images': images,
@@ -410,6 +414,32 @@ class WorkerNotificationScreen extends StatelessWidget {
             .select('*, workers!hazards_worker_id_fkey (*)')
             .eq('id', hazardId)
             .maybeSingle();
+
+        if (rawHazard != null) {
+          try {
+            final assignments = await supabase
+                .from('assign_hazards')
+                .select('''
+                  *,
+                  hse_worker:assigned_to (
+                    id,
+                    first_name,
+                    last_name,
+                    profile_image_url,
+                    designation,
+                    role
+                  )
+                ''')
+                .eq('hazard_id', hazardId);
+            rawHazard['assign_hazards'] = assignments;
+          } catch (e, s) {
+            LoggerService.error(
+              '[Notification] Unable to load assignment inspectors',
+              e,
+              s,
+            );
+          }
+        }
       }
 
       if (rawHazard == null) return null;

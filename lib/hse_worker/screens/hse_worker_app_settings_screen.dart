@@ -89,12 +89,7 @@ class _HSEWorkerAppSettingsScreenState
 
     final String? userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Sign in again to update availability'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      _showErrorSnackBar('Sign in again to update availability');
       return;
     }
 
@@ -120,12 +115,7 @@ class _HSEWorkerAppSettingsScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(_availabilitySavedText),
-          backgroundColor: AppColors.brandTeal,
-        ),
-      );
+      _showInfoSnackBar(_availabilitySavedText);
     } catch (e, s) {
       LoggerService.error(_availabilityFailedText, e, s);
       await _cacheAvailability(userId: userId, isAvailable: previousValue);
@@ -136,12 +126,7 @@ class _HSEWorkerAppSettingsScreenState
       setState(() {
         _isAvailable = previousValue;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(_availabilityFailedText),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
+      _showErrorSnackBar(_availabilityFailedText);
     } finally {
       if (mounted) {
         setState(() {
@@ -162,6 +147,38 @@ class _HSEWorkerAppSettingsScreenState
       'id': userId,
       'is_available': isAvailable,
     });
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppColors.brandTeal,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _handleSignOut(BuildContext context) async {
@@ -258,9 +275,7 @@ class _HSEWorkerAppSettingsScreenState
 
     if (confirm == true && context.mounted) {
       try {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Logging out...')),
-        );
+        _showInfoSnackBar('Logging out...');
 
         await Supabase.instance.client.auth.signOut();
 
@@ -269,9 +284,7 @@ class _HSEWorkerAppSettingsScreenState
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Logout failed: $e')),
-          );
+          _showErrorSnackBar('Logout failed: $e');
         }
       }
     }
@@ -297,131 +310,250 @@ class _HSEWorkerAppSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.currentThemeMode == ThemeMode.dark ||
-        (widget.currentThemeMode == ThemeMode.system &&
-            MediaQuery.of(context).platformBrightness == Brightness.dark);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: const Text('Profile'),
-            subtitle: const Text('View and update your personal details'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const HSEWorkerEditProfileScreen(),
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _CompactSettingsTile(
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                  subtitle: 'View and update your personal details',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HSEWorkerEditProfileScreen(),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.warning_amber_outlined, color: Colors.red),
-            title: const Text('Emergency Details'),
-            subtitle: const Text('Update contacts and critical medical info'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _onEmergencyDetailsTap(context),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.location_on_outlined),
-            title: const Text('Change Current Site'),
-            subtitle: const Text('Select or switch your active work site'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _onChangeSiteTap(context),
-          ),
-          const Divider(),
-          ListTile(
-            leading: Icon(
-              _isAvailable
-                  ? Icons.assignment_turned_in_outlined
-                  : Icons.pause_circle_outline_rounded,
-              color: _isAvailable ? AppColors.brandTeal : AppColors.accentGold,
-            ),
-            title: const Text('Availability'),
-            subtitle: Text(
-              _isAvailable
-                  ? _availabilityEnabledText
-                  : _availabilityDisabledText,
-            ),
-            trailing: Switch(
-              value: _isAvailable,
-              onChanged:
-                  _isSavingAvailability ? null : _handleAvailabilityChanged,
-              activeThumbColor: AppColors.accentGold,
-              activeTrackColor: AppColors.brandTeal.withValues(alpha: 0.45),
-              inactiveThumbColor: Colors.grey.shade500,
-              inactiveTrackColor: Colors.grey.shade300,
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.color_lens_outlined),
-            title: const Text('Theme'),
-            subtitle: Text(isDark ? 'Dark Mode' : 'Light Mode'),
-            trailing: ThemeToggle(
-              isDark: isDark,
-              onChanged: (value) =>
-                  widget.onThemeChanged(
-                value ? ThemeMode.dark : ThemeMode.light,
-              ),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('Notifications'),
-            subtitle: const Text('Manage notification preferences'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Notification settings coming soon')),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.security_outlined),
-            title: const Text('Privacy & Security'),
-            subtitle: const Text('Change password and privacy options'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Privacy settings coming soon')),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About App'),
-            subtitle: const Text('Learn more about this application'),
-            onTap: () => widget.onAboutTap(context),
-          ),
-          const Divider(),
-          const SizedBox(height: 32),
-          // ✅ UPDATED SIGN OUT BUTTON DESIGN
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: Icons.warning_amber_outlined,
+                  iconColor: Colors.red.shade200,
+                  title: 'Emergency Details',
+                  subtitle: 'Update contacts and critical medical info',
+                  onTap: () => _onEmergencyDetailsTap(context),
                 ),
-                elevation: 2,
-              ),
-              onPressed: () => _handleSignOut(context),
-              icon: const Icon(Icons.logout),
-              label: const Text(
-                'Sign Out',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: Icons.location_on_outlined,
+                  title: 'Change Current Site',
+                  subtitle: 'Select or switch your active work site',
+                  onTap: () => _onChangeSiteTap(context),
+                ),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: _isAvailable
+                      ? Icons.assignment_turned_in_outlined
+                      : Icons.pause_circle_outline_rounded,
+                  iconColor:
+                      _isAvailable ? AppColors.accentGold : Colors.white70,
+                  title: 'Availability',
+                  subtitle: _isAvailable
+                      ? _availabilityEnabledText
+                      : _availabilityDisabledText,
+                  enableTileTap: false,
+                  trailing: Switch(
+                    value: _isAvailable,
+                    onChanged: _isSavingAvailability
+                        ? null
+                        : _handleAvailabilityChanged,
+                    activeThumbColor: AppColors.accentGold,
+                    activeTrackColor:
+                        AppColors.brandTeal.withValues(alpha: 0.65),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: const Color(0xFF355F67),
+                  ),
+                  onTap: () {},
+                ),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: Icons.color_lens_outlined,
+                  title: isDark ? 'Dark Mode' : 'Light Mode',
+                  subtitle: 'Adjust RiskRadar appearance',
+                  enableTileTap: false,
+                  trailing: ThemeToggle(
+                    isDark: isDark,
+                    onChanged: (bool value) {
+                      widget.onThemeChanged(
+                        value ? ThemeMode.dark : ThemeMode.light,
+                      );
+                    },
+                  ),
+                  onTap: () {},
+                ),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notifications',
+                  subtitle: 'Manage notification preferences',
+                  onTap: () =>
+                      _showInfoSnackBar('Notification settings coming soon'),
+                ),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: Icons.security_outlined,
+                  title: 'Privacy & Security',
+                  subtitle: 'Change password and privacy options',
+                  onTap: () => _showInfoSnackBar('Privacy settings coming soon'),
+                ),
+                const SizedBox(height: 16),
+                _CompactSettingsTile(
+                  icon: Icons.info_outline,
+                  title: 'About App',
+                  subtitle: 'Learn more about this application',
+                  onTap: () => widget.onAboutTap(context),
+                ),
+                const SizedBox(height: 32),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: <Color>[
+                        Colors.red.shade600,
+                        Colors.red.shade800,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.red.shade600.withValues(alpha: 0.32),
+                        blurRadius: 14,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () => _handleSignOut(context),
+                    icon: const Icon(Icons.logout, size: 22),
+                    label: const Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactSettingsTile extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Widget? trailing;
+  final bool enableTileTap;
+
+  const _CompactSettingsTile({
+    required this.icon,
+    this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.trailing,
+    this.enableTileTap = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color cardBase = isDark
+        ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
+        : AppColors.brandTeal;
+
+    return InkWell(
+      onTap: enableTileTap ? onTap : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: cardBase,
+          border: Border.all(
+            color: isDark
+                ? AppColors.surfaceTeal.withValues(alpha: 0.8)
+                : AppColors.brandTeal.withValues(alpha: 0.22),
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              icon,
+              color: iconColor ?? Colors.white,
+              size: 26,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.74),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              trailing!
+            else
+              const Icon(
+                Icons.chevron_right,
+                color: Colors.white70,
+                size: 24,
+              ),
+          ],
+        ),
       ),
     );
   }

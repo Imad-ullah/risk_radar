@@ -102,7 +102,18 @@ class _HazardResolutionVerificationScreenState
   Future<void> _pickImage() async {
     if (_isRecording || _isAudioPlaying) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isRecording ? "Please stop recording first." : "Please stop playback first."), backgroundColor: AppColors.accentGold),
+        SnackBar(
+          content: Text(
+            _isRecording
+                ? "Please stop recording first."
+                : "Please stop playback first.",
+            style: const TextStyle(
+              color: AppColors.brandTeal,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.accentGold,
+        ),
       );
       return;
     }
@@ -146,19 +157,46 @@ class _HazardResolutionVerificationScreenState
   Future<void> _submitVerification() async {
     if (_selectedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Step 1: Please capture at least one live site photo.'), backgroundColor: AppColors.accentGold),
+        const SnackBar(
+          content: Text(
+            'Step 1: Please capture at least one live site photo.',
+            style: TextStyle(
+              color: AppColors.brandTeal,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.accentGold,
+        ),
       );
       return;
     }
     if (!_hasNotes) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Step 2: Please describe the work done.'), backgroundColor: AppColors.accentGold),
+        const SnackBar(
+          content: Text(
+            'Step 2: Please describe the work done.',
+            style: TextStyle(
+              color: AppColors.brandTeal,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.accentGold,
+        ),
       );
       return;
     }
     if (_isRecording || _isAudioPlaying) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please stop recording/playback before submitting."), backgroundColor: AppColors.accentGold),
+        const SnackBar(
+          content: Text(
+            "Please stop recording/playback before submitting.",
+            style: TextStyle(
+              color: AppColors.brandTeal,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.accentGold,
+        ),
       );
       return;
     }

@@ -39,7 +39,7 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
         dateTime = dateTime.toLocal();
       }
       return DateFormat("E, MMM d, yyyy 'at' h:mm a").format(dateTime);
-    } catch (Object error, StackTrace stackTrace) {
+    } on FormatException catch (error, stackTrace) {
       LoggerService.error('Invalid hazard timestamp.', error, stackTrace);
       return 'N/A';
     }

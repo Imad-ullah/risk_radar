@@ -232,23 +232,31 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
       List<String> fetchedContractors = [];
       List<String> fetchedSafetyOfficers = [];
 
-      if (siteId != null) {
-        // Build futures separately so Dart can infer types correctly
+      if (officerUid != null && officerUid.isNotEmpty) {
+        final Map<String, dynamic>? contractor = await supabase
+            .from('officers')
+            .select('first_name, last_name')
+            .eq('officer_uid', officerUid)
+            .maybeSingle();
+
+        if (contractor != null) {
+          fetchedContractors = [
+            _capitalize(
+              '${contractor['first_name']} ${contractor['last_name']}',
+            ),
+          ];
+        }
+      }
+
+      if (siteId != null && siteId.isNotEmpty) {
         final Future<Map<String, dynamic>?> siteFuture = supabase
             .from('sites')
             .select('name')
             .eq('id', siteId)
             .maybeSingle();
 
-        final Future<Map<String, dynamic>?> contractorFuture = officerUid != null
-            ? supabase
-            .from('officers')
-            .select('first_name, last_name')
-            .eq('officer_uid', officerUid)
-            .maybeSingle()
-            : Future.value(null);
-
-        final Future<List<dynamic>> hseFuture = officerUid != null
+        final Future<List<dynamic>> hseFuture =
+            officerUid != null && officerUid.isNotEmpty
             ? supabase
             .from('hse_workers')
             .select('first_name, last_name')
@@ -258,23 +266,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
 
         final results = await Future.wait([
           siteFuture,
-          contractorFuture,
           hseFuture,
         ]);
 
         final siteData = results[0] as Map<String, dynamic>?;
-        final officerData = results[1] as Map<String, dynamic>?;
-        final hseDataList = results[2] as List<dynamic>? ?? [];
+        final hseDataList = results[1] as List<dynamic>? ?? [];
 
         if (siteData != null) {
           fetchedSiteName = _capitalize(siteData['name'] as String? ?? '');
-        }
-
-        if (officerData != null) {
-          fetchedContractors = [
-            _capitalize(
-                '${officerData['first_name']} ${officerData['last_name']}')
-          ];
         }
 
         fetchedSafetyOfficers = hseDataList
