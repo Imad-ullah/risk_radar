@@ -229,7 +229,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                 Text("OFFICER CONTEXT", style: TextStyle(color: AppColors.accentGold.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                 const SizedBox(height: 15),
                 _drawerInfoTile(Icons.business_rounded, "Total Sites", "${cache.totalSitesCount} Sites"),
-                _drawerInfoTile(Icons.security, "Role", "Safety Officer"),
+                _drawerInfoTile(Icons.security, "Role", "Contractor"),
               ],
             ),
           ),

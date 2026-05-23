@@ -311,6 +311,40 @@ class DatabaseHelper {
     );
   }
 
+  Future<void> replaceHazardsForSource({
+    required String sourceTable,
+    required Iterable<Map<String, Object?>> rows,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        hazardsTable,
+        where: 'source_table = ?',
+        whereArgs: [sourceTable],
+      );
+
+      for (final row in rows) {
+        final String? id = row['id']?.toString();
+        if (id == null || id.isEmpty) {
+          continue;
+        }
+
+        await txn.insert(
+          hazardsTable,
+          {
+            'id': id,
+            'source_table': sourceTable,
+            'status': row['status']?.toString(),
+            'payload_json': jsonEncode(row),
+            'created_at': row['created_at']?.toString(),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
   Future<List<Map<String, dynamic>>> getHazards({String? sourceTable}) async {
     final db = await database;
     final rows = await db.query(

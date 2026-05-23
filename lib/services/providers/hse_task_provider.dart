@@ -45,7 +45,7 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || _isDisposed) {
+    if (state != AppLifecycleState.resumed || !_canUseRef) {
       return;
     }
 
@@ -54,13 +54,24 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
   }
 
   Future<void> refresh({bool silent = false}) async {
+    if (!_canUseRef) {
+      return;
+    }
+
     if (!silent) {
       state = const AsyncValue<List<Hazard>>.loading();
     }
 
     try {
-      state = AsyncValue<List<Hazard>>.data(await _loadTasks());
+      final List<Hazard> tasks = await _loadTasks();
+      if (!_canUseRef) {
+        return;
+      }
+      state = AsyncValue<List<Hazard>>.data(tasks);
     } catch (e, s) {
+      if (!_canUseRef) {
+        return;
+      }
       state = AsyncValue<List<Hazard>>.error(e, s);
     }
   }
@@ -73,6 +84,10 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
   }
 
   void _subscribeToRealtimeChanges() {
+    if (!_canUseRef) {
+      return;
+    }
+
     final RealtimeConnectionNotifier connectionNotifier =
         ref.read(realtimeConnectionProvider.notifier);
     final String? userId = _supabase.auth.currentUser?.id;
@@ -84,7 +99,7 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
     connectionNotifier.markConnecting();
 
     unawaited(_unsubscribeFromRealtimeChanges().then((_) {
-      if (_isDisposed) {
+      if (!_canUseRef) {
         return;
       }
 
@@ -100,7 +115,7 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
               value: userId,
             ),
             callback: (PostgresChangePayload payload) {
-              if (_isDisposed) {
+              if (!_canUseRef) {
                 return;
               }
               unawaited(refresh(silent: true));
@@ -114,7 +129,7 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
     RealtimeSubscribeStatus status, [
     Object? error,
   ]) {
-    if (_isDisposed) {
+    if (!_canUseRef) {
       return;
     }
 
@@ -145,4 +160,6 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
       await channel.unsubscribe();
     }
   }
+
+  bool get _canUseRef => !_isDisposed && ref.mounted;
 }

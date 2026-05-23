@@ -23,6 +23,12 @@ class SqliteCacheStore {
 
   String? readString(String key) => _values[key];
 
+  Object? readJson(String key) {
+    final raw = readString(key);
+    if (raw == null) return null;
+    return jsonDecode(raw);
+  }
+
   Future<void> writeString(String key, String value) async {
     _values[key] = value;
     await DatabaseHelper.instance.writeCacheEntry(key, value);

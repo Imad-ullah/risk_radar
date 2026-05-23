@@ -15,10 +15,7 @@ import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart';
 
 class HseWorkerResolutionFormScreen extends StatefulWidget {
-  const HseWorkerResolutionFormScreen({
-    super.key,
-    required this.hazard,
-  });
+  const HseWorkerResolutionFormScreen({super.key, required this.hazard});
 
   final Hazard hazard;
 
@@ -31,8 +28,7 @@ class _HseWorkerResolutionFormScreenState
     extends State<HseWorkerResolutionFormScreen> {
   static const int _maxResolutionPhotos = 3;
   static const int _reportNumberModulo = 100000;
-  static const String _notesRequiredMessage =
-      'Resolution notes are required.';
+  static const String _notesRequiredMessage = 'Resolution notes are required.';
   static const String _photoRequiredMessage =
       'Capture at least one resolution photo.';
   static const String _maxPhotoMessage =
@@ -201,7 +197,7 @@ class _HseWorkerResolutionFormScreenState
     final String resolvedAt = DateTime.now().toUtc().toIso8601String();
     final List<File> voiceFiles =
         _voiceRecorderKey.currentState?.getAllRecordedFiles() ?? <File>[];
-    final String reportNumber = _generateReportNumber();
+    final int reportNumber = _generateReportNumber();
     final Map<String, Object?> payload = <String, Object?>{
       'id': assignmentId,
       'status': 'resolved',
@@ -212,43 +208,66 @@ class _HseWorkerResolutionFormScreenState
       'voice_paths': voiceFiles.map((File file) => file.path).toList(),
     };
 
+    final String actionId =
+        'hse_resolution_${assignmentId}_${const Uuid().v4()}';
+
     try {
       await _syncRepository.enqueueAction(
-        id: 'hse_resolution_${assignmentId}_${const Uuid().v4()}',
+        id: actionId,
         table: 'assign_hazards',
         action: 'update',
         payload: payload,
       );
 
       await _applyResolutionLocally(payload);
-      final SyncResult syncResult = await SyncService.instance.run();
+      SyncResult syncResult = await SyncService.instance.run();
+      bool actionStillPending = await _isActionPending(actionId);
+
+      if (actionStillPending && syncResult.reason != 'offline') {
+        syncResult = await SyncService.instance.run();
+        actionStillPending = await _isActionPending(actionId);
+      }
 
       if (!mounted) {
         return;
       }
 
       setState(() => _isSubmitting = false);
-      final bool savedOffline = syncResult.reason != null ||
-          syncResult.hasFailures ||
-          syncResult.pending > 0;
+      final bool savedLocally = actionStillPending;
+      final String snackMessage = savedLocally
+          ? 'Resolution saved offline. It will sync when online.'
+          : 'Resolution submitted successfully.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            savedOffline
-                ? 'Resolution saved offline. It will sync when online.'
-                : 'Resolution submitted successfully.',
-          ),
-          backgroundColor:
-              savedOffline ? Colors.orange.shade700 : AppColors.brandTeal,
+          content: Text(snackMessage),
+          backgroundColor: savedLocally
+              ? Colors.orange.shade700
+              : AppColors.brandTeal,
         ),
       );
-      Navigator.pop(context, true);
+      Navigator.pop(context, <String, Object>{
+        'resolved': true,
+        'assignment_id': assignmentId,
+        'action_id': actionId,
+        'synced': !savedLocally,
+      });
     } catch (e, s) {
       LoggerService.error('[HSE Resolution] Submit failed', e, s);
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       _showErrorSnack(_genericSubmitError);
     }
+  }
+
+  Future<bool> _isActionPending(String actionId) async {
+    final List<Map<String, Object?>> pendingActions =
+        (await _syncRepository.getPendingActions())
+            .map((row) => Map<String, Object?>.from(row))
+            .toList();
+
+    return pendingActions.any(
+      (Map<String, Object?> action) => action['id']?.toString() == actionId,
+    );
   }
 
   Future<void> _applyResolutionLocally(Map<String, Object?> payload) async {
@@ -262,13 +281,20 @@ class _HseWorkerResolutionFormScreenState
       ...payload,
     };
 
+    final Set<String> resolvedIdentifiers = _resolvedTaskIdentifiers();
+
     for (final Map<String, Object?> task in cachedTasks) {
-      if (task['id']?.toString() == widget.hazard.id) {
+      if (_taskIdentifiers(task).any(resolvedIdentifiers.contains)) {
         task.addAll(payload);
         resolvedTask = Map<String, Object?>.from(task);
       }
     }
 
+    cachedTasks.removeWhere(
+      (Map<String, Object?> task) =>
+          _taskIdentifiers(task).any(resolvedIdentifiers.contains),
+    );
+    await _hazardRepository.markHseTasksResolvedLocally(resolvedIdentifiers);
     await _hazardRepository.saveHseAssignedTasks(cachedTasks);
 
     final List<Map<String, Object?>> resolvedTasks =
@@ -277,26 +303,39 @@ class _HseWorkerResolutionFormScreenState
             .map((row) => Map<String, Object?>.from(row))
             .toList();
     resolvedTasks.removeWhere(
-      (Map<String, Object?> task) => task['id']?.toString() == widget.hazard.id,
+      (Map<String, Object?> task) =>
+          _taskIdentifiers(task).any(resolvedIdentifiers.contains),
     );
     resolvedTasks.insert(0, resolvedTask);
     await _hazardRepository.saveHseResolvedHazards(resolvedTasks);
   }
 
-  String _generateReportNumber() {
+  Set<String> _resolvedTaskIdentifiers() {
+    return <String>{
+      ?widget.hazard.id,
+    }.where((String value) => value.trim().isNotEmpty).toSet();
+  }
+
+  Set<String> _taskIdentifiers(Map<String, Object?> task) {
+    return <String>{
+      ?task['id']?.toString(),
+      ?task['assignment_id']?.toString(),
+      ?task['hazard_id']?.toString(),
+    }.where((String value) => value.trim().isNotEmpty).toSet();
+  }
+
+  int _generateReportNumber() {
     final DateTime now = DateTime.now();
-    final int numericSuffix =
-        now.microsecondsSinceEpoch.remainder(_reportNumberModulo);
-    return 'RR-${now.year}-${numericSuffix.toString().padLeft(5, '0')}';
+    final int numericSuffix = now.microsecondsSinceEpoch.remainder(
+      _reportNumberModulo,
+    );
+    return (now.year * _reportNumberModulo) + numericSuffix;
   }
 
   void _showErrorSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade700,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
     );
   }
 
@@ -304,7 +343,9 @@ class _HseWorkerResolutionFormScreenState
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? Colors.grey.shade900 : AppColors.backgroundLight,
+      backgroundColor: isDark
+          ? Colors.grey.shade900
+          : AppColors.backgroundLight,
       appBar: AppBar(
         title: const Text('Resolve Hazard'),
         centerTitle: true,
@@ -469,7 +510,8 @@ class _HseWorkerResolutionFormScreenState
               height: 126,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: _selectedPhotos.length +
+                itemCount:
+                    _selectedPhotos.length +
                     (_selectedPhotos.length < _maxResolutionPhotos ? 1 : 0),
                 separatorBuilder: (context, index) => const SizedBox(width: 10),
                 itemBuilder: (BuildContext context, int index) {
@@ -589,8 +631,9 @@ class _HseWorkerResolutionFormScreenState
             ),
             label: Text(_isRecording ? 'Stop Recording' : 'Record Voice Note'),
             style: OutlinedButton.styleFrom(
-              foregroundColor:
-                  _isRecording ? Colors.red.shade700 : AppColors.brandTeal,
+              foregroundColor: _isRecording
+                  ? Colors.red.shade700
+                  : AppColors.brandTeal,
               side: BorderSide(
                 color: _isRecording ? Colors.red.shade700 : AppColors.brandTeal,
               ),

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'connectivity_service.dart';
 import 'logger_service.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/sync_repository.dart';
@@ -17,16 +19,28 @@ class SyncService {
   final AuthRepository _authRepository = AuthRepository();
   final SyncRepository _syncRepository = SyncRepository();
   final SyncPolicy _syncPolicy = const SyncPolicy();
+  Completer<void>? _runningCompleter;
   bool _isRunning = false;
 
   Future<SyncResult> run() async {
-    if (_isRunning) return const SyncResult.skipped(reason: 'already_running');
+    if (_isRunning) {
+      final Completer<void>? runningCompleter = _runningCompleter;
+      if (runningCompleter != null) {
+        try {
+          await runningCompleter.future.timeout(const Duration(seconds: 12));
+        } on TimeoutException {
+          return const SyncResult.skipped(reason: 'already_running');
+        }
+      }
+    }
+
     if (!await _isOnline()) return const SyncResult.skipped(reason: 'offline');
 
     final queue = await _syncRepository.getPendingActions();
     if (queue.isEmpty) return const SyncResult.empty();
 
     _isRunning = true;
+    _runningCompleter = Completer<void>();
     var synced = 0;
     var rejected = 0;
     var failed = 0;
@@ -52,6 +66,8 @@ class SyncService {
       }
     } finally {
       _isRunning = false;
+      _runningCompleter?.complete();
+      _runningCompleter = null;
     }
 
     return SyncResult(
@@ -65,13 +81,8 @@ class SyncService {
   }
 
   Future<bool> _isOnline() async {
-    try {
-      final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 4));
-      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
+    await ConnectivityService.instance.refresh();
+    return ConnectivityService.instance.isOnline;
   }
 
   Future<_SyncItemResult> _syncItem(Map<String, dynamic> item) async {
@@ -155,6 +166,14 @@ class SyncService {
 
     final imagePaths = _stringList(dbPayload.remove('image_paths'));
     final voicePaths = _stringList(dbPayload.remove('voice_paths'));
+    if (table == 'assign_hazards' && dbPayload.containsKey('report_number')) {
+      final int? reportNumber = _reportNumber(dbPayload['report_number']);
+      if (reportNumber == null) {
+        dbPayload.remove('report_number');
+      } else {
+        dbPayload['report_number'] = reportNumber;
+      }
+    }
     final isProfileTable =
         table == 'officers' || table == 'workers' || table == 'hse_workers';
 
@@ -164,14 +183,16 @@ class SyncService {
         bucket: isProfileTable
             ? 'profile-images'
             : table == 'assign_hazards'
-                ? 'resolutions'
-                : 'hazard-images',
+            ? 'resolutions'
+            : 'hazard-images',
       );
       dbPayload[isProfileTable
           ? 'profile_image_url'
           : table == 'assign_hazards'
-              ? 'resolution_image_url'
-              : 'image_url'] = urls.isNotEmpty ? urls.join(',') : null;
+          ? 'resolution_image_url'
+          : 'image_url'] = urls.isNotEmpty
+          ? urls.join(',')
+          : null;
     }
 
     if (voicePaths.isNotEmpty) {
@@ -180,14 +201,49 @@ class SyncService {
         bucket: table == 'assign_hazards' ? 'resolutions' : 'voice_notes',
         prefix: table == 'assign_hazards' ? null : 'voice_notes',
       );
-      dbPayload[
-        table == 'assign_hazards'
-            ? 'resolution_voice_note_url'
-            : 'voice_note_url'
-      ] = urls.isNotEmpty ? urls.join(',') : null;
+      dbPayload[table == 'assign_hazards'
+          ? 'resolution_voice_note_url'
+          : 'voice_note_url'] = urls.isNotEmpty
+          ? urls.join(',')
+          : null;
     }
 
     return dbPayload;
+  }
+
+  int? _reportNumber(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+
+    final String text = value.toString().trim();
+    if (text.isEmpty) {
+      return null;
+    }
+
+    final int? directNumber = int.tryParse(text);
+    if (directNumber != null) {
+      return directNumber;
+    }
+
+    final RegExpMatch? prefixedMatch =
+        RegExp(r'^RR-(\d{4})-(\d+)$', caseSensitive: false).firstMatch(text);
+    if (prefixedMatch == null) {
+      return null;
+    }
+
+    final int? year = int.tryParse(prefixedMatch.group(1) ?? '');
+    final int? suffix = int.tryParse(prefixedMatch.group(2) ?? '');
+    if (year == null || suffix == null) {
+      return null;
+    }
+    return (year * 100000) + suffix;
   }
 
   List<String> _stringList(dynamic value) {
@@ -242,21 +298,21 @@ class SyncResult {
   });
 
   const SyncResult.empty()
-      : attempted = 0,
-        synced = 0,
-        rejected = 0,
-        failed = 0,
-        skipped = 0,
-        pending = 0,
-        reason = null;
+    : attempted = 0,
+      synced = 0,
+      rejected = 0,
+      failed = 0,
+      skipped = 0,
+      pending = 0,
+      reason = null;
 
   const SyncResult.skipped({required this.reason})
-      : attempted = 0,
-        synced = 0,
-        rejected = 0,
-        failed = 0,
-        skipped = 0,
-        pending = 0;
+    : attempted = 0,
+      synced = 0,
+      rejected = 0,
+      failed = 0,
+      skipped = 0,
+      pending = 0;
 
   final int attempted;
   final int synced;
@@ -270,9 +326,4 @@ class SyncResult {
   bool get didWork => synced > 0 || rejected > 0;
 }
 
-enum _SyncItemResult {
-  synced,
-  rejected,
-  failed,
-  skipped,
-}
+enum _SyncItemResult { synced, rejected, failed, skipped }

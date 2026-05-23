@@ -16,6 +16,8 @@ class HazardRepository {
   static const _ongoingHazardsKey = 'rr_ongoing_hazards';
   static const _resolvedHazardsKey = 'rr_resolved_hazards';
   static const _hseAssignedTasksKey = 'rr_hse_assigned_tasks';
+  static const _hseLocallyResolvedTaskIdsKey =
+      'rr_hse_locally_resolved_task_ids';
   static const _hseSiteHazardsKey = 'rr_hse_site_hazards';
   static const _hseResolvedHazardsKey = 'rr_hse_resolved_hazards';
   static const _officerActiveHazardsKey = 'rr_officer_active_hazards';
@@ -59,7 +61,9 @@ class HazardRepository {
       case 'worker':
         return getOngoingHazards();
       case 'hse_worker':
-        return await getHseAssignedTasks() ?? const <Map<String, dynamic>>[];
+        return _filterHseLocallyResolvedRows(
+          await getHseAssignedTasks() ?? const <Map<String, dynamic>>[],
+        );
       default:
         return const <Map<String, dynamic>>[];
     }
@@ -135,8 +139,10 @@ class HazardRepository {
           .eq('assigned_to', userId)
           .not('status', 'in', '(resolved,"resolved by other")'),
     );
-    await saveHseAssignedTasks(rows);
-    return rows;
+    final List<Map<String, dynamic>> activeRows =
+        await _filterHseLocallyResolvedRows(rows);
+    await saveHseAssignedTasks(activeRows);
+    return activeRows;
   }
 
   Future<List<Map<String, dynamic>>> _mapResponseRows(
@@ -216,15 +222,112 @@ class HazardRepository {
     );
   }
 
-  Future<void> saveHseAssignedTasks(List<dynamic> rows) async {
-    await _upsertAllDynamic(rows, sourceTable: 'hse_assigned_tasks');
+  Future<void> saveHseAssignedTasks(List<Object?> rows) async {
+    final List<Map<String, Object?>> activeRows =
+        await _filterHseLocallyResolvedObjectRows(_objectRows(rows));
+    await _replaceAllRows(activeRows, sourceTable: 'hse_assigned_tasks');
+    await _cacheStore.writeJson(_hseAssignedTasksKey, activeRows);
   }
 
   Future<List<Map<String, dynamic>>?> getHseAssignedTasks() {
     return _getOrMigrateNullable(
       sourceTable: 'hse_assigned_tasks',
       legacyCacheKey: _hseAssignedTasksKey,
+      emptyLegacyMeansEmpty: true,
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _filterHseLocallyResolvedRows(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final Set<String> resolvedIds = await getHseLocallyResolvedTaskIds();
+    if (resolvedIds.isEmpty) {
+      return rows;
+    }
+
+    return rows
+        .where(
+          (Map<String, dynamic> row) =>
+              !_rowIdentifiers(Map<String, Object?>.from(row))
+                  .any(resolvedIds.contains),
+        )
+        .toList(growable: false);
+  }
+
+  Set<String> _rowIdentifiers(Map<String, Object?> row) {
+    return <String>{
+      ?row['id']?.toString(),
+      ?row['assignment_id']?.toString(),
+      ?row['hazard_id']?.toString(),
+    }.where((String value) => value.trim().isNotEmpty).toSet();
+  }
+
+  Future<List<Map<String, Object?>>> _filterHseLocallyResolvedObjectRows(
+    List<Map<String, Object?>> rows,
+  ) async {
+    final Set<String> resolvedIds = await getHseLocallyResolvedTaskIds();
+    if (resolvedIds.isEmpty) {
+      return rows;
+    }
+
+    return rows
+        .where(
+          (Map<String, Object?> row) =>
+              !_rowIdentifiers(row).any(resolvedIds.contains),
+        )
+        .toList(growable: false);
+  }
+
+  List<Map<String, Object?>> _objectRows(List<Object?> rows) {
+    final List<Map<String, Object?>> mappedRows = <Map<String, Object?>>[];
+    for (final Object? row in rows) {
+      if (row is Map<String, Object?>) {
+        mappedRows.add(row);
+      } else if (row is Map) {
+        mappedRows.add(Map<String, Object?>.from(row));
+      }
+    }
+    return mappedRows;
+  }
+
+  Future<void> markHseTasksResolvedLocally(Iterable<String> taskIds) async {
+    final Set<String> resolvedIds = await getHseLocallyResolvedTaskIds();
+    resolvedIds.addAll(
+      taskIds.where((String taskId) => taskId.trim().isNotEmpty),
+    );
+    await _cacheStore.writeJson(
+      _hseLocallyResolvedTaskIdsKey,
+      resolvedIds.toList(growable: false),
+    );
+  }
+
+  Future<Set<String>> getHseLocallyResolvedTaskIds() async {
+    final String? rawIds = _cacheStore.readString(_hseLocallyResolvedTaskIdsKey);
+    if (rawIds == null || rawIds.trim().isEmpty) {
+      return <String>{};
+    }
+
+    try {
+      final Object? decoded = _cacheStore.readJson(
+        _hseLocallyResolvedTaskIdsKey,
+      );
+      if (decoded is List) {
+        return decoded
+            .map((Object? taskId) {
+              if (taskId is Map) {
+                return taskId['id']?.toString();
+              }
+              return taskId?.toString();
+            })
+            .whereType<String>()
+            .where((String taskId) => taskId.trim().isNotEmpty)
+            .toSet();
+      }
+    } catch (_) {
+      return <String>{};
+    }
+
+    return <String>{};
   }
 
   Future<void> saveHseSiteHazards(List<dynamic> rows) async {
@@ -291,6 +394,7 @@ class HazardRepository {
   Future<List<Map<String, dynamic>>?> _getOrMigrateNullable({
     required String sourceTable,
     required String legacyCacheKey,
+    bool emptyLegacyMeansEmpty = false,
   }) async {
     final sqliteRows = await _databaseHelper.getHazards(
       sourceTable: sourceTable,
@@ -300,6 +404,9 @@ class HazardRepository {
     final rows = _cacheStore.readMapList(legacyCacheKey);
     if (rows != null && rows.isNotEmpty) {
       await _upsertAllDynamic(rows, sourceTable: sourceTable);
+    }
+    if (rows != null && rows.isEmpty && emptyLegacyMeansEmpty) {
+      return const <Map<String, dynamic>>[];
     }
     return rows;
   }
@@ -315,6 +422,16 @@ class HazardRepository {
         await _upsert(Map<String, dynamic>.from(row), sourceTable: sourceTable);
       }
     }
+  }
+
+  Future<void> _replaceAllRows(
+    List<Object?> rows, {
+    required String sourceTable,
+  }) async {
+    await _databaseHelper.replaceHazardsForSource(
+      sourceTable: sourceTable,
+      rows: _objectRows(rows),
+    );
   }
 
   Future<void> _upsert(

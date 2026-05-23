@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -12,6 +13,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/services/sync_service.dart';
 import 'package:riskradar/shared/hazards/hazard_details_screen.dart'
     hide VoiceNotePlayer;
 import 'package:riskradar/shared/models/hazard.dart';
@@ -34,6 +36,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   late TabController _tabController;
   final ScrollController _activeScrollController = ScrollController();
   final ScrollController _queueScrollController = ScrollController();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   static const int _pageSize = 20;
   static const double _loadMoreScrollThreshold = 0.8;
@@ -44,6 +47,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   int _currentPage = 0;
   List<Map<String, dynamic>> inProgressTasks = [];
   List<Map<String, dynamic>> assignedTasks = [];
+  Set<String> _locallyResolvedTaskIds = <String>{};
 
   String _selectedFilter = 'all';
   Timer? _elapsedTimer;
@@ -62,6 +66,8 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     _tabController = TabController(length: 2, vsync: this);
     _activeScrollController.addListener(_handleScroll);
     _queueScrollController.addListener(_handleScroll);
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen(_handleConnectivityChange);
     _loadTasksCacheFirst();
     _startElapsedTimer();
   }
@@ -70,6 +76,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   void dispose() {
     _activeScrollController.dispose();
     _queueScrollController.dispose();
+    _connectivitySubscription?.cancel();
     _tabController.dispose();
     _elapsedTimer?.cancel();
     super.dispose();
@@ -96,6 +103,31 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     if (position.pixels >= triggerOffset) {
       _loadNextPage();
     }
+  }
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    final bool hasInternet = results.any(
+      (ConnectivityResult result) =>
+          result == ConnectivityResult.mobile ||
+          result == ConnectivityResult.wifi ||
+          result == ConnectivityResult.ethernet ||
+          result == ConnectivityResult.vpn,
+    );
+
+    if (!hasInternet) {
+      return;
+    }
+
+    unawaited(_refreshAfterConnectivityRestored());
+  }
+
+  Future<void> _refreshAfterConnectivityRestored() async {
+    await SyncService.instance.run();
+    if (!mounted) {
+      return;
+    }
+    await _refreshTasksFromCache();
+    await fetchTasks(showBlockingLoader: false, resetPagination: true);
   }
 
   void _startElapsedTimer() {
@@ -193,6 +225,8 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     if (!mounted) return;
 
     final cachedTasks = await _hazardRepository.getHseAssignedTasks();
+    _locallyResolvedTaskIds =
+        await _hazardRepository.getHseLocallyResolvedTaskIds();
     final cachedProfile = _authRepository.getHseProfile();
 
     if (cachedTasks != null) {
@@ -223,7 +257,9 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
       final String rawStatus = (taskMap['status'] ?? 'assigned').toString();
       final String statusLower = rawStatus.toLowerCase();
 
-      if (statusLower == 'resolved' || statusLower == 'resolved by other') {
+      if (statusLower == 'resolved' ||
+          statusLower == 'resolved by other' ||
+          _taskIdentifiers(taskMap).any(_locallyResolvedTaskIds.contains)) {
         continue;
       }
 
@@ -299,6 +335,9 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         return;
       }
 
+      _locallyResolvedTaskIds =
+          await _hazardRepository.getHseLocallyResolvedTaskIds();
+
       final hseProfileRes = await supabase
           .from('hse_workers')
           .select('first_name, last_name, profile_image_url')
@@ -317,6 +356,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
             )
           ''')
           .eq('assigned_to', userId)
+          .not('status', 'in', '(resolved,"resolved by other")')
           .order('created_at', ascending: false)
           .range(pageStart, pageEnd);
 
@@ -326,13 +366,14 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
               <Map<String, dynamic>>[];
       final List<Map<String, dynamic>> responseRows =
           List<Map<String, dynamic>>.from(response);
-      final List<Map<String, dynamic>> combinedRows =
-          <Map<String, dynamic>>[
-        ...cachedRows,
-        ...responseRows,
-      ];
+      final List<Map<String, dynamic>> combinedRows = _mergeTaskRows(
+        cachedRows: cachedRows,
+        responseRows: responseRows,
+      );
+      final List<Map<String, dynamic>> activeRows =
+          _withoutLocallyResolvedTasks(combinedRows);
 
-      await _hazardRepository.saveHseAssignedTasks(combinedRows);
+      await _hazardRepository.saveHseAssignedTasks(activeRows);
       if (hseProfileRes != null) {
         final currentProfile = _authRepository.getHseProfile();
         await _authRepository.saveHseProfile({
@@ -343,7 +384,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
 
       if (mounted) {
         setState(() {
-          _applyTaskRows(combinedRows, hseProfileRes);
+          _applyTaskRows(activeRows, hseProfileRes);
           _hasMoreTasks = responseRows.length == _pageSize;
           isLoading = false;
           _isLoadingMore = false;
@@ -366,6 +407,53 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         });
       }
     }
+  }
+
+  List<Map<String, dynamic>> _mergeTaskRows({
+    required List<Map<String, dynamic>> cachedRows,
+    required List<Map<String, dynamic>> responseRows,
+  }) {
+    final Map<String, Map<String, dynamic>> rowsById =
+        <String, Map<String, dynamic>>{};
+    final List<String> orderedIds = <String>[];
+
+    void addOrReplace(Map<String, dynamic> row) {
+      final String? id = row['id']?.toString();
+      if (id == null || id.isEmpty) {
+        return;
+      }
+      if (!rowsById.containsKey(id)) {
+        orderedIds.add(id);
+      }
+      rowsById[id] = row;
+    }
+
+    for (final Map<String, dynamic> row in cachedRows) {
+      addOrReplace(row);
+    }
+    for (final Map<String, dynamic> row in responseRows) {
+      addOrReplace(row);
+    }
+
+    return orderedIds
+        .map((String id) => rowsById[id])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _withoutLocallyResolvedTasks(
+    List<Map<String, dynamic>> rows,
+  ) {
+    if (_locallyResolvedTaskIds.isEmpty) {
+      return rows;
+    }
+
+    return rows
+        .where(
+          (Map<String, dynamic> row) =>
+              !_taskIdentifiers(row).any(_locallyResolvedTaskIds.contains),
+        )
+        .toList(growable: false);
   }
 
   Future<void> _updateTaskStatus(String assignmentId, String newStatus) async {
@@ -554,9 +642,92 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         ),
       );
 
-    if (result == true) {
-      fetchTasks(showBlockingLoader: false, resetPagination: true);
+    final Map<String, dynamic>? resultMap =
+        result is Map ? Map<String, dynamic>.from(result) : null;
+    final bool wasResolved = result == true || resultMap?['resolved'] == true;
+    final bool wasSynced = resultMap?['synced'] == true || result == true;
+    if (wasResolved) {
+      await _removeResolvedTaskLocally(
+        task,
+        additionalIdentifiers: <String>{
+          ?resultMap?['assignment_id']?.toString(),
+          ?resultMap?['hazard_id']?.toString(),
+        },
+      );
+      await _refreshTasksFromCache();
+      if (wasSynced) {
+        await fetchTasks(showBlockingLoader: false, resetPagination: true);
+      }
     }
+  }
+
+  Future<void> _removeResolvedTaskLocally(
+    Map<String, dynamic> task, {
+    Set<String> additionalIdentifiers = const <String>{},
+  }) async {
+    final Set<String> identifiers = <String>{
+      ..._taskIdentifiers(task),
+      ...additionalIdentifiers,
+    }.where((String value) => value.trim().isNotEmpty).toSet();
+    if (identifiers.isEmpty) {
+      return;
+    }
+
+    _locallyResolvedTaskIds = <String>{
+      ..._locallyResolvedTaskIds,
+      ...identifiers,
+    };
+
+    if (mounted) {
+      setState(() {
+        inProgressTasks.removeWhere(
+          (Map<String, dynamic> visibleTask) =>
+              _taskIdentifiers(visibleTask).any(identifiers.contains),
+        );
+        assignedTasks.removeWhere(
+          (Map<String, dynamic> visibleTask) =>
+              _taskIdentifiers(visibleTask).any(identifiers.contains),
+        );
+        isLoading = false;
+        _isLoadingMore = false;
+      });
+    }
+
+    await _hazardRepository.markHseTasksResolvedLocally(identifiers);
+
+    final List<Map<String, dynamic>> cachedTasks =
+        await _hazardRepository.getHseAssignedTasks() ?? <Map<String, dynamic>>[];
+    cachedTasks.removeWhere(
+      (Map<String, dynamic> cachedTask) =>
+          _taskIdentifiers(cachedTask).any(identifiers.contains),
+    );
+    await _hazardRepository.saveHseAssignedTasks(cachedTasks);
+  }
+
+  Set<String> _taskIdentifiers(Map<String, dynamic> task) {
+    return <String>{
+      ?task['id']?.toString(),
+      ?task['assignment_id']?.toString(),
+      ?task['hazard_id']?.toString(),
+    }.where((String value) => value.trim().isNotEmpty).toSet();
+  }
+
+  Future<void> _refreshTasksFromCache() async {
+    final List<Map<String, dynamic>> cachedTasks =
+        await _hazardRepository.getHseAssignedTasks() ??
+            <Map<String, dynamic>>[];
+    _locallyResolvedTaskIds =
+        await _hazardRepository.getHseLocallyResolvedTaskIds();
+    final Map<String, dynamic>? cachedProfile = _authRepository.getHseProfile();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _applyTaskRows(cachedTasks, cachedProfile);
+      isLoading = false;
+      _isLoadingMore = false;
+    });
   }
 
   void _showFilterSheet() {
