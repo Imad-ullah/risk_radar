@@ -129,7 +129,8 @@ create table if not exists public.user_fcm_tokens (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null unique references auth.users(id) on delete cascade,
   fcm_token text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.officer_emergency_contacts (

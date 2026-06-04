@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/officers/sites/site_personnel_screen.dart';
+import 'package:riskradar/services/connectivity_service.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:uuid/uuid.dart';
 
@@ -24,17 +26,15 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
   @override
   void initState() {
     super.initState();
-    _sitesFuture = Future.value(OfficerRepository.instance.getOfficerSites() ?? []);
+    _sitesFuture = Future.value(
+      OfficerRepository.instance.getOfficerSites() ?? [],
+    );
     _initializeAndFetchData();
   }
 
   Future<void> _initializeAndFetchData() async {
     await _fetchNumericOfficerUid();
-    if (mounted) {
-      setState(() {
-        _fetchSites();
-      });
-    }
+    await _fetchSites();
   }
 
   Future<void> _fetchNumericOfficerUid() async {
@@ -56,31 +56,54 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
     }
   }
 
-  void _fetchSites() {
+  Future<void> _fetchSites({bool bypassCache = false}) async {
+    if (bypassCache) {
+      await ConnectivityService.instance.refresh();
+    }
+    final bool liveOnly = bypassCache && ConnectivityService.instance.isOnline;
+
     if (_numericOfficerUid == null) {
-      final cached = OfficerRepository.instance.getOfficerSites() ?? [];
+      final cached = liveOnly
+          ? <Map<String, dynamic>>[]
+          : OfficerRepository.instance.getOfficerSites() ?? [];
       if (mounted) setState(() => _sitesFuture = Future.value(cached));
       return;
     }
 
-    _sitesFuture = supabase
+    final future = supabase
         .from('sites')
-        .select('*, workers!current_site_id(count), hse_workers!current_site_id(count)')
+        .select(
+          '*, workers!current_site_id(count), hse_workers!current_site_id(count)',
+        )
         .eq('officer_uid', _numericOfficerUid!)
         .order('name', ascending: true)
         .then((data) async {
-      final rows = List<Map<String, dynamic>>.from(data);
-      await OfficerRepository.instance.saveOfficerSites(rows);
-      return rows;
-    }).catchError((error) {
-      debugPrint('Officer sites offline/error - using cached data: $error');
-      return OfficerRepository.instance.getOfficerSites() ?? <Map<String, dynamic>>[];
-    });
+          final rows = List<Map<String, dynamic>>.from(data);
+          await OfficerRepository.instance.saveOfficerSites(rows);
+          return rows;
+        })
+        .catchError((error) {
+          if (liveOnly) {
+            throw error;
+          }
+          debugPrint('Officer sites offline/error - using cached data: $error');
+          return OfficerRepository.instance.getOfficerSites() ??
+              <Map<String, dynamic>>[];
+        });
+
+    if (mounted) {
+      setState(() => _sitesFuture = future);
+    } else {
+      _sitesFuture = future;
+    }
+    await future.catchError((_) => <Map<String, dynamic>>[]);
   }
 
   Future<void> _addOrEditSite({Map<String, dynamic>? site}) async {
     final nameController = TextEditingController(text: site?['name'] ?? '');
-    final descController = TextEditingController(text: site?['description'] ?? '');
+    final descController = TextEditingController(
+      text: site?['description'] ?? '',
+    );
     final isEditing = site != null;
     final formKey = GlobalKey<FormState>();
 
@@ -93,7 +116,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
         const textColor = Colors.white;
 
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           backgroundColor: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
@@ -123,7 +148,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        isEditing ? Icons.edit_location_alt_rounded : Icons.add_location_alt_rounded,
+                        isEditing
+                            ? Icons.edit_location_alt_rounded
+                            : Icons.add_location_alt_rounded,
                         color: AppColors.accentGold,
                       ),
                     ),
@@ -146,11 +173,17 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                     children: [
                       TextFormField(
                         controller: nameController,
+                        inputFormatters: const [SanitizingTextInputFormatter()],
                         style: TextStyle(color: textColor),
                         decoration: InputDecoration(
                           labelText: 'Site Name',
-                          labelStyle: TextStyle(color: textColor.withValues(alpha: 0.8)),
-                          prefixIcon: Icon(Icons.domain_rounded, color: AppColors.accentGold),
+                          labelStyle: TextStyle(
+                            color: textColor.withValues(alpha: 0.8),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.domain_rounded,
+                            color: AppColors.accentGold,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12.0),
                           ),
@@ -163,18 +196,28 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           filled: true,
                           fillColor: fieldBg,
                         ),
-                        validator: (value) =>
-                        value!.trim().isEmpty ? 'Site name is required' : null,
+                        validator: (value) => value!.trim().isEmpty
+                            ? 'Site name is required'
+                            : InputSanitizer.validateShortText(
+                                value,
+                                maxLength: 80,
+                              ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: descController,
                         maxLines: 3,
+                        inputFormatters: const [SanitizingTextInputFormatter()],
                         style: TextStyle(color: textColor),
                         decoration: InputDecoration(
                           labelText: 'Description (Optional)',
-                          labelStyle: TextStyle(color: textColor.withValues(alpha: 0.8)),
-                          prefixIcon: Icon(Icons.description_outlined, color: AppColors.accentGold),
+                          labelStyle: TextStyle(
+                            color: textColor.withValues(alpha: 0.8),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.description_outlined,
+                            color: AppColors.accentGold,
+                          ),
                           alignLabelWithHint: true,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12.0),
@@ -188,6 +231,11 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           filled: true,
                           fillColor: fieldBg,
                         ),
+                        validator: (value) => InputSanitizer.validateLongText(
+                          value,
+                          required: false,
+                          maxLength: 300,
+                        ),
                       ),
                     ],
                   ),
@@ -198,14 +246,22 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text('Cancel', style: TextStyle(color: textColor.withValues(alpha: 0.85))),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: textColor.withValues(alpha: 0.85),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandTeal,
-                    foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.brandTeal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -214,46 +270,70 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         if (!formKey.currentState!.validate()) return;
                         final navigator = Navigator.of(context);
                         final messenger = ScaffoldMessenger.of(this.context);
+                        final siteName = InputSanitizer.cleanText(
+                          nameController.text,
+                          maxLength: 80,
+                        );
+                        final siteDescription = InputSanitizer.cleanText(
+                          descController.text,
+                          maxLength: 300,
+                        );
                         try {
                           if (isEditing) {
-                            await supabase.from('sites').update({
-                              'name': nameController.text.trim(),
-                              'description': descController.text.trim()
-                            }).eq('id', site['id']);
+                            await supabase
+                                .from('sites')
+                                .update({
+                                  'name': siteName,
+                                  'description': siteDescription,
+                                })
+                                .eq('id', site['id']);
                             await _upsertSiteLocally({
                               ...site,
-                              'name': nameController.text.trim(),
-                              'description': descController.text.trim(),
+                              'name': siteName,
+                              'description': siteDescription,
                             });
                           } else {
                             if (_numericOfficerUid == null) {
-                              throw Exception("Cannot create site: Officer identifier is missing.");
+                              throw Exception(
+                                "Cannot create site: Officer identifier is missing.",
+                              );
                             }
                             final payload = {
-                              'name': nameController.text.trim(),
-                              'description': descController.text.trim(),
-                              'officer_uid': _numericOfficerUid!
+                              'name': siteName,
+                              'description': siteDescription,
+                              'officer_uid': _numericOfficerUid!,
                             };
-                            final inserted = await supabase.from('sites').insert(payload).select().single();
-                            await _upsertSiteLocally(Map<String, dynamic>.from(inserted));
+                            final inserted = await supabase
+                                .from('sites')
+                                .insert(payload)
+                                .select()
+                                .single();
+                            await _upsertSiteLocally(
+                              Map<String, dynamic>.from(inserted),
+                            );
                           }
                           if (mounted) {
                             navigator.pop();
-                            setState(() => _fetchSites());
+                            await _fetchSites(bypassCache: true);
                             messenger.showSnackBar(
                               SnackBar(
-                                content: Text(isEditing ? 'Site updated successfully' : 'Site added successfully'),
+                                content: Text(
+                                  isEditing
+                                      ? 'Site updated successfully'
+                                      : 'Site added successfully',
+                                ),
                                 backgroundColor: Colors.green,
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
                           }
                         } on SocketException {
-                          final localId = site?['id']?.toString() ?? const Uuid().v4();
+                          final localId =
+                              site?['id']?.toString() ?? const Uuid().v4();
                           final payload = {
                             'id': localId,
-                            'name': nameController.text.trim(),
-                            'description': descController.text.trim(),
+                            'name': siteName,
+                            'description': siteDescription,
                             ...?(_numericOfficerUid == null
                                 ? null
                                 : {'officer_uid': _numericOfficerUid}),
@@ -267,10 +347,12 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           await _upsertSiteLocally(payload);
                           if (mounted) {
                             navigator.pop();
-                            setState(() => _fetchSites());
+                            await _fetchSites();
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text('Saved offline - site change will sync when online'),
+                                content: Text(
+                                  'Saved offline - site change will sync when online',
+                                ),
                                 backgroundColor: Colors.orange,
                                 behavior: SnackBarBehavior.floating,
                               ),
@@ -279,8 +361,10 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         } catch (e) {
                           if (mounted) {
                             messenger.showSnackBar(
-                              SnackBar(
-                                content: Text('Error: ${e.toString()}'),
+                              const SnackBar(
+                                content: Text(
+                                  'Could not save site. Please try again.',
+                                ),
                                 backgroundColor: Colors.red,
                                 behavior: SnackBarBehavior.floating,
                               ),
@@ -306,7 +390,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
     final workersData = site['workers'] as List? ?? [];
     final workerCount = workersData.isNotEmpty ? workersData[0]['count'] : 0;
     final hseWorkersData = site['hse_workers'] as List? ?? [];
-    final hseWorkerCount = hseWorkersData.isNotEmpty ? hseWorkersData[0]['count'] : 0;
+    final hseWorkerCount = hseWorkersData.isNotEmpty
+        ? hseWorkersData[0]['count']
+        : 0;
     final totalWorkers = workerCount + hseWorkerCount;
     final bool hasWorkers = totalWorkers > 0;
 
@@ -317,7 +403,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
         const textColor = Colors.white;
 
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           backgroundColor: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
@@ -335,7 +423,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 Row(
                   children: [
                     Icon(
-                      hasWorkers ? Icons.warning_amber_rounded : Icons.delete_forever_rounded,
+                      hasWorkers
+                          ? Icons.warning_amber_rounded
+                          : Icons.delete_forever_rounded,
                       color: Colors.redAccent,
                     ),
                     const SizedBox(width: 12),
@@ -364,7 +454,12 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
-                      child: Text('Cancel', style: TextStyle(color: textColor.withValues(alpha: 0.85))),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: textColor.withValues(alpha: 0.85),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
@@ -372,7 +467,10 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -402,7 +500,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        setState(() => _fetchSites());
+        await _fetchSites(bypassCache: true);
       } on SocketException {
         await _syncRepository.enqueueAction(
           id: 'officer_site_delete_${id}_${DateTime.now().millisecondsSinceEpoch}',
@@ -419,7 +517,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        setState(() => _fetchSites());
+        await _fetchSites();
       } catch (e) {
         if (!mounted) return;
         messenger.showSnackBar(
@@ -437,17 +535,18 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
     final sites = OfficerRepository.instance.getOfficerSites() ?? [];
     final index = sites.indexWhere((item) => item['id'] == site['id']);
     final normalised = {
-      'workers': const [{'count': 0}],
-      'hse_workers': const [{'count': 0}],
+      'workers': const [
+        {'count': 0},
+      ],
+      'hse_workers': const [
+        {'count': 0},
+      ],
       ...site,
     };
     if (index == -1) {
       sites.insert(0, normalised);
     } else {
-      sites[index] = {
-        ...sites[index],
-        ...normalised,
-      };
+      sites[index] = {...sites[index], ...normalised};
     }
     await OfficerRepository.instance.saveOfficerSites(sites);
   }
@@ -463,7 +562,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: RefreshIndicator(
-        onRefresh: () async => setState(() => _fetchSites()),
+        onRefresh: () => _fetchSites(bypassCache: true),
         child: FutureBuilder<List<Map<String, dynamic>>>(
           future: _sitesFuture,
           builder: (context, snapshot) {
@@ -477,7 +576,11 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+                      Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.red.shade400,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'Error: ${snapshot.error}',
@@ -500,7 +603,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                     Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -553,7 +658,10 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 Container(
                   margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                   padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-                  constraints: const BoxConstraints(minHeight: 56, maxHeight: 56),
+                  constraints: const BoxConstraints(
+                    minHeight: 56,
+                    maxHeight: 56,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
@@ -572,10 +680,13 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             "${sites.length} ${sites.length == 1 ? 'Site' : 'Sites'}",
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
                           ),
                         ),
                       ),
@@ -595,7 +706,12 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 Expanded(
                   child: ListView.builder(
                     // ADDED BOTTOM PADDING HERE TO CLEAR THE NAV BAR
-                    padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 100),
+                    padding: const EdgeInsets.only(
+                      left: 12,
+                      right: 12,
+                      top: 12,
+                      bottom: 100,
+                    ),
                     itemCount: sites.length,
                     itemBuilder: (context, index) {
                       final site = sites[index];
@@ -636,7 +752,9 @@ class _SiteCard extends StatelessWidget {
     final workersData = site['workers'] as List? ?? [];
     final workerCount = workersData.isNotEmpty ? workersData[0]['count'] : 0;
     final hseWorkersData = site['hse_workers'] as List? ?? [];
-    final hseWorkerCount = hseWorkersData.isNotEmpty ? hseWorkersData[0]['count'] : 0;
+    final hseWorkerCount = hseWorkersData.isNotEmpty
+        ? hseWorkersData[0]['count']
+        : 0;
     final totalWorkers = workerCount + hseWorkerCount;
 
     // Color gradient based on index
@@ -755,7 +873,10 @@ class _SiteCard extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // Divider
-                  Divider(color: Colors.white.withValues(alpha: 0.3), height: 1),
+                  Divider(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    height: 1,
+                  ),
 
                   const SizedBox(height: 16),
 
@@ -799,7 +920,9 @@ class _SiteCard extends StatelessWidget {
                           icon: const Icon(Icons.edit_rounded, size: 18),
                           label: const Text('Edit'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.25),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.25,
+                            ),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -813,10 +936,15 @@ class _SiteCard extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: onDelete,
-                          icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                          icon: const Icon(
+                            Icons.delete_forever_rounded,
+                            size: 18,
+                          ),
                           label: const Text('Delete'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.25),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.25,
+                            ),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -882,4 +1010,3 @@ class _StatBox extends StatelessWidget {
     );
   }
 }
-

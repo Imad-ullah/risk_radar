@@ -4,13 +4,16 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
+import 'package:riskradar/shared/utils/profile_photo_permission.dart';
 import 'package:riskradar/shared/widgets/full_image_viewer.dart';
 
 class OfficerViewProfileScreen extends StatefulWidget {
   const OfficerViewProfileScreen({super.key});
 
   @override
-  State<OfficerViewProfileScreen> createState() => _OfficerViewProfileScreenState();
+  State<OfficerViewProfileScreen> createState() =>
+      _OfficerViewProfileScreenState();
 }
 
 class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
@@ -52,12 +55,16 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() => _loading = true);
 
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
       return;
     }
 
@@ -67,12 +74,20 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
     }
 
     try {
-      final worker = await _supabase.from('workers').select().eq('id', userId).maybeSingle();
+      final worker = await _supabase
+          .from('workers')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
       if (worker != null) {
         _profileTable = 'workers';
         _applyProfileData(worker);
       } else {
-        final officer = await _supabase.from('officers').select().eq('id', userId).maybeSingle();
+        final officer = await _supabase
+            .from('officers')
+            .select()
+            .eq('id', userId)
+            .maybeSingle();
         if (officer != null) {
           _profileTable = 'officers';
           _applyProfileData(officer);
@@ -86,13 +101,21 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
       debugPrint('Error loading officer profile: $e');
     }
 
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   String _resolveDobKey(Map<String, dynamic> data) {
-    if (data.containsKey('dob')) return 'dob';
-    if (data.containsKey('date_of_birth')) return 'date_of_birth';
-    if (data.containsKey('birth_date')) return 'birth_date';
+    if (data.containsKey('dob')) {
+      return 'dob';
+    }
+    if (data.containsKey('date_of_birth')) {
+      return 'date_of_birth';
+    }
+    if (data.containsKey('birth_date')) {
+      return 'birth_date';
+    }
     return 'dob';
   }
 
@@ -111,7 +134,8 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
     _lastNameController.text = data['last_name']?.toString() ?? '';
     _emailController.text = data['email']?.toString() ?? '';
     _dobController.text = _readDobValue(data);
-    _workTypeController.text = data['work_type']?.toString() ?? data['role']?.toString() ?? '';
+    _workTypeController.text =
+        data['work_type']?.toString() ?? data['role']?.toString() ?? '';
     _officerUidController.text = data['officer_uid']?.toString() ?? '';
 
     if (!inferOnly) {
@@ -120,15 +144,21 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
   }
 
   void _checkChanges() {
-    if (_initialData == null) return;
+    if (_initialData == null) {
+      return;
+    }
     final originalDob = _readDobValue(_initialData!);
     setState(() {
       _hasChanges =
-          _firstNameController.text != (_initialData!['first_name']?.toString() ?? '') ||
-          _lastNameController.text != (_initialData!['last_name']?.toString() ?? '') ||
+          _firstNameController.text !=
+              (_initialData!['first_name']?.toString() ?? '') ||
+          _lastNameController.text !=
+              (_initialData!['last_name']?.toString() ?? '') ||
           _dobController.text != originalDob ||
           _workTypeController.text !=
-              (_initialData!['work_type']?.toString() ?? _initialData!['role']?.toString() ?? '');
+              (_initialData!['work_type']?.toString() ??
+                  _initialData!['role']?.toString() ??
+                  '');
     });
   }
 
@@ -154,51 +184,76 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
         ),
       ],
     );
-    if (croppedFile != null) return File(croppedFile.path);
+    if (croppedFile != null) {
+      return File(croppedFile.path);
+    }
     return null;
   }
 
   Future<void> _pickAndUploadImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-      if (image == null) return;
+      final bool hasPermission = await requestProfilePhotoPermission(
+        context,
+        ImageSource.gallery,
+      );
+      if (!hasPermission) {
+        return;
+      }
+
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+      if (image == null) {
+        return;
+      }
 
       final croppedImage = await _cropImage(File(image.path));
-      if (croppedImage == null) return;
+      if (croppedImage == null) {
+        return;
+      }
 
       setState(() => _uploadingImage = true);
 
       final userId = _supabase.auth.currentUser!.id;
       final fileExt = image.path.split('.').last;
-      final fileName = '$userId/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final fileName =
+          '$userId/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      await _supabase.storage.from('profile-images').upload(
-        fileName,
-        croppedImage,
-        fileOptions: const FileOptions(upsert: true),
-      );
+      await _supabase.storage
+          .from('profile-images')
+          .upload(
+            fileName,
+            croppedImage,
+            fileOptions: const FileOptions(upsert: true),
+          );
 
-      final publicUrl = _supabase.storage.from('profile-images').getPublicUrl(fileName);
+      final publicUrl = _supabase.storage
+          .from('profile-images')
+          .getPublicUrl(fileName);
 
-      await _supabase.from(_profileTable).update({
-        'profile_image_url': publicUrl,
-      }).eq('id', userId);
+      await _supabase
+          .from(_profileTable)
+          .update({'profile_image_url': publicUrl})
+          .eq('id', userId);
 
       await _loadProfile();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile photo updated!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Profile photo updated!')));
       }
     } catch (e) {
       debugPrint('Upload Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
+          const SnackBar(content: Text('Upload failed. Please try again.')),
         );
       }
     } finally {
-      if (mounted) setState(() => _uploadingImage = false);
+      if (mounted) {
+        setState(() => _uploadingImage = false);
+      }
     }
   }
 
@@ -240,21 +295,56 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
 
   Future<void> _updateProfile() async {
     final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
+    if (userId == null) {
+      return;
+    }
 
     setState(() => _updating = true);
     try {
+      final firstNameError = InputSanitizer.validateName(
+        _firstNameController.text,
+      );
+      final lastNameError = InputSanitizer.validateName(
+        _lastNameController.text,
+      );
+      final workTypeError = InputSanitizer.validateShortText(
+        _workTypeController.text,
+        required: _profileTable == 'workers',
+        maxLength: 80,
+      );
+      final validationError = firstNameError ?? lastNameError ?? workTypeError;
+      if (validationError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(validationError)));
+        }
+        return;
+      }
+
       final updatePayload = {
-        'first_name': _firstNameController.text.trim(),
-        'last_name': _lastNameController.text.trim(),
+        'first_name': InputSanitizer.cleanText(
+          _firstNameController.text,
+          maxLength: 50,
+        ),
+        'last_name': InputSanitizer.cleanText(
+          _lastNameController.text,
+          maxLength: 50,
+        ),
         _dobKey: _dobController.text.trim(),
       };
 
       if (_profileTable == 'workers') {
-        updatePayload['work_type'] = _workTypeController.text.trim();
+        updatePayload['work_type'] = InputSanitizer.cleanText(
+          _workTypeController.text,
+          maxLength: 80,
+        );
       }
 
-      await _supabase.from(_profileTable).update(updatePayload).eq('id', userId);
+      await _supabase
+          .from(_profileTable)
+          .update(updatePayload)
+          .eq('id', userId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -271,29 +361,40 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
       debugPrint('Update Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update profile: $e')),
+          const SnackBar(
+            content: Text('Failed to update profile. Please try again.'),
+          ),
         );
       }
     } finally {
-      if (mounted) setState(() => _updating = false);
+      if (mounted) {
+        setState(() => _updating = false);
+      }
     }
   }
 
   String _capitalize(String? s) {
-    if (s == null || s.isEmpty) return 'N/A';
+    if (s == null || s.isEmpty) {
+      return 'N/A';
+    }
     return s[0].toUpperCase() + s.substring(1).toLowerCase();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_initialData == null) return const Scaffold(body: Center(child: Text('Profile not found')));
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_initialData == null) {
+      return const Scaffold(body: Center(child: Text('Profile not found')));
+    }
 
     const tealColor = Color(0xFF1B3D3D);
     const goldColor = Color(0xFFE6A050);
     final imageUrl = _initialData!['profile_image_url']?.toString();
     final fullName =
-        '${_capitalize(_firstNameController.text)} ${_capitalize(_lastNameController.text)}'.trim();
+        '${_capitalize(_firstNameController.text)} ${_capitalize(_lastNameController.text)}'
+            .trim();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -340,20 +441,30 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
                           },
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
                             child: Hero(
                               tag: imageUrl ?? 'officer_profile_pic',
                               child: CircleAvatar(
                                 radius: 60,
                                 backgroundColor: Colors.grey.shade300,
-                                backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+                                backgroundImage:
+                                    (imageUrl != null && imageUrl.isNotEmpty)
                                     ? NetworkImage(imageUrl)
                                     : null,
                                 child: _uploadingImage
-                                    ? const CircularProgressIndicator(color: tealColor)
+                                    ? const CircularProgressIndicator(
+                                        color: tealColor,
+                                      )
                                     : (imageUrl == null || imageUrl.isEmpty)
-                                        ? const Icon(Icons.person, size: 60, color: Colors.grey)
-                                        : null,
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 60,
+                                        color: Colors.grey,
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
@@ -366,9 +477,18 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
                               decoration: const BoxDecoration(
                                 color: goldColor,
                                 shape: BoxShape.circle,
-                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                  ),
+                                ],
                               ),
-                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                           ),
                       ],
@@ -396,14 +516,19 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
                             color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(_editing ? Icons.close : Icons.edit, color: Colors.white, size: 18),
+                          child: Icon(
+                            _editing ? Icons.close : Icons.edit,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    (_initialData!['role']?.toString() ?? 'Officer').toUpperCase(),
+                    (_initialData!['role']?.toString() ?? 'Officer')
+                        .toUpperCase(),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 12,
@@ -437,27 +562,60 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        _buildStyledTextField('First Name', _firstNameController, Icons.person_outline),
-                        _buildStyledTextField('Last Name', _lastNameController, Icons.person_outline),
-                        _buildStyledTextField('Email ID', _emailController, Icons.email_outlined, readOnly: true),
-                        _buildStyledTextField('Date of Birth', _dobController, Icons.calendar_today_outlined, onTap: _selectDate),
-                        _buildStyledTextField('Role / Work Type', _workTypeController, Icons.engineering_outlined),
-                        _buildStyledTextField('Officer UID', _officerUidController, Icons.admin_panel_settings_outlined, readOnly: true),
+                        _buildStyledTextField(
+                          'First Name',
+                          _firstNameController,
+                          Icons.person_outline,
+                        ),
+                        _buildStyledTextField(
+                          'Last Name',
+                          _lastNameController,
+                          Icons.person_outline,
+                        ),
+                        _buildStyledTextField(
+                          'Email ID',
+                          _emailController,
+                          Icons.email_outlined,
+                          readOnly: true,
+                        ),
+                        _buildStyledTextField(
+                          'Date of Birth',
+                          _dobController,
+                          Icons.calendar_today_outlined,
+                          onTap: _selectDate,
+                        ),
+                        _buildStyledTextField(
+                          'Role / Work Type',
+                          _workTypeController,
+                          Icons.engineering_outlined,
+                        ),
+                        _buildStyledTextField(
+                          'Officer UID',
+                          _officerUidController,
+                          Icons.admin_panel_settings_outlined,
+                          readOnly: true,
+                        ),
                         const SizedBox(height: 30),
                         if (_editing)
                           SizedBox(
                             width: double.infinity,
                             height: 55,
                             child: ElevatedButton(
-                              onPressed: _hasChanges && !_updating ? _updateProfile : null,
+                              onPressed: _hasChanges && !_updating
+                                  ? _updateProfile
+                                  : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: goldColor,
                                 disabledBackgroundColor: Colors.grey.shade300,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
                                 elevation: 5,
                               ),
                               child: _updating
-                                  ? const CircularProgressIndicator(color: Colors.white)
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
                                   : const Text(
                                       'SAVE DETAILS',
                                       style: TextStyle(
@@ -506,23 +664,35 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
+            inputFormatters: const [SanitizingTextInputFormatter()],
             readOnly: isKeyboardReadOnly,
             onTap: (_editing && !readOnly && onTap != null) ? onTap : null,
             onChanged: (_) => _checkChanges(),
             style: TextStyle(
-              color: (!_editing || readOnly) ? Colors.grey.shade700 : Colors.black,
+              color: (!_editing || readOnly)
+                  ? Colors.grey.shade700
+                  : Colors.black,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: const Color(0xFFE6A050)),
               filled: true,
-              fillColor: (!_editing || readOnly) ? Colors.grey.shade50 : Colors.white,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              fillColor: (!_editing || readOnly)
+                  ? Colors.grey.shade50
+                  : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 16,
+                horizontal: 20,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -533,7 +703,10 @@ class _OfficerViewProfileScreenState extends State<OfficerViewProfileScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
-                borderSide: const BorderSide(color: Color(0xFF1B3D3D), width: 1.5),
+                borderSide: const BorderSide(
+                  color: Color(0xFF1B3D3D),
+                  width: 1.5,
+                ),
               ),
             ),
           ),

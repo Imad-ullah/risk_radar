@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -35,6 +36,10 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   final GlobalKey _workersKey = GlobalKey();
   final GlobalKey _hseWorkersKey = GlobalKey(); // Keep internal name
   final SyncRepository _syncRepository = SyncRepository();
+  RealtimeChannel? _workersChannel;
+  RealtimeChannel? _hseWorkersChannel;
+  Timer? _teamRefreshDebounce;
+  dynamic _listeningOfficerUid;
 
   bool loading = true;
   late AnimationController _fadeController;
@@ -65,10 +70,11 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _fadeController.forward();
+          _loadInitialData(forceRefresh: true);
         }
       });
     } else {
-      _loadInitialData();
+      _loadInitialData(forceRefresh: true);
     }
   }
 
@@ -94,6 +100,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     _scrollController.dispose();
     _searchController.removeListener(_filterLists);
     _searchController.dispose();
+    _teamRefreshDebounce?.cancel();
+    _workersChannel?.unsubscribe();
+    _hseWorkersChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -121,9 +130,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     });
   }
 
-  Future<void> _loadInitialData() async {
-    await _fetchSites();
-    await _loadWorkers();
+  Future<void> _loadInitialData({bool forceRefresh = false}) async {
+    await _fetchSites(forceRefresh: forceRefresh);
+    await _loadWorkers(forceRefresh: forceRefresh);
   }
 
   Future<void> _loadWorkers({bool forceRefresh = false}) async {
@@ -165,6 +174,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       }
 
       final officerUid = officer['officer_uid'];
+      _listenForTeamChanges(officerUid);
 
       final responses = await Future.wait([
         Supabase.instance.client
@@ -212,6 +222,59 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       setState(() => loading = false);
       _showSnackBar('Error loading workers: $e', Colors.red);
     }
+  }
+
+  void _listenForTeamChanges(dynamic officerUid) {
+    if (_listeningOfficerUid == officerUid &&
+        _workersChannel != null &&
+        _hseWorkersChannel != null) {
+      return;
+    }
+
+    _listeningOfficerUid = officerUid;
+    _workersChannel?.unsubscribe();
+    _hseWorkersChannel?.unsubscribe();
+
+    _workersChannel = _buildTeamChannel(
+      channelName: 'contractor-workers-$officerUid',
+      tableName: 'workers',
+      officerUid: officerUid,
+    );
+    _hseWorkersChannel = _buildTeamChannel(
+      channelName: 'contractor-hse-workers-$officerUid',
+      tableName: 'hse_workers',
+      officerUid: officerUid,
+    );
+  }
+
+  RealtimeChannel _buildTeamChannel({
+    required String channelName,
+    required String tableName,
+    required dynamic officerUid,
+  }) {
+    return Supabase.instance.client
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: tableName,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'officer_uid',
+            value: officerUid,
+          ),
+          callback: (_) => _scheduleTeamRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _scheduleTeamRefresh() {
+    _teamRefreshDebounce?.cancel();
+    _teamRefreshDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _loadWorkers(forceRefresh: true);
+      }
+    });
   }
 
 
@@ -994,7 +1057,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
         child: RefreshIndicator(
           onRefresh: () async {
             // No need for separate await, just call the combined function
-            await _loadInitialData();
+            await _loadInitialData(forceRefresh: true);
           },
           color: const Color(0xFF0F5B63),
           child: SingleChildScrollView(

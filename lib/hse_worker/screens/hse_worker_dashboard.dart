@@ -84,8 +84,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       duration: const Duration(milliseconds: 300),
     );
     _curveAnimation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(
-          parent: _animationController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
     _bootSequence();
@@ -112,18 +111,27 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
     _curveAnimation =
-        Tween<double>(begin: _curveAnimation.value, end: index.toDouble())
-            .animate(CurvedAnimation(
-            parent: _animationController, curve: Curves.easeInOut));
+        Tween<double>(
+          begin: _curveAnimation.value,
+          end: index.toDouble(),
+        ).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
     _animationController.forward(from: 0);
   }
 
   String _capitalize(String text) {
     if (text.isEmpty) return "";
-    return text.split(' ').map((word) {
-      if (word.isEmpty) return "";
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join(' ');
+    return text
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return "";
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        })
+        .join(' ');
   }
 
   // ---------------------------------------------------------------------------
@@ -137,9 +145,10 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
       if (profile != null) {
         fullName = _capitalize(
-            "${profile['first_name'] ?? ''} ${profile['last_name'] ?? ''}");
+          "${profile['first_name'] ?? ''} ${profile['last_name'] ?? ''}",
+        );
         firstNameInitial =
-        (profile['first_name']?.toString().isNotEmpty ?? false)
+            (profile['first_name']?.toString().isNotEmpty ?? false)
             ? profile['first_name'][0].toUpperCase()
             : "H";
         profileImageUrl = profile['profile_image_url'] ?? "";
@@ -150,7 +159,9 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
           activeTasks = 0;
           queueTasks = 0;
           for (final task in tasks) {
-            final status = (task['status'] ?? 'assigned').toString().toLowerCase();
+            final status = (task['status'] ?? 'assigned')
+                .toString()
+                .toLowerCase();
             if (status != 'resolved' && status != 'resolved by other') {
               if (status == 'in_progress') {
                 activeTasks++;
@@ -160,16 +171,19 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             }
           }
           totalTasks = activeTasks + queueTasks;
-          completionPercentage =
-          totalTasks == 0 ? 0.0 : activeTasks / totalTasks;
+          completionPercentage = totalTasks == 0
+              ? 0.0
+              : activeTasks / totalTasks;
         }
 
         if (contextData != null) {
-          currentSiteName =
-              _capitalize(contextData['site_name'] ?? "No site assigned");
+          currentSiteName = _capitalize(
+            contextData['site_name'] ?? "No site assigned",
+          );
           sitePersonnelCount = contextData['site_personnel_count'] ?? 0;
           linkedContractorName = _capitalize(
-              contextData['officer_name'] ?? "No contractor linked");
+            contextData['officer_name'] ?? "No contractor linked",
+          );
           linkedOfficerAuthId = contextData['officer_auth_id'];
           teamCount = contextData['team_count'] ?? 0;
         }
@@ -201,7 +215,8 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       final Future<Map<String, dynamic>?> profileFuture = supabase
           .from('hse_workers')
           .select(
-          'first_name, last_name, profile_image_url, designation, officer_uid, current_site_id')
+            'first_name, last_name, profile_image_url, designation, officer_uid, current_site_id',
+          )
           .eq('id', userId)
           .maybeSingle();
 
@@ -221,9 +236,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       final results = await Future.wait([
         profileFuture,
         taskFuture,
-      ]).timeout(
-        const Duration(seconds: 15),
-      );
+      ]).timeout(const Duration(seconds: 15));
 
       final profile = results[0] as Map<String, dynamic>?;
       final taskResponse = results[1] as List<dynamic>;
@@ -237,15 +250,26 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
         if (siteId != null || officerUid != null) {
           final Future<Map<String, dynamic>?> siteFuture = siteId != null
-              ? supabase.from('sites').select('name').eq('id', siteId).maybeSingle()
+              ? supabase
+                    .from('sites')
+                    .select('name')
+                    .eq('id', siteId)
+                    .maybeSingle()
               : Future.value(null);
 
           final Future<dynamic> personnelFuture = siteId != null
-              ? supabase.from('workers').count(CountOption.exact).eq('current_site_id', siteId)
+              ? supabase
+                    .from('workers')
+                    .count(CountOption.exact)
+                    .eq('current_site_id', siteId)
               : Future.value(0);
 
           final Future<Map<String, dynamic>?> officerFuture = officerUid != null
-              ? supabase.from('officers').select('id, first_name, last_name').eq('officer_uid', officerUid).maybeSingle()
+              ? supabase
+                    .from('officers')
+                    .select('id, first_name, last_name')
+                    .eq('officer_uid', officerUid)
+                    .maybeSingle()
               : Future.value(null);
 
           final secondBatch = await Future.wait([
@@ -261,8 +285,12 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
           int resolvedTeamCount = 0;
           if (officer != null) {
             final Future<dynamic> teamFuture = siteId != null
-                ? supabase.from('workers').count(CountOption.exact).eq('officer_uid', officerUid).eq('current_site_id', siteId)
-                : supabase.from('workers').count(CountOption.exact).eq('officer_uid', officerUid);
+                ? supabase
+                      .from('workers')
+                      .count(CountOption.exact)
+                      .eq('officer_uid', officerUid)
+                      .eq('current_site_id', siteId)
+                : Future.value(0);
 
             resolvedTeamCount = (await teamFuture) as int? ?? 0;
           }
@@ -272,7 +300,9 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             'site_name': site?['name'],
             'site_personnel_count': personnelCount,
             'officer_uid': officerUid,
-            'officer_name': officer != null ? "${officer['first_name']} ${officer['last_name']}" : null,
+            'officer_name': officer != null
+                ? "${officer['first_name']} ${officer['last_name']}"
+                : null,
             'officer_auth_id': officer?['id'],
             'team_count': resolvedTeamCount,
           });
@@ -281,7 +311,6 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
       // Re-read from cache strictly to update UI
       await _loadFromCache();
-
     } catch (e) {
       debugPrint('⚠️ Silent refresh error (Offline mode active): $e');
       if (!_screensInitialized) {
@@ -304,7 +333,9 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       const HSEWorkerResolvedHazardsScreen(),
       HSEWorkerAppSettingsScreen(
         onAboutTap: (ctx) => Navigator.push(
-            ctx, MaterialPageRoute(builder: (_) => const AboutAppScreen())),
+          ctx,
+          MaterialPageRoute(builder: (_) => const AboutAppScreen()),
+        ),
         onThemeChanged: widget.onThemeChanged,
         currentThemeMode: widget.currentThemeMode,
       ),
@@ -323,27 +354,26 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       }
       if (permission == LocationPermission.deniedForever) return;
 
-      _positionSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 20,
-        ),
-      ).listen(
-            (pos) async {
-          final user = supabase.auth.currentUser;
-          if (user == null) return;
-          try {
-            await supabase.from('user_locations').upsert({
-              'user_id': user.id,
-              'latitude': pos.latitude,
-              'longitude': pos.longitude,
-              'updated_at': DateTime.now().toIso8601String(),
-            }, onConflict: 'user_id');
-          } catch (e) {
-            debugPrint('⚠️ Location upsert error: $e'); // Graceful fail
-          }
-        },
-      );
+      _positionSubscription =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 20,
+            ),
+          ).listen((pos) async {
+            final user = supabase.auth.currentUser;
+            if (user == null) return;
+            try {
+              await supabase.from('user_locations').upsert({
+                'user_id': user.id,
+                'latitude': pos.latitude,
+                'longitude': pos.longitude,
+                'updated_at': DateTime.now().toIso8601String(),
+              }, onConflict: 'user_id');
+            } catch (e) {
+              debugPrint('⚠️ Location upsert error: $e'); // Graceful fail
+            }
+          });
     } catch (e) {
       debugPrint('⚠️ Location tracking setup error: $e');
     }
@@ -351,9 +381,12 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
   void _navigateToSOS() {
     if (currentSiteId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
           content: Text("No site assigned."),
-          backgroundColor: Colors.orange));
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
     Navigator.push(
@@ -384,62 +417,89 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                   ? NetworkImage(profileImageUrl)
                   : null,
               child: profileImageUrl.isEmpty
-                  ? Text(firstNameInitial,
-                  style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black))
+                  ? Text(
+                      firstNameInitial,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    )
                   : null,
             ),
-            accountName: Text(fullName,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Colors.white)),
-            accountEmail: Text(designation,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14)),
+            accountName: Text(
+              fullName,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+            accountEmail: Text(
+              designation,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 14,
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: 16.0, vertical: 8.0),
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("CURRENT SITE CONTEXT",
-                    style: TextStyle(
-                        color: _accentGold.withValues(alpha: 0.8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1)),
+                Text(
+                  "CURRENT SITE CONTEXT",
+                  style: TextStyle(
+                    color: _accentGold.withValues(alpha: 0.8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
                 const SizedBox(height: 15),
                 _drawerInfoTile(
-                    Icons.location_city, "Site Name", currentSiteName),
-                _drawerInfoTile(Icons.groups_outlined, "Total Personnel",
-                    "$sitePersonnelCount Active"),
-                _drawerInfoTile(Icons.person_pin_rounded, "Contractor",
-                    linkedContractorName),
+                  Icons.location_city,
+                  "Site Name",
+                  currentSiteName,
+                ),
+                _drawerInfoTile(
+                  Icons.groups_outlined,
+                  "Total Personnel",
+                  "$sitePersonnelCount Active",
+                ),
+                _drawerInfoTile(
+                  Icons.person_pin_rounded,
+                  "Contractor",
+                  linkedContractorName,
+                ),
               ],
             ),
           ),
           const Divider(color: Colors.white10),
-          _drawerTile(Icons.account_circle_outlined, "Profile Details",
-                  () {
-                Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const HSEWorkerEditProfileScreen()));
-              }),
+          _drawerTile(Icons.account_circle_outlined, "Profile Details", () {
+            Navigator.pop(context);
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const HSEWorkerEditProfileScreen(),
+              ),
+            );
+          }),
           _drawerTile(Icons.settings_outlined, "Settings", () {
             Navigator.pop(context);
             _onItemTapped(3);
           }),
           const Spacer(),
           const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text("RiskRadar v1.0.2",
-                  style:
-                  TextStyle(color: Colors.white24, fontSize: 11))),
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              "RiskRadar v1.0.2",
+              style: TextStyle(color: Colors.white24, fontSize: 11),
+            ),
+          ),
         ],
       ),
     );
@@ -448,11 +508,14 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   Widget _drawerTile(IconData icon, String title, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: Colors.white70),
-      title: Text(title,
-          style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.white)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
       onTap: onTap,
     );
   }
@@ -465,18 +528,25 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
           Icon(icon, size: 20, color: _accentGold),
           const SizedBox(width: 15),
           Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withValues(alpha: 0.5))),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-              ]),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -493,18 +563,21 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 64, color: Colors.grey.shade400),
+            Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            Text('Failed to load dashboard',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade600)),
+            Text(
+              'Failed to load dashboard',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('Check your connection and try again',
-                style: TextStyle(
-                    fontSize: 13, color: Colors.grey.shade500)),
+            Text(
+              'Check your connection and try again',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _bootSequence,
@@ -514,7 +587,8 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                 backgroundColor: _brandTeal,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -524,14 +598,21 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
     return Consumer(
       builder: (context, ref, child) {
-        final activeTaskCount = ref.watch(hseTaskProvider).when(
+        final activeTaskCount = ref
+            .watch(hseTaskProvider)
+            .when(
               data: (hazards) => hazards.length,
               error: (error, stackTrace) => activeTasks,
               loading: () => activeTasks,
             );
 
         return RefreshIndicator(
-          onRefresh: _refreshFromSupabase,
+          onRefresh: () async {
+            await Future.wait([
+              _refreshFromSupabase(),
+              ref.read(hseTaskProvider.notifier).refresh(bypassCache: true),
+            ]);
+          },
           color: _accentGold,
           backgroundColor: _brandTeal,
           child: Stack(
@@ -542,17 +623,23 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Let's become",
-                        style: TextStyle(
-                            fontSize: 22,
-                            color: isDark
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade600)),
-                    const Text("more Productive",
-                        style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: _accentGold)),
+                    Text(
+                      "Let's become",
+                      style: TextStyle(
+                        fontSize: 22,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                    const Text(
+                      "more Productive",
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: _accentGold,
+                      ),
+                    ),
                     const SizedBox(height: 25),
 
                     Row(
@@ -575,10 +662,13 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                             subtitle: "Total Workforce",
                             buttonText: "View Workforce",
                             onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => HSETeamMembersScreen(
-                                        currentSiteId: currentSiteId))),
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HSETeamMembersScreen(
+                                  currentSiteId: currentSiteId,
+                                ),
+                              ),
+                            ),
                             showProgress: false,
                           ),
                         ),
@@ -600,7 +690,8 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                          _brandTeal.withValues(alpha: 0.5)),
+                        _brandTeal.withValues(alpha: 0.5),
+                      ),
                     ),
                   ),
                 ),
@@ -623,8 +714,9 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
       height: 180,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-          color: _brandTeal,
-          borderRadius: BorderRadius.circular(28)),
+        color: _brandTeal,
+        borderRadius: BorderRadius.circular(28),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -640,28 +732,33 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                   child: CircularProgressIndicator(
                     value: completionPercentage,
                     strokeWidth: 4,
-                    backgroundColor:
-                    Colors.white.withValues(alpha: 0.1),
-                    valueColor:
-                    const AlwaysStoppedAnimation(_accentGold),
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    valueColor: const AlwaysStoppedAnimation(_accentGold),
                   ),
                 )
               else
-                const Icon(Icons.arrow_forward,
-                    color: Colors.white24, size: 20),
+                const Icon(
+                  Icons.arrow_forward,
+                  color: Colors.white24,
+                  size: 20,
+                ),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
-              Text(subtitle,
-                  style: const TextStyle(
-                      color: Colors.white54, fontSize: 12)),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
             ],
           ),
           ElevatedButton(
@@ -669,16 +766,20 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: _accentGold,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               minimumSize: const Size(double.infinity, 36),
               elevation: 0,
             ),
-            child: Text(buttonText,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold)),
+            child: Text(
+              buttonText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -691,16 +792,20 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const RiskRadarLoadingScreen(
-          message: 'Loading your dashboard...');
+      return const RiskRadarLoadingScreen(message: 'Loading your dashboard...');
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor =
-    isDark ? const Color(0xFF121212) : Colors.grey.shade50;
+    final backgroundColor = isDark
+        ? const Color(0xFF121212)
+        : Colors.grey.shade50;
 
-    final String title =
-    ["Dashboard", "My Tasks", "Resolved", "Settings"][_selectedIndex];
+    final String title = [
+      "Dashboard",
+      "My Tasks",
+      "Resolved",
+      "Settings",
+    ][_selectedIndex];
 
     return PopScope(
       canPop: _selectedIndex == 0,
@@ -724,33 +829,41 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
           iconTheme: const IconThemeData(color: Colors.white),
           leading: (_selectedIndex == 0)
               ? GestureDetector(
-            onTap: () =>
-                _scaffoldKey.currentState?.openDrawer(),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: CircleAvatar(
-                backgroundColor: Colors.purple.shade200,
-                backgroundImage: profileImageUrl.isNotEmpty
-                    ? NetworkImage(profileImageUrl)
-                    : null,
-                child: profileImageUrl.isEmpty
-                    ? Text(firstNameInitial,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black))
-                    : null,
-              ),
-            ),
-          )
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.purple.shade200,
+                      backgroundImage: profileImageUrl.isNotEmpty
+                          ? NetworkImage(profileImageUrl)
+                          : null,
+                      child: profileImageUrl.isEmpty
+                          ? Text(
+                              firstNameInitial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                )
               : null,
-          title: Text(title,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.white)),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           actions: [
             const RealtimeConnectionIndicator(),
             Consumer(
               builder: (context, ref, child) {
-                final count = ref.watch(notificationCountProvider).when(
+                final count = ref
+                    .watch(notificationCountProvider)
+                    .when(
                       data: (value) => value,
                       error: (error, stackTrace) => 0,
                       loading: () => 0,
@@ -760,13 +873,16 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                   children: [
                     IconButton(
                       icon: const Icon(
-                          Icons.notifications_none_rounded,
-                          color: Colors.white,
-                          size: 28),
+                        Icons.notifications_none_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                       onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (context) =>
-                              const HSEWorkerNotificationScreen())),
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const HSEWorkerNotificationScreen(),
+                        ),
+                      ),
                     ),
                     if (count > 0)
                       Positioned(
@@ -775,18 +891,23 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                         child: Container(
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: _brandTeal, width: 1.5)),
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _brandTeal, width: 1.5),
+                          ),
                           constraints: const BoxConstraints(
-                              minWidth: 18, minHeight: 18),
-                          child: Text('$count',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center),
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
                   ],
@@ -802,10 +923,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             const OfflineBanner(),
             Expanded(
               child: _screensInitialized
-                  ? IndexedStack(
-                      index: _selectedIndex,
-                      children: _screens,
-                    )
+                  ? IndexedStack(index: _selectedIndex, children: _screens)
                   : const RiskRadarLoadingScreen(
                       message: 'Preparing screens...',
                     ),
@@ -815,22 +933,23 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
         floatingActionButton: _selectedIndex == 0
             ? Padding(
-          padding: const EdgeInsets.only(bottom: 90.0),
-          child: FloatingActionButton.extended(
-            backgroundColor: Colors.red.shade600,
-            onPressed: _navigateToSOS,
-            elevation: 4,
-            icon: const Icon(Icons.sos_rounded,
-                color: Colors.white),
-            label: const Text("EMERGENCY",
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
-          ),
-        )
+                padding: const EdgeInsets.only(bottom: 90.0),
+                child: FloatingActionButton.extended(
+                  backgroundColor: Colors.red.shade600,
+                  onPressed: _navigateToSOS,
+                  elevation: 4,
+                  icon: const Icon(Icons.sos_rounded, color: Colors.white),
+                  label: const Text(
+                    "EMERGENCY",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              )
             : null,
-        floatingActionButtonLocation:
-        FloatingActionButtonLocation.centerDocked,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
         bottomNavigationBar: _buildConcaveNavBar(),
       ),
@@ -853,9 +972,10 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                 return CustomPaint(
                   size: Size(MediaQuery.of(context).size.width, 85),
                   painter: ConcaveNavPainter(
-                      selectedIndex: _curveAnimation.value,
-                      itemsCount: 4,
-                      color: _brandTeal),
+                    selectedIndex: _curveAnimation.value,
+                    itemsCount: 4,
+                    color: _brandTeal,
+                  ),
                 );
               },
             ),
@@ -867,8 +987,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
               children: [
                 _buildNavItem(0, Icons.grid_view_rounded, "Home"),
                 _buildNavItem(1, Icons.assignment_rounded, "Tasks"),
-                _buildNavItem(
-                    2, Icons.check_circle_rounded, "Resolved"),
+                _buildNavItem(2, Icons.check_circle_rounded, "Resolved"),
                 _buildNavItem(3, Icons.settings_rounded, "Settings"),
               ],
             ),
@@ -898,15 +1017,16 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                    color: isSelected
-                        ? _accentGold
-                        : Colors.transparent,
-                    shape: BoxShape.circle),
-                child: Icon(icon,
-                    color: isSelected
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.5),
-                    size: 24),
+                  color: isSelected ? _accentGold : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.5),
+                  size: 24,
+                ),
               ),
             ),
             Positioned(
@@ -914,15 +1034,16 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: 1.0,
-                child: Text(label,
-                    style: TextStyle(
-                        color: isSelected
-                            ? _accentGold
-                            : Colors.white70,
-                        fontSize: 10,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal)),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? _accentGold : Colors.white70,
+                    fontSize: 10,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
               ),
             ),
           ],
@@ -937,10 +1058,11 @@ class ConcaveNavPainter extends CustomPainter {
   final int itemsCount;
   final Color color;
 
-  ConcaveNavPainter(
-      {required this.selectedIndex,
-        required this.itemsCount,
-        required this.color});
+  ConcaveNavPainter({
+    required this.selectedIndex,
+    required this.itemsCount,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -951,33 +1073,33 @@ class ConcaveNavPainter extends CustomPainter {
     double barHeight = 65.0;
     double topOffset = size.height - barHeight;
     double sectionWidth = size.width / itemsCount;
-    double currentCenter =
-        (selectedIndex * sectionWidth) + (sectionWidth / 2);
+    double currentCenter = (selectedIndex * sectionWidth) + (sectionWidth / 2);
     double notchRadius = 38.0;
 
     path.moveTo(0, topOffset);
     path.lineTo(currentCenter - notchRadius - 5, topOffset);
     path.cubicTo(
-        currentCenter - notchRadius,
-        topOffset,
-        currentCenter - notchRadius + 5,
-        topOffset + 40,
-        currentCenter,
-        topOffset + 40);
+      currentCenter - notchRadius,
+      topOffset,
+      currentCenter - notchRadius + 5,
+      topOffset + 40,
+      currentCenter,
+      topOffset + 40,
+    );
     path.cubicTo(
-        currentCenter + notchRadius - 5,
-        topOffset + 40,
-        currentCenter + notchRadius,
-        topOffset,
-        currentCenter + notchRadius + 5,
-        topOffset);
+      currentCenter + notchRadius - 5,
+      topOffset + 40,
+      currentCenter + notchRadius,
+      topOffset,
+      currentCenter + notchRadius + 5,
+      topOffset,
+    );
     path.lineTo(size.width, topOffset);
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
 
-    canvas.drawShadow(
-        path, Colors.black.withValues(alpha: 0.15), 4.0, true);
+    canvas.drawShadow(path, Colors.black.withValues(alpha: 0.15), 4.0, true);
     canvas.drawPath(path, paint);
   }
 

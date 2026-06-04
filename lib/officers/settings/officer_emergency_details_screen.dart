@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 
 class OfficerEmergencyDetailsScreen extends StatefulWidget {
@@ -58,8 +59,9 @@ class _OfficerEmergencyDetailsScreenState
 
   Future<void> _loadEmergencyDetails() async {
     setState(() => _loading = true);
-    final cached =
-        OfficerRepository.instance.getOfficerEmergencyDetails(widget.officerId);
+    final cached = OfficerRepository.instance.getOfficerEmergencyDetails(
+      widget.officerId,
+    );
     if (cached != null) {
       _applyEmergencyDetails(cached);
       if (mounted) setState(() => _loading = false);
@@ -85,7 +87,11 @@ class _OfficerEmergencyDetailsScreenState
       debugPrint('Error loading officer emergency details: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load details: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              'Could not load emergency details. Please try again.',
+            ),
+          ),
         );
       }
     } finally {
@@ -130,15 +136,36 @@ class _OfficerEmergencyDetailsScreenState
 
     final data = {
       'officer_id': widget.officerId,
-      'contact_name': _contactNameController.text.trim(),
-      'relationship': _relationshipController.text.trim(),
+      'contact_name': InputSanitizer.cleanText(
+        _contactNameController.text,
+        maxLength: 80,
+      ),
+      'relationship': InputSanitizer.cleanText(
+        _relationshipController.text,
+        maxLength: 80,
+      ),
       'personal': phoneNumbers,
       'blood_type': _bloodType,
-      'allergies': _allergiesController.text.trim(),
-      'chronic_conditions': _conditionsController.text.trim(),
-      'ambulance': _ambulanceController.text.trim(),
-      'fire_brigade': _fireBrigadeController.text.trim(),
-      'supervisor': _supervisorController.text.trim(),
+      'allergies': InputSanitizer.cleanText(
+        _allergiesController.text,
+        maxLength: 300,
+      ),
+      'chronic_conditions': InputSanitizer.cleanText(
+        _conditionsController.text,
+        maxLength: 300,
+      ),
+      'ambulance': InputSanitizer.cleanText(
+        _ambulanceController.text,
+        maxLength: 40,
+      ),
+      'fire_brigade': InputSanitizer.cleanText(
+        _fireBrigadeController.text,
+        maxLength: 40,
+      ),
+      'supervisor': InputSanitizer.cleanText(
+        _supervisorController.text,
+        maxLength: 80,
+      ),
     };
 
     try {
@@ -154,10 +181,7 @@ class _OfficerEmergencyDetailsScreenState
       }
       await OfficerRepository.instance.saveOfficerEmergencyDetails(
         widget.officerId,
-        {
-          if (_emergencyId != null) 'id': _emergencyId,
-          ...data,
-        },
+        {if (_emergencyId != null) 'id': _emergencyId, ...data},
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,10 +194,7 @@ class _OfficerEmergencyDetailsScreenState
       }
     } on SocketException {
       final offlineId = _emergencyId ?? const Uuid().v4();
-      final offlineData = {
-        'id': offlineId,
-        ...data,
-      };
+      final offlineData = {'id': offlineId, ...data};
       await _syncRepository.enqueueAction(
         id: 'officer_emergency_${widget.officerId}_${DateTime.now().millisecondsSinceEpoch}',
         table: 'officer_emergency_contacts',
@@ -188,7 +209,9 @@ class _OfficerEmergencyDetailsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Emergency details saved offline - will sync when online'),
+            content: Text(
+              'Emergency details saved offline - will sync when online',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -198,7 +221,9 @@ class _OfficerEmergencyDetailsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving emergency details: $e'),
+            content: Text(
+              'Could not save emergency details. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -227,7 +252,9 @@ class _OfficerEmergencyDetailsScreenState
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? const Color(0xFF121212)
+        : AppColors.backgroundLight;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -282,8 +309,10 @@ class _OfficerEmergencyDetailsScreenState
                               inputType: TextInputType.phone,
                               suffixIcon: _phoneControllers.length > 1
                                   ? IconButton(
-                                      icon: const Icon(Icons.remove_circle,
-                                          color: Colors.redAccent),
+                                      icon: const Icon(
+                                        Icons.remove_circle,
+                                        color: Colors.redAccent,
+                                      ),
                                       onPressed: () =>
                                           _removePhoneNumber(entry.key),
                                     )
@@ -298,8 +327,10 @@ class _OfficerEmergencyDetailsScreenState
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
                             onPressed: _addPhoneNumber,
-                            icon: const Icon(Icons.add_rounded,
-                                color: AppColors.brandTeal),
+                            icon: const Icon(
+                              Icons.add_rounded,
+                              color: AppColors.brandTeal,
+                            ),
                             label: const Text(
                               'Add Number',
                               style: TextStyle(
@@ -319,30 +350,27 @@ class _OfficerEmergencyDetailsScreenState
                       children: [
                         DropdownButtonFormField<String>(
                           initialValue: _bloodType,
-                          items: [
-                            'A+',
-                            'A-',
-                            'B+',
-                            'B-',
-                            'AB+',
-                            'AB-',
-                            'O+',
-                            'O-'
-                          ]
-                              .map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
-                                  child: Text(
-                                    type,
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white : Colors.black87,
+                          items:
+                              ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+                                  .map(
+                                    (type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(
+                                        type,
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black87,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) => setState(() => _bloodType = value),
-                          dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                                  )
+                                  .toList(),
+                          onChanged: (value) =>
+                              setState(() => _bloodType = value),
+                          dropdownColor: isDark
+                              ? const Color(0xFF2C2C2C)
+                              : Colors.white,
                           decoration: _inputDecoration('Blood Type', isDark),
                         ),
                         const SizedBox(height: 16),
@@ -388,8 +416,11 @@ class _OfficerEmergencyDetailsScreenState
                       children: [
                         Text(
                           'This number will be visible to your Team for emergency contact.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: isDark ? Colors.grey[400] : Colors.grey[700],
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[700],
                               ),
                         ),
                         const SizedBox(height: 16),
@@ -495,10 +526,20 @@ class _OfficerEmergencyDetailsScreenState
   }) {
     return TextFormField(
       controller: controller,
+      inputFormatters: const [SanitizingTextInputFormatter()],
       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-      decoration: _inputDecoration(label, isDark).copyWith(suffixIcon: suffixIcon),
+      decoration: _inputDecoration(
+        label,
+        isDark,
+      ).copyWith(suffixIcon: suffixIcon),
       keyboardType: inputType,
-      validator: validator,
+      validator: (value) =>
+          validator?.call(value) ??
+          InputSanitizer.validateLongText(
+            value,
+            required: false,
+            maxLength: 300,
+          ),
     );
   }
 

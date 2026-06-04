@@ -11,6 +11,7 @@ import 'package:riskradar/services/repositories/sync_repository.dart';
 import 'package:riskradar/services/sync_service.dart';
 import 'package:riskradar/shared/hazards/voice_note_recorder.dart';
 import 'package:riskradar/shared/models/hazard.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart';
 
@@ -72,8 +73,15 @@ class _HseWorkerResolutionFormScreenState
   }
 
   String? _validateNotes(String? value) {
-    final String notes = value?.trim() ?? '';
-    return notes.isEmpty ? _notesRequiredMessage : null;
+    final String? securityError = InputSanitizer.validateLongText(
+      value,
+      minLength: 1,
+      maxLength: 800,
+    );
+    if (securityError == 'This field is required.') {
+      return _notesRequiredMessage;
+    }
+    return securityError;
   }
 
   String? _validatePhotos() {
@@ -150,7 +158,7 @@ class _HseWorkerResolutionFormScreenState
     } catch (e, s) {
       LoggerService.error('[HSE Resolution] Photo capture failed', e, s);
       if (!mounted) return;
-      _showErrorSnack('Failed to capture photo: $e');
+      _showErrorSnack('Failed to capture photo. Please try again.');
     }
   }
 
@@ -198,11 +206,15 @@ class _HseWorkerResolutionFormScreenState
     final List<File> voiceFiles =
         _voiceRecorderKey.currentState?.getAllRecordedFiles() ?? <File>[];
     final int reportNumber = _generateReportNumber();
+    final String resolutionNotes = InputSanitizer.cleanText(
+      _notesController.text,
+      maxLength: 800,
+    );
     final Map<String, Object?> payload = <String, Object?>{
       'id': assignmentId,
       'status': 'resolved',
       'resolved_at': resolvedAt,
-      'resolution_notes': _notesController.text.trim(),
+      'resolution_notes': resolutionNotes,
       'report_number': reportNumber,
       'image_paths': _selectedPhotos.map((XFile photo) => photo.path).toList(),
       'voice_paths': voiceFiles.map((File file) => file.path).toList(),
@@ -479,6 +491,9 @@ class _HseWorkerResolutionFormScreenState
       child: TextFormField(
         controller: _notesController,
         validator: _validateNotes,
+        inputFormatters: const <TextInputFormatter>[
+          SanitizingTextInputFormatter(),
+        ],
         maxLines: 5,
         textInputAction: TextInputAction.newline,
         decoration: InputDecoration(

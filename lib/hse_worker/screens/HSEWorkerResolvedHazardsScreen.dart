@@ -115,6 +115,13 @@ class _HSEWorkerResolvedHazardsScreenState
     );
   }
 
+  Future<void> _refreshResolvedHazards() async {
+    await _loadResolvedHazards(
+      showBlockingLoader: false,
+      resetPagination: true,
+    );
+  }
+
   Future<void> _loadResolvedHazards({
     bool showBlockingLoader = true,
     bool resetPagination = true,
@@ -136,23 +143,48 @@ class _HSEWorkerResolvedHazardsScreenState
     try {
       final int pageStart = _currentPage * _pageSize;
       final int pageEnd = pageStart + _pageSize - 1;
-      final data = await supabase
+      final resolvedHazardsData = await supabase
           .from('resolved_hazards')
           .select('*, workers:worker_id(profile_image_url)')
           .eq('assigned_to', userId)
           .order('resolved_at', ascending: false)
           .range(pageStart, pageEnd);
 
-      final rows = List<Map<String, dynamic>>.from(data);
-      final List<Map<String, dynamic>> updatedRows = resetPagination
-          ? rows
-          : <Map<String, dynamic>>[..._allHazards, ...rows];
+      final resolvedAssignmentsData = await supabase
+          .from('assign_hazards')
+          .select('''
+            *,
+            workers:worker_id (
+              first_name,
+              last_name,
+              work_type,
+              profile_image_url
+            )
+          ''')
+          .eq('assigned_to', userId)
+          .eq('status', 'resolved')
+          .order('resolved_at', ascending: false)
+          .range(pageStart, pageEnd);
+
+      final rows = _mergeResolvedRows(
+        List<Map<String, dynamic>>.from(resolvedHazardsData),
+        List<Map<String, dynamic>>.from(resolvedAssignmentsData).map((row) {
+          return <String, dynamic>{
+            ...row,
+            '_source_table': 'assign_hazards',
+          };
+        }).toList(),
+      );
+      final List<Map<String, dynamic>> updatedRows =
+          _mergeResolvedRows(_allHazards, rows);
       await _hazardRepository.saveHseResolvedHazards(updatedRows);
 
       if (mounted) {
         setState(() {
           _allHazards = updatedRows;
-          _hasMoreHazards = rows.length == _pageSize;
+          _hasMoreHazards =
+              resolvedHazardsData.length == _pageSize ||
+              resolvedAssignmentsData.length == _pageSize;
           loading = false;
           _isLoadingMore = false;
         });
@@ -174,6 +206,46 @@ class _HSEWorkerResolvedHazardsScreenState
           _isLoadingMore = false;
         });
       }
+    }
+  }
+
+  List<Map<String, dynamic>> _mergeResolvedRows(
+    List<Map<String, dynamic>> first,
+    List<Map<String, dynamic>> second,
+  ) {
+    final Map<String, Map<String, dynamic>> byId = <String, Map<String, dynamic>>{};
+    for (final row in <Map<String, dynamic>>[...first, ...second]) {
+      final key = _resolvedRowKey(row);
+      byId[key] = <String, dynamic>{...?byId[key], ...row};
+    }
+    final rows = byId.values.toList();
+    rows.sort((a, b) {
+      final aDate = _parseDate(a['resolved_at'] ?? a['created_at']);
+      final bDate = _parseDate(b['resolved_at'] ?? b['created_at']);
+      return bDate.compareTo(aDate);
+    });
+    return rows;
+  }
+
+  String _resolvedRowKey(Map<String, dynamic> row) {
+    return row['id']?.toString() ??
+        row['assignment_id']?.toString() ??
+        row['hazard_id']?.toString() ??
+        row.hashCode.toString();
+  }
+
+  DateTime _parseDate(Object? value) {
+    if (value == null) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    final raw = value.toString();
+    try {
+      if (raw.endsWith('Z') || raw.contains('+')) {
+        return DateTime.parse(raw).toLocal();
+      }
+      return DateTime.parse("${raw}Z").toLocal();
+    } catch (_) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
     }
   }
 
@@ -242,10 +314,7 @@ class _HSEWorkerResolvedHazardsScreenState
       child: Scaffold(
         backgroundColor: backgroundColor,
         body: RefreshIndicator(
-          onRefresh: () => _loadResolvedHazards(
-            showBlockingLoader: false,
-            resetPagination: true,
-          ),
+          onRefresh: _refreshResolvedHazards,
           color: _headerTeal,
           child: Stack(
             children: [
@@ -296,6 +365,8 @@ class _HSEWorkerResolvedHazardsScreenState
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            const SizedBox(width: 48),
+                            const Spacer(),
                             Text(
                               DateFormat('MMMM yyyy').format(_selectedDate),
                               style: const TextStyle(
@@ -303,6 +374,15 @@ class _HSEWorkerResolvedHazardsScreenState
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                               ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'Refresh',
+                              icon: const Icon(
+                                Icons.refresh_rounded,
+                                color: Colors.white,
+                              ),
+                              onPressed: _refreshResolvedHazards,
                             ),
                           ],
                         ),

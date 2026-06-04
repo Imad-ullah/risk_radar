@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/services/logger_service.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
 import 'package:riskradar/services/sync_service.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
+import 'package:riskradar/shared/utils/profile_photo_permission.dart';
 
 class EditOfficerProfileScreen extends StatefulWidget {
   const EditOfficerProfileScreen({super.key});
@@ -30,8 +31,18 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
 
   final _days = List.generate(31, (i) => '${i + 1}');
   final _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   final _years = List.generate(80, (i) => '${DateTime.now().year - i}');
 
@@ -54,12 +65,16 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
 
   Future<void> _loadOfficerData() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null || !mounted) return;
+    if (user == null || !mounted) {
+      return;
+    }
 
     final cached = OfficerRepository.instance.getOfficerProfile();
     if (cached != null) {
       _applyOfficerData(cached);
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
 
     try {
@@ -82,7 +97,9 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
       LoggerService.error('Error loading officer profile for edit', e, s);
     }
 
-    if(mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   void _applyOfficerData(Map<String, dynamic> data) {
@@ -111,7 +128,8 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
   bool get _hasChanges {
     final originalDob = _originalData['dob']?.toString() ?? '';
     final currentMonthIndex = _months.indexOf(_birthMonth ?? '');
-    final currentDob = _birthYear != null && _birthDay != null && currentMonthIndex != -1
+    final currentDob =
+        _birthYear != null && _birthDay != null && currentMonthIndex != -1
         ? '${_birthYear!}-${(currentMonthIndex + 1).toString().padLeft(2, '0')}-${_birthDay!.padLeft(2, '0')}'
         : '';
 
@@ -156,47 +174,35 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
   // --- END: Image Source Selector ---
 
   Future<void> _pickImage(ImageSource source) async {
-    if (!mounted) return;
-
-    // Determine the required permission based on the source
-    Permission requiredPermission;
-    if (source == ImageSource.camera) {
-      requiredPermission = Permission.camera;
-    } else {
-      // Using Permission.photos for gallery access
-      requiredPermission = Permission.photos;
-    }
-
-    final status = await requiredPermission.request();
-
-    if (!status.isGranted && mounted) {
-      _showMessage(
-        'Permission denied. Please enable access in settings.',
-        isError: true,
-      );
-      // Open app settings if permission is permanently denied
-      if (status.isPermanentlyDenied) {
-        openAppSettings();
-      }
+    if (!mounted) {
       return;
     }
 
-    // Proceed only if permission is granted
-    if (status.isGranted) {
-      final picked = await ImagePicker().pickImage(source: source);
-      if (picked != null) {
-        setState(() => _imageFile = File(picked.path));
-      }
+    final bool hasPermission = await requestProfilePhotoPermission(
+      context,
+      source,
+    );
+    if (!hasPermission) {
+      return;
+    }
+
+    final picked = await ImagePicker().pickImage(source: source);
+    if (picked != null) {
+      setState(() => _imageFile = File(picked.path));
     }
   }
 
   Future<void> _saveProfile() async {
-    if (_saving || !_hasChanges || !mounted) return;
+    if (_saving || !_hasChanges || !mounted) {
+      return;
+    }
     setState(() => _saving = true);
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
       return;
     }
 
@@ -207,17 +213,34 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
         _birthMonth == null ||
         _birthYear == null) {
       _showMessage('Please fill in all required fields', isError: true);
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
       return;
     }
 
+    final firstNameError = InputSanitizer.validateName(_firstName.text);
+    final lastNameError = InputSanitizer.validateName(_lastName.text);
+    if (firstNameError != null || lastNameError != null) {
+      _showMessage(
+        firstNameError ?? lastNameError ?? InputSanitizer.invalidInputMessage,
+        isError: true,
+      );
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+      return;
+    }
+
+    final firstName = InputSanitizer.cleanText(_firstName.text, maxLength: 50);
+    final lastName = InputSanitizer.cleanText(_lastName.text, maxLength: 50);
     final dob =
         '${_birthYear!}-${(_months.indexOf(_birthMonth!) + 1).toString().padLeft(2, '0')}-${_birthDay!.padLeft(2, '0')}';
 
     final updateData = {
       'id': user.id,
-      'first_name': _firstName.text.trim(),
-      'last_name': _lastName.text.trim(),
+      'first_name': firstName,
+      'last_name': lastName,
       'email': _email.text.trim(),
       'dob': dob,
       'profile_image_url': _imageUrl,
@@ -239,7 +262,8 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
       });
 
       final syncResult = await SyncService.instance.run();
-      final savedOffline = syncResult.reason != null ||
+      final savedOffline =
+          syncResult.reason != null ||
           syncResult.hasFailures ||
           syncResult.pending > 0;
 
@@ -253,16 +277,24 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
       }
       _imageFile = null;
 
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
     } catch (e, s) {
       LoggerService.error('Error updating officer profile', e, s);
-      _showMessage('Error updating profile: $e', isError: true);
+      _showMessage(
+        'Could not update profile. Please try again.',
+        isError: true,
+      );
     }
 
-    if (mounted) setState(() => _saving = false);
+    if (mounted) {
+      setState(() => _saving = false);
+    }
   }
+
   void _showMessage(String msg, {bool isError = false}) {
-    if(mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
@@ -274,7 +306,9 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Officer Profile')),
@@ -292,12 +326,21 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                     backgroundImage: _imageFile != null
                         ? FileImage(_imageFile!)
                         : (_imageUrl != null && _imageUrl!.isNotEmpty
-                        ? NetworkImage(
-                        '${_imageUrl!}?ts=${DateTime.now().millisecondsSinceEpoch}')
-                        : const AssetImage('assets/default_user.png')
-                    as ImageProvider),
-                    backgroundColor: _imageUrl == null && _imageFile == null ? Colors.grey : null,
-                    child: (_imageUrl == null && _imageFile == null) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                              ? NetworkImage(
+                                  '${_imageUrl!}?ts=${DateTime.now().millisecondsSinceEpoch}',
+                                )
+                              : const AssetImage('assets/default_user.png')
+                                    as ImageProvider),
+                    backgroundColor: _imageUrl == null && _imageFile == null
+                        ? Colors.grey
+                        : null,
+                    child: (_imageUrl == null && _imageFile == null)
+                        ? const Icon(
+                            Icons.person,
+                            size: 50,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
                   Positioned(
                     bottom: 0,
@@ -308,7 +351,11 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                         color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                      child: const Icon(
+                        Icons.camera_alt,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
@@ -321,24 +368,39 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
             const SizedBox(height: 10),
             const Align(
               alignment: Alignment.centerLeft,
-              child: Text("Date of Birth", style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                "Date of Birth",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
-                  child: _buildDropdown("Day", _days, _birthDay,
-                          (v) => setState(() => _birthDay = v)),
+                  child: _buildDropdown(
+                    "Day",
+                    _days,
+                    _birthDay,
+                    (v) => setState(() => _birthDay = v),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _buildDropdown("Month", _months, _birthMonth,
-                          (v) => setState(() => _birthMonth = v)),
+                  child: _buildDropdown(
+                    "Month",
+                    _months,
+                    _birthMonth,
+                    (v) => setState(() => _birthMonth = v),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _buildDropdown("Year", _years, _birthYear,
-                          (v) => setState(() => _birthYear = v)),
+                  child: _buildDropdown(
+                    "Year",
+                    _years,
+                    _birthYear,
+                    (v) => setState(() => _birthYear = v),
+                  ),
                 ),
               ],
             ),
@@ -346,24 +408,33 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
             if (_officerUID != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
-                child: Text("Officer UID: $_officerUID",
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                child: Text(
+                  "Officer UID: $_officerUID",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
               onPressed: (!_hasChanges || _saving) ? null : _saveProfile,
               icon: _saving
                   ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
-              )
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.save),
               label: Text(_saving ? "Saving..." : "Save"),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
-                backgroundColor: _hasChanges && !_saving ? Theme.of(context).colorScheme.primary : Colors.grey,
+                backgroundColor: _hasChanges && !_saving
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -373,26 +444,40 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      {TextInputType? type}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    TextInputType? type,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: TextField(
         controller: controller,
         keyboardType: type,
-        decoration:
-        InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        inputFormatters: const [SanitizingTextInputFormatter()],
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
       ),
     );
   }
 
   Widget _buildDropdown(
-      String label, List<String> items, String? selected, void Function(String?) onChanged) {
+    String label,
+    List<String> items,
+    String? selected,
+    void Function(String?) onChanged,
+  ) {
     return DropdownButtonFormField<String>(
-      decoration:
-      InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
       initialValue: selected,
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      items: items
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .toList(),
       onChanged: (v) {
         onChanged(v);
         setState(() {}); // so save button reacts
@@ -400,5 +485,3 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
     );
   }
 }
-
-

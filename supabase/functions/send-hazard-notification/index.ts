@@ -1,17 +1,35 @@
 // supabase/functions/send-hazard-notification/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const WEBHOOK_SECRET_HEADER = "x-riskradar-webhook-secret";
 
-// Load Firebase credentials from environment variable
-const firebaseConfig = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT")!);
+// Load Firebase credentials from environment variable.
+function parseFirebaseServiceAccount(): Record<string, string> {
+  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+  if (!raw) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT is not configured.");
+  }
+
+  const trimmed = raw.trim();
+  const unwrapped =
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+      ? trimmed.slice(1, -1)
+      : trimmed;
+
+  return JSON.parse(unwrapped);
+}
+
+const firebaseConfig = parseFirebaseServiceAccount();
 
 interface HazardPayload {
   type: 'INSERT'
   table: string
   record: {
     id: string
-    officer_uid: string
+    officer_uid?: string
+    assigned_to?: string
     description: string
     severity: string
     image_url?: string
@@ -62,6 +80,18 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
 // ✅ Base64URL encode for JWT
 function base64url(input: string): string {
   return btoa(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function sanitizeText(value: unknown, maxLength = 300): string {
+  return String(value ?? "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\b(?:javascript|vbscript|data)\s*:/gi, "")
+    .replace(/\b(?:select|insert|update|delete|drop|alter|truncate|union|exec|execute)\b/gi, "")
+    .replace(/(--|\/\*|\*\/|;)/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
 }
 
 // ✅ Create OAuth2 token with proper key handling
@@ -131,6 +161,7 @@ async function sendNotification(
   title: string,
   body: string,
   severity: string,
+  sourceTable: string,
   imageUrl?: string
 ) {
   const url = `https://fcm.googleapis.com/v1/projects/${firebaseConfig.project_id}/messages:send`;
@@ -149,10 +180,22 @@ async function sendNotification(
         body,
         severity,
         image_url: imageUrl || '',
-        source_table: 'hazards',
+        source_table: sourceTable,
+        priority: 'high',
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
-      android: { priority: 'high' },
+      android: {
+        priority: 'HIGH',
+        notification: {
+          title,
+          body,
+          channelId: 'Hazards Details',
+          notificationPriority: 'PRIORITY_HIGH',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          image: imageUrl || undefined,
+        },
+      },
       apns: { headers: { 'apns-priority': '10' } },
     },
   };
@@ -176,47 +219,60 @@ serve(async (req) => {
 
     const payload: HazardPayload = await req.json();
 
-    // Only process new hazard inserts
-    if (payload.type !== 'INSERT' || payload.table !== 'hazards') {
-      return jsonResponse({ ignored: true, reason: 'Not a hazard insert.' });
+    // Only process new hazard or assignment inserts
+    if (
+      payload.type !== 'INSERT' ||
+      !['hazards', 'assign_hazards'].includes(payload.table)
+    ) {
+      return jsonResponse({ ignored: true, reason: 'Not a hazard notification insert.' });
     }
 
     const hazard = payload.record;
-    if (!hazard?.id || !hazard.officer_uid) {
+    if (!hazard?.id || (!hazard.officer_uid && !hazard.assigned_to)) {
       return jsonResponse({ error: 'Invalid hazard webhook payload.' }, 400);
     }
 
-    console.log(`Processing hazard: ${hazard.id} for officer: ${hazard.officer_uid}`);
+    console.log(`Processing ${payload.table}: ${hazard.id}`);
 
-    // Get officer's FCM token
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: officer, error } = await supabaseClient
-      .from('officers')
-      .select('fcm_token, first_name, last_name')
-      .eq('officer_uid', hazard.officer_uid)
-      .single();
+    const recipientQuery = hazard.assigned_to
+      ? supabaseClient
+          .from('hse_workers')
+          .select('fcm_token, first_name, last_name')
+          .eq('id', hazard.assigned_to)
+          .maybeSingle()
+      : supabaseClient
+          .from('officers')
+          .select('fcm_token, first_name, last_name')
+          .eq('officer_uid', hazard.officer_uid)
+          .maybeSingle();
 
-    if (error || !officer?.fcm_token) {
-      console.log(`No FCM token found for officer ${hazard.officer_uid}`);
+    const { data: recipient, error } = await recipientQuery;
+
+    if (error || !recipient?.fcm_token) {
+      console.log(`No FCM token found for ${hazard.assigned_to ?? hazard.officer_uid}`);
       return jsonResponse({ success: true, sent: 0 });
     }
 
-    const title = '🚨 New Hazard Assigned!';
-    const description = hazard.description || 'No description provided';
-    const hazardType = hazard.hazard_type || 'Hazard';
+    const notificationTitle = hazard.assigned_to ? 'New Task Assigned!' : 'New Hazard Reported!';
+    const description = sanitizeText(
+      hazard.description || 'No description provided',
+      300,
+    );
+    const hazardType = sanitizeText(hazard.hazard_type || 'Hazard', 80);
     const body = `${hazardType}: ${description.substring(0, 100)}`;
 
     const fcmResponse = await sendNotification(
-      officer.fcm_token,
+      recipient.fcm_token,
       hazard.id,
-      title,
+      notificationTitle,
       body,
       hazard.severity,
+      payload.table,
       hazard.image_url
     );
 
@@ -224,15 +280,15 @@ serve(async (req) => {
     console.log('FCM Response:', JSON.stringify(fcmResponse, null, 2));
 
     if (fcmResponse.name) {
-      console.log(`✅ Notification sent successfully to officer ${officer.first_name} ${officer.last_name}`);
+      console.log(`Notification sent successfully to ${recipient.first_name} ${recipient.last_name}`);
       return jsonResponse({ success: true, fcmResponse });
     } else {
       console.error('❌ FCM Error:', JSON.stringify(fcmResponse, null, 2));
-      return jsonResponse({ success: false, error: fcmResponse }, 500);
+      return jsonResponse({ success: false, error: 'Notification dispatch failed.' }, 500);
     }
 
   } catch (error: any) {
     console.error('Error:', error);
-    return jsonResponse({ success: false, error: error.message }, 500);
+    return jsonResponse({ success: false, error: 'Notification dispatch failed.' }, 500);
   }
 });

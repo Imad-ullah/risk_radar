@@ -12,6 +12,7 @@ import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
 import 'package:riskradar/services/sync_service.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
+import 'package:riskradar/shared/utils/profile_photo_permission.dart';
 import 'package:riskradar/shared/widgets/full_image_viewer.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart';
 
@@ -120,6 +121,14 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
     if (_updatingPhoto) return;
 
     try {
+      final bool hasPermission = await requestProfilePhotoPermission(
+        context,
+        ImageSource.gallery,
+      );
+      if (!hasPermission) {
+        return;
+      }
+
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,

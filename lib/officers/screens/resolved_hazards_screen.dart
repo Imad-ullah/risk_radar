@@ -112,6 +112,13 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
     );
   }
 
+  Future<void> _refreshResolvedHazards() async {
+    await fetchResolvedHazards(
+      showBlockingLoader: false,
+      resetPagination: true,
+    );
+  }
+
   Future<void> fetchResolvedHazards({
     bool showBlockingLoader = true,
     bool resetPagination = true,
@@ -288,10 +295,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
               child: _buildEmptyState(isDark),
             )
                 : RefreshIndicator(
-              onRefresh: () => fetchResolvedHazards(
-                showBlockingLoader: false,
-                resetPagination: true,
-              ),
+              onRefresh: _refreshResolvedHazards,
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 220, 20, 120),
@@ -350,6 +354,14 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                                   const SizedBox(width: 48),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Refresh',
+                              icon: const Icon(
+                                Icons.refresh_rounded,
+                                color: Colors.white,
+                              ),
+                              onPressed: _refreshResolvedHazards,
                             ),
                           ],
                         ),

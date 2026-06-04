@@ -37,6 +37,9 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   final ScrollController _activeScrollController = ScrollController();
   final ScrollController _queueScrollController = ScrollController();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  RealtimeChannel? _assignHazardsChannel;
+  Timer? _tasksRefreshDebounce;
+  String? _listeningUserId;
 
   static const int _pageSize = 20;
   static const double _loadMoreScrollThreshold = 0.8;
@@ -77,6 +80,8 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     _activeScrollController.dispose();
     _queueScrollController.dispose();
     _connectivitySubscription?.cancel();
+    _tasksRefreshDebounce?.cancel();
+    _assignHazardsChannel?.unsubscribe();
     _tabController.dispose();
     _elapsedTimer?.cancel();
     super.dispose();
@@ -334,6 +339,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         }
         return;
       }
+      _listenForTaskChanges(userId);
 
       _locallyResolvedTaskIds =
           await _hazardRepository.getHseLocallyResolvedTaskIds();
@@ -407,6 +413,39 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         });
       }
     }
+  }
+
+  void _listenForTaskChanges(String userId) {
+    if (_listeningUserId == userId && _assignHazardsChannel != null) {
+      return;
+    }
+
+    _listeningUserId = userId;
+    _assignHazardsChannel?.unsubscribe();
+
+    _assignHazardsChannel = supabase
+        .channel('hse-worker-tasks-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'assign_hazards',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'assigned_to',
+            value: userId,
+          ),
+          callback: (_) => _scheduleTasksRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _scheduleTasksRefresh() {
+    _tasksRefreshDebounce?.cancel();
+    _tasksRefreshDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        fetchTasks(showBlockingLoader: false, resetPagination: true);
+      }
+    });
   }
 
   List<Map<String, dynamic>> _mergeTaskRows({
@@ -857,13 +896,33 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
 
   Widget _buildTaskList(List<Map<String, dynamic>> tasks, bool isActive) {
     if (tasks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: () => fetchTasks(
+          showBlockingLoader: false,
+          resetPagination: true,
+        ),
+        child: Stack(
           children: [
-            Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text("No tasks found", style: TextStyle(color: Colors.grey.shade500)),
+            ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+            ),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.assignment_outlined,
+                    size: 64,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No tasks found",
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );

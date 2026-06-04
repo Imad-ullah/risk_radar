@@ -37,8 +37,11 @@ import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/sync_service.dart';
 
 // Notifiers
+import 'package:riskradar/hse_worker/screens/hse_worker_hazard_notifier.dart'
+    as hse_notifications;
 import 'package:riskradar/officers/notifications/officer_hazard_notifier.dart';
-import 'package:riskradar/workers/settings/worker_hazard_notifier.dart';
+import 'package:riskradar/workers/settings/worker_hazard_notifier.dart'
+    as worker_notifications;
 
 // Screens
 import 'package:riskradar/workers/screens/worker_home_screen.dart';
@@ -83,18 +86,18 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   // ── State ──────────────────────────────────────────────────────────────────
   _BootState _bootState = _BootState.loading;
-  Session?   _session;
-  String?    _userRole;
+  Session? _session;
+  String? _userRole;
 
   // ── Internal ───────────────────────────────────────────────────────────────
   late final StreamSubscription<AuthState> _authSub;
   late final AppLinks _appLinks;
 
   // ── Constants ──────────────────────────────────────────────────────────────
-  static const String   _allowedScheme = 'hazardreporter';
-  static const String   _allowedHost   = 'login-callback';
-  static const Duration _roleTimeout   = Duration(seconds: 10);
-  static const Duration _fcmTimeout    = Duration(seconds: 5);
+  static const String _allowedScheme = 'hazardreporter';
+  static const String _allowedHost = 'login-callback';
+  static const Duration _roleTimeout = Duration(seconds: 10);
+  static const Duration _fcmTimeout = Duration(seconds: 5);
 
   // ══════════════════════════════════════════════════════════════════════════
   // LIFECYCLE
@@ -131,16 +134,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (cache.hasCachedSession) {
       final cachedRole = cache.getRole();
 
-      debugPrint('✅ [Boot] Cache hit — role: $cachedRole. Rendering instantly.');
+      debugPrint(
+        '✅ [Boot] Cache hit — role: $cachedRole. Rendering instantly.',
+      );
 
       if (mounted) {
         setState(() {
-          _userRole  = cachedRole;
+          _userRole = cachedRole;
           _bootState = _BootState.cachedSession;
         });
       }
 
       // Silently refresh from Supabase in background — UI already visible
+      _startHazardNotifierForRole();
+      _refreshFcmToken();
       _backgroundRefresh();
       return;
     }
@@ -188,9 +195,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<void> _initializeUser(
-      String userId, {
-        required bool isBackground,
-      }) async {
+    String userId, {
+    required bool isBackground,
+  }) async {
     if (!isBackground && mounted) {
       setState(() => _bootState = _BootState.loading);
     }
@@ -220,7 +227,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
       await _startHazardNotifierForRole();
       SyncService.instance.run();
-
     } on SocketException {
       debugPrint('⚠️ [Init] SocketException — no internet.');
       if (!isBackground && mounted) {
@@ -231,7 +237,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       debugPrint('❌ [Init] Unexpected error: $e');
       if (!isBackground && mounted) {
         setState(() {
-          _userRole  = null;
+          _userRole = null;
           _bootState = _BootState.noRole;
         });
       }
@@ -255,11 +261,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<void> _determineAndCacheRole(
-      String userId, {
-        required bool isBackground,
-      }) async {
+    String userId, {
+    required bool isBackground,
+  }) async {
     final supabase = Supabase.instance.client;
-    final cache    = AuthRepository();
+    final cache = AuthRepository();
 
     try {
       // Fetch role + profile columns in parallel — one query per role table
@@ -267,41 +273,41 @@ class _AuthWrapperState extends State<AuthWrapper> {
         supabase
             .from('officers')
             .select(
-          'id, first_name, last_name, email, role, officer_uid, profile_image_url',
-        )
+              'id, first_name, last_name, email, role, officer_uid, profile_image_url',
+            )
             .eq('id', userId)
             .maybeSingle(),
         supabase
             .from('workers')
             .select(
-          'id, first_name, last_name, email, role, officer_uid, work_type, '
+              'id, first_name, last_name, email, role, officer_uid, work_type, '
               'profile_image_url, is_active, default_site_id, current_site_id',
-        )
+            )
             .eq('id', userId)
             .maybeSingle(),
         supabase
             .from('hse_workers')
             .select(
-          'id, first_name, last_name, email, role, officer_uid, designation, '
+              'id, first_name, last_name, email, role, officer_uid, designation, '
               'profile_image_url, is_active, is_available, current_site_id',
-        )
+            )
             .eq('id', userId)
             .maybeSingle(),
       ]);
 
       if (!mounted) return;
 
-      String?              resolvedRole;
+      String? resolvedRole;
       Map<String, dynamic>? resolvedProfile;
 
       if (results[0] != null) {
-        resolvedRole    = 'officer';
+        resolvedRole = 'officer';
         resolvedProfile = results[0] as Map<String, dynamic>;
       } else if (results[1] != null) {
-        resolvedRole    = 'worker';
+        resolvedRole = 'worker';
         resolvedProfile = results[1] as Map<String, dynamic>;
       } else if (results[2] != null) {
-        resolvedRole    = 'hse_worker';
+        resolvedRole = 'hse_worker';
         resolvedProfile = results[2] as Map<String, dynamic>;
       }
 
@@ -325,7 +331,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
         debugPrint('ℹ️ [BgRefresh] Role updated: $_userRole → $resolvedRole');
         if (mounted) setState(() => _userRole = resolvedRole);
       }
-
     } on SocketException {
       rethrow;
     } catch (e) {
@@ -340,26 +345,25 @@ class _AuthWrapperState extends State<AuthWrapper> {
   // ══════════════════════════════════════════════════════════════════════════
 
   void _listenToAuthChanges() {
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen(
-          (data) async {
-        if (!mounted) return;
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) async {
+      if (!mounted) return;
 
-        final newSession = data.session;
-        final isNewLogin = newSession != null && _session == null;
-        final isLogout   = newSession == null && _session != null;
+      final newSession = data.session;
+      final isNewLogin = newSession != null && _session == null;
+      final isLogout = newSession == null && _session != null;
 
-        setState(() => _session = newSession);
+      setState(() => _session = newSession);
 
-        if (isNewLogin) {
-          debugPrint('🔑 [Auth] New login detected.');
-          await _initializeUser(newSession.user.id, isBackground: false);
-        } else if (isLogout) {
-          debugPrint('🚪 [Auth] Logout detected.');
-          await _handleLogout();
-        }
-      },
-      onError: (e) => debugPrint('⚠️ [Auth] Stream error: $e'),
-    );
+      if (isNewLogin) {
+        debugPrint('🔑 [Auth] New login detected.');
+        await _initializeUser(newSession.user.id, isBackground: false);
+      } else if (isLogout) {
+        debugPrint('🚪 [Auth] Logout detected.');
+        await _handleLogout();
+      }
+    }, onError: (e) => debugPrint('⚠️ [Auth] Stream error: $e'));
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -369,12 +373,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _handleLogout() async {
     // Fire-and-forget FCM clear — don't block UI on network failure
     _clearFcmTokenFromBackend().catchError(
-          (e) => debugPrint('⚠️ [Logout] FCM clear failed: $e'),
+      (e) => debugPrint('⚠️ [Logout] FCM clear failed: $e'),
     );
 
     // Stop notifiers
     try {
-      workerHazardNotifier.stopChecking();
+      worker_notifications.workerHazardNotifier.stopChecking();
+      hse_notifications.workerHazardNotifier.stopChecking();
       officerHazardNotifier.stopChecking();
       officerHazardNotifier.clearNotifications();
     } catch (e) {
@@ -387,7 +392,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     if (mounted) {
       setState(() {
-        _userRole  = null;
+        _userRole = null;
         _bootState = _BootState.unauthenticated;
       });
     }
@@ -400,8 +405,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<bool> _checkConnectivity() async {
     try {
-      final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 5));
+      final result = await InternetAddress.lookup(
+        'google.com',
+      ).timeout(const Duration(seconds: 5));
       return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
     } on SocketException {
       return false;
@@ -418,7 +424,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _startHazardNotifierForRole() async {
     try {
-      workerHazardNotifier.stopChecking();
+      worker_notifications.workerHazardNotifier.stopChecking();
+      hse_notifications.workerHazardNotifier.stopChecking();
       officerHazardNotifier.stopChecking();
 
       switch (_userRole) {
@@ -426,8 +433,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
           await officerHazardNotifier.startChecking();
           break;
         case 'worker':
+          await worker_notifications.workerHazardNotifier.startChecking();
+          break;
         case 'hse_worker':
-          await workerHazardNotifier.startChecking();
+          await hse_notifications.workerHazardNotifier.startChecking();
           break;
       }
     } catch (e) {
@@ -468,21 +477,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return;
     }
 
-    final userId    = user.id;
-    final client    = Supabase.instance.client;
+    final userId = user.id;
+    final client = Supabase.instance.client;
     final roleTable = _tableForRole(_userRole!);
 
     try {
+      debugPrint('🔑 [FCM][Role $_userRole] Token for $userId: $token');
       await Future.wait([
-        client.from('user_fcm_tokens').upsert(
-          {'user_id': userId, 'fcm_token': token},
-          onConflict: 'user_id',
-        ),
+        client.from('user_fcm_tokens').upsert({
+          'user_id': userId,
+          'fcm_token': token,
+        }, onConflict: 'user_id'),
         if (roleTable != null)
-          client
-              .from(roleTable)
-              .update({'fcm_token': token})
-              .eq('id', userId),
+          client.from(roleTable).update({'fcm_token': token}).eq('id', userId),
       ]);
       debugPrint('✅ [FCM] Token saved for role: $_userRole');
     } catch (e) {
@@ -512,10 +519,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   String? _tableForRole(String role) {
     switch (role) {
-      case 'officer':    return 'officers';
-      case 'worker':     return 'workers';
-      case 'hse_worker': return 'hse_workers';
-      default:           return null;
+      case 'officer':
+        return 'officers';
+      case 'worker':
+        return 'workers';
+      case 'hse_worker':
+        return 'hse_workers';
+      default:
+        return null;
     }
   }
 
@@ -627,7 +638,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     switch (_bootState) {
-
       case _BootState.loading:
         return _buildLoadingScreen();
 
@@ -661,4 +671,3 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 }
-

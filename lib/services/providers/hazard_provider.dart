@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riskradar/services/logger_service.dart';
+import 'package:riskradar/services/connectivity_service.dart';
 import 'package:riskradar/services/providers/realtime_connection_provider.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
@@ -11,8 +12,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final hazardProvider =
     AsyncNotifierProvider.autoDispose<HazardNotifier, List<Hazard>>(
-  HazardNotifier.new,
-);
+      HazardNotifier.new,
+    );
 
 class HazardNotifier extends AsyncNotifier<List<Hazard>>
     with WidgetsBindingObserver {
@@ -63,7 +64,7 @@ class HazardNotifier extends AsyncNotifier<List<Hazard>>
     unawaited(refresh(silent: true));
   }
 
-  Future<void> refresh({bool silent = false}) async {
+  Future<void> refresh({bool silent = false, bool bypassCache = false}) async {
     if (!_canUseRef) {
       return;
     }
@@ -73,7 +74,14 @@ class HazardNotifier extends AsyncNotifier<List<Hazard>>
     }
 
     try {
-      final List<Hazard> hazards = await _loadHazards();
+      if (bypassCache) {
+        await ConnectivityService.instance.refresh();
+      }
+      final bool liveOnly =
+          bypassCache && ConnectivityService.instance.isOnline;
+      final List<Hazard> hazards = await _loadHazards(
+        allowCacheFallback: !liveOnly,
+      );
       if (!_canUseRef) {
         return;
       }
@@ -86,16 +94,19 @@ class HazardNotifier extends AsyncNotifier<List<Hazard>>
     }
   }
 
-  Future<List<Hazard>> _loadHazards() async {
+  Future<List<Hazard>> _loadHazards({bool allowCacheFallback = true}) async {
     final String? role = _authRepository.getRole();
-    final List<Map<String, dynamic>> cachedRows =
-        await _hazardRepository.getCachedActiveHazardsForRole(role);
     if (role == null) {
+      final List<Map<String, dynamic>> cachedRows = await _hazardRepository
+          .getCachedActiveHazardsForRole(role);
       return _toHazards(cachedRows);
     }
 
-    final List<Map<String, dynamic>> freshRows =
-        await _hazardRepository.fetchActiveHazardsForCurrentUser(role: role);
+    final List<Map<String, dynamic>> freshRows = await _hazardRepository
+        .fetchActiveHazardsForCurrentUser(
+          role: role,
+          allowCacheFallback: allowCacheFallback,
+        );
     return _toHazards(freshRows);
   }
 
@@ -110,24 +121,27 @@ class HazardNotifier extends AsyncNotifier<List<Hazard>>
       return;
     }
 
-    final RealtimeConnectionNotifier connectionNotifier =
-        ref.read(realtimeConnectionProvider.notifier);
+    final RealtimeConnectionNotifier connectionNotifier = ref.read(
+      realtimeConnectionProvider.notifier,
+    );
     connectionNotifier.markConnecting();
 
-    unawaited(_unsubscribeFromRealtimeChanges().then((_) {
-      if (!_canUseRef) {
-        return;
-      }
+    unawaited(
+      _unsubscribeFromRealtimeChanges().then((_) {
+        if (!_canUseRef) {
+          return;
+        }
 
-      _hazardsChannel = _buildChannel(
-        channelName: _hazardsChannelName,
-        tableName: _hazardsTable,
-      );
-      _assignHazardsChannel = _buildChannel(
-        channelName: _assignHazardsChannelName,
-        tableName: _assignHazardsTable,
-      );
-    }));
+        _hazardsChannel = _buildChannel(
+          channelName: _hazardsChannelName,
+          tableName: _hazardsTable,
+        );
+        _assignHazardsChannel = _buildChannel(
+          channelName: _assignHazardsChannelName,
+          tableName: _assignHazardsTable,
+        );
+      }),
+    );
   }
 
   RealtimeChannel _buildChannel({
@@ -150,16 +164,14 @@ class HazardNotifier extends AsyncNotifier<List<Hazard>>
         .subscribe(_handleRealtimeStatus);
   }
 
-  void _handleRealtimeStatus(
-    RealtimeSubscribeStatus status, [
-    Object? error,
-  ]) {
+  void _handleRealtimeStatus(RealtimeSubscribeStatus status, [Object? error]) {
     if (!_canUseRef) {
       return;
     }
 
-    final RealtimeConnectionNotifier connectionNotifier =
-        ref.read(realtimeConnectionProvider.notifier);
+    final RealtimeConnectionNotifier connectionNotifier = ref.read(
+      realtimeConnectionProvider.notifier,
+    );
 
     if (status == RealtimeSubscribeStatus.subscribed) {
       connectionNotifier.markConnected();

@@ -26,6 +26,11 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
   late Animation<double> _fadeAnimation;
 
   List<Map<String, dynamic>> _workers = [];
+  String? _currentSiteId;
+  bool _mustRegisterToSite = false;
+
+  static const String _registerToSiteMessage =
+      'Please register to a site first to view workers.';
 
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _filteredWorkers = [];
@@ -43,6 +48,7 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
     );
 
     _searchController.addListener(_filterLists);
+    _currentSiteId = widget.currentSiteId;
     _loadTeamDataCacheFirst();
   }
 
@@ -70,8 +76,12 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
 
   Future<void> _loadTeamDataCacheFirst() async {
     final cached = HseRepository.instance.getHseTeamMembers();
-    if (cached != null) {
-      _workers = cached;
+    if (cached != null &&
+        _currentSiteId != null &&
+        _currentSiteId!.isNotEmpty) {
+      _workers = cached
+          .where((worker) => worker['current_site_id']?.toString() == _currentSiteId)
+          .toList();
       _filterLists();
       setState(() => loading = false);
       _fadeController.forward();
@@ -93,7 +103,7 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
     try {
       final myProfile = await Supabase.instance.client
           .from('hse_workers')
-          .select('officer_uid')
+          .select('officer_uid, current_site_id')
           .eq('id', userId)
           .maybeSingle();
 
@@ -103,18 +113,31 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
       }
 
       final officerUid = myProfile['officer_uid'];
+      final siteId = myProfile['current_site_id']?.toString();
+
+      if (siteId == null || siteId.isEmpty) {
+        if (!mounted) return;
+        _currentSiteId = null;
+        _mustRegisterToSite = true;
+        _workers = [];
+        _filteredWorkers = [];
+        await HseRepository.instance.saveHseTeamMembers(_workers);
+        setState(() => loading = false);
+        _fadeController.forward();
+        return;
+      }
+
+      _currentSiteId = siteId;
+      _mustRegisterToSite = false;
 
       // ✅ Base query: Get workers under the same contractor/officer
       var query = Supabase.instance.client
           .from('workers')
           .select('*, sites!workers_current_site_id_fkey(name)')
-          .eq('officer_uid', officerUid);
+          .eq('officer_uid', officerUid)
+          .eq('current_site_id', siteId);
 
       // ✅ Apply the filter if a specific site ID was passed!
-      if (widget.currentSiteId != null) {
-        query = query.eq('current_site_id', widget.currentSiteId!);
-      }
-
       final response = await query;
 
       if (!mounted) return;
@@ -194,7 +217,13 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
                   children: [
                     Icon(Icons.group_off_rounded, size: 60, color: Colors.grey.shade400),
                     const SizedBox(height: 10),
-                    const Text("No workers found", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                    Text(
+                      _mustRegisterToSite
+                          ? _registerToSiteMessage
+                          : "No workers found",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
                   ],
                 ),
               )

@@ -1,6 +1,8 @@
 // lib/officers/screens/active_task.dart
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -28,6 +30,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
   final ScrollController _scrollController = ScrollController();
+  RealtimeChannel? _reportedHazardsChannel;
+  RealtimeChannel? _assignedHazardsChannel;
+  Timer? _hazardsRefreshDebounce;
+  String? _listeningOfficerUid;
 
   static const int _pageSize = 20;
   static const double _loadMoreScrollThreshold = 0.8;
@@ -55,6 +61,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _hazardsRefreshDebounce?.cancel();
+    _reportedHazardsChannel?.unsubscribe();
+    _assignedHazardsChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -201,6 +210,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         }
         return;
       }
+      _listenForHazardChanges(officerUid);
 
       // Fetch available sites for filtering
       final sitesResponse = await supabase
@@ -331,6 +341,59 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         setState(() => isLoading = false);
       }
     }
+  }
+
+  void _listenForHazardChanges(String officerUid) {
+    if (_listeningOfficerUid == officerUid &&
+        _reportedHazardsChannel != null &&
+        _assignedHazardsChannel != null) {
+      return;
+    }
+
+    _listeningOfficerUid = officerUid;
+    _reportedHazardsChannel?.unsubscribe();
+    _assignedHazardsChannel?.unsubscribe();
+
+    _reportedHazardsChannel = _buildHazardChannel(
+      channelName: 'officer-reported-hazards-$officerUid',
+      tableName: 'hazards',
+      officerUid: officerUid,
+    );
+    _assignedHazardsChannel = _buildHazardChannel(
+      channelName: 'officer-assigned-hazards-$officerUid',
+      tableName: 'assign_hazards',
+      officerUid: officerUid,
+    );
+  }
+
+  RealtimeChannel _buildHazardChannel({
+    required String channelName,
+    required String tableName,
+    required String officerUid,
+  }) {
+    return supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: tableName,
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'officer_uid',
+            value: officerUid,
+          ),
+          callback: (_) => _scheduleHazardsRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _scheduleHazardsRefresh() {
+    _hazardsRefreshDebounce?.cancel();
+    _hazardsRefreshDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _fetchHazards(showBlockingLoader: false, resetPagination: true);
+      }
+    });
   }
 
   void _showFilterSheet() {
@@ -817,7 +880,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               ),
               child: Stack(
                 children: [
-                  ListView(),
+                  ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                  ),
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -841,26 +906,39 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               ),
             )
                 : filteredHazards.isEmpty
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                ? RefreshIndicator(
+              onRefresh: () => _fetchHazards(
+                showBlockingLoader: false,
+                resetPagination: true,
+              ),
+              child: Stack(
                 children: [
-                  Icon(
-                    Icons.filter_alt_off,
-                    size: 64,
-                    color: Colors.grey.shade400,
+                  ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "No hazards match filters",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.grey.shade600,
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.filter_alt_off,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No hazards match filters",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _clearFilters,
+                          child: const Text("Clear Filters"),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: _clearFilters,
-                    child: const Text("Clear Filters"),
                   ),
                 ],
               ),

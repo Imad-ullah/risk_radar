@@ -36,12 +36,14 @@ class AppInitializer {
       );
       LoggerService.info('Firebase initialized');
 
-      FirebaseMessaging.onBackgroundMessage(
-        NotificationHandlers.firebaseMessagingBackgroundHandler,
-      );
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       LoggerService.info('Background message handler set');
     } catch (e, stackTrace) {
-      LoggerService.error('Critical error during initialization', e, stackTrace);
+      LoggerService.error(
+        'Critical error during initialization',
+        e,
+        stackTrace,
+      );
       rethrow;
     }
   }
@@ -90,11 +92,7 @@ class AppInitializer {
 
       LoggerService.info('App initialization complete!');
     } catch (e, stackTrace) {
-      LoggerService.error(
-        'Non-critical initialization failed',
-        e,
-        stackTrace,
-      );
+      LoggerService.error('Non-critical initialization failed', e, stackTrace);
     }
   }
 }

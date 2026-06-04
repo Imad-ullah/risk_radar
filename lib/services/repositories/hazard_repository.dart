@@ -8,8 +8,8 @@ class HazardRepository {
   HazardRepository({
     DatabaseHelper? databaseHelper,
     SqliteCacheStore? cacheStore,
-  })  : _databaseHelper = databaseHelper ?? DatabaseHelper.instance,
-        _cacheStore = cacheStore ?? SqliteCacheStore.instance;
+  }) : _databaseHelper = databaseHelper ?? DatabaseHelper.instance,
+       _cacheStore = cacheStore ?? SqliteCacheStore.instance;
 
   static const _hazardsKey = 'rr_hazards';
   static const _assignHazardsKey = 'rr_assign_hazards';
@@ -29,6 +29,7 @@ class HazardRepository {
 
   Future<List<Map<String, dynamic>>> fetchActiveHazardsForCurrentUser({
     required String role,
+    bool allowCacheFallback = true,
   }) async {
     final String? userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
@@ -48,6 +49,9 @@ class HazardRepository {
       }
     } catch (e, s) {
       LoggerService.error('Failed to fetch active hazards for provider', e, s);
+      if (!allowCacheFallback) {
+        rethrow;
+      }
       return getCachedActiveHazardsForRole(role);
     }
   }
@@ -57,7 +61,8 @@ class HazardRepository {
   ) async {
     switch (role) {
       case 'officer':
-        return await getOfficerActiveHazards() ?? const <Map<String, dynamic>>[];
+        return await getOfficerActiveHazards() ??
+            const <Map<String, dynamic>>[];
       case 'worker':
         return getOngoingHazards();
       case 'hse_worker':
@@ -247,9 +252,9 @@ class HazardRepository {
 
     return rows
         .where(
-          (Map<String, dynamic> row) =>
-              !_rowIdentifiers(Map<String, Object?>.from(row))
-                  .any(resolvedIds.contains),
+          (Map<String, dynamic> row) => !_rowIdentifiers(
+            Map<String, Object?>.from(row),
+          ).any(resolvedIds.contains),
         )
         .toList(growable: false);
   }
@@ -302,7 +307,9 @@ class HazardRepository {
   }
 
   Future<Set<String>> getHseLocallyResolvedTaskIds() async {
-    final String? rawIds = _cacheStore.readString(_hseLocallyResolvedTaskIdsKey);
+    final String? rawIds = _cacheStore.readString(
+      _hseLocallyResolvedTaskIdsKey,
+    );
     if (rawIds == null || rawIds.trim().isEmpty) {
       return <String>{};
     }

@@ -2,18 +2,22 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
 
 class SelectHazardTypeScreen extends StatefulWidget {
   const SelectHazardTypeScreen({super.key});
 
   @override
-  State<SelectHazardTypeScreen> createState() =>
-      _SelectHazardTypeScreenState();
+  State<SelectHazardTypeScreen> createState() => _SelectHazardTypeScreenState();
 }
 
 class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   // Brand Color Definition
   static const Color _brandTeal = Color(0xFF1B3D3D);
+  static const int _maxSelectedHazards = 4;
+  static const int _maxCustomHazardTitleLength = 40;
+  static const String _maxHazardsMessage =
+      'You can only select up to 4 hazards.';
 
   final List<Map<String, dynamic>> hazardTypes = [
     {
@@ -198,6 +202,18 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
+  void _showMaxHazardsWarning() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(_maxHazardsMessage)));
+  }
+
+  void _showInvalidInputWarning() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(InputSanitizer.invalidInputMessage)),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -205,12 +221,18 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   }
 
   void _toggleSelection(String label) {
+    if (!_selected.contains(label) && _selected.length >= _maxSelectedHazards) {
+      _showMaxHazardsWarning();
+      return;
+    }
+
     setState(() {
       if (_selected.contains(label)) {
         _selected.remove(label);
         final removedOrder = _selectionOrder.remove(label)!;
         _selectionOrder.updateAll(
-                (key, value) => value > removedOrder ? value - 1 : value);
+          (key, value) => value > removedOrder ? value - 1 : value,
+        );
       } else {
         _selected.add(label);
         _selectionOrder[label] = _selected.length;
@@ -226,29 +248,28 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
         String customHazardName = "";
 
         return Dialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          backgroundColor: Colors.transparent, // Transparent to show gradient container
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          backgroundColor:
+              Colors.transparent, // Transparent to show gradient container
           elevation: 0,
           child: Container(
             decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                // RiskRadar Theme Gradient
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    _brandTeal,
-                    _brandTeal.withValues(alpha: 0.8),
-                  ],
+              borderRadius: BorderRadius.circular(28),
+              // RiskRadar Theme Gradient
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_brandTeal, _brandTeal.withValues(alpha: 0.8)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 10),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 10),
-                  )
-                ]
+              ],
             ),
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -260,40 +281,53 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add_circle_outline_rounded,
-                      color: Colors.white, size: 32),
+                  child: const Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
                   'Add Custom Hazard',
                   style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white), // White text on gradient
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ), // White text on gradient
                 ),
                 const SizedBox(height: 24),
                 // Input Field inside Dialog
                 TextField(
                   autofocus: true,
+                  maxLength: _maxCustomHazardTitleLength,
+                  inputFormatters: const [SanitizingTextInputFormatter()],
                   style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87), // Black text inside input
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ), // Black text inside input
                   cursorColor: _brandTeal,
                   decoration: InputDecoration(
                     hintText: "Enter hazard name",
-                    hintStyle: TextStyle(
-                        color: Colors.grey[500]),
+                    hintStyle: TextStyle(color: Colors.grey[500]),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
                     fillColor: Colors.white, // White input background
+                    counterStyle: const TextStyle(color: Colors.white70),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
-                  onChanged: (value) => customHazardName = value,
+                  onChanged: (value) =>
+                      customHazardName = InputSanitizer.cleanText(
+                        value,
+                        maxLength: _maxCustomHazardTitleLength,
+                      ),
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -303,17 +337,39 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
                       onPressed: () => Navigator.pop(dialogContext),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         foregroundColor: Colors.white, // White text button
                       ),
-                      child: const Text('Cancel',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () {
-                        if (customHazardName.trim().isNotEmpty) {
+                        final validationError =
+                            InputSanitizer.validateShortText(
+                              customHazardName,
+                              maxLength: _maxCustomHazardTitleLength,
+                            );
+                        if (validationError ==
+                            InputSanitizer.invalidInputMessage) {
+                          _showInvalidInputWarning();
+                          return;
+                        }
+                        if (customHazardName.trim().isNotEmpty &&
+                            validationError == null) {
+                          if (_selected.length >= _maxSelectedHazards) {
+                            Navigator.pop(dialogContext);
+                            _showMaxHazardsWarning();
+                            return;
+                          }
                           setState(() {
                             final newHazard = {
                               'icon': Icons.warning_amber_rounded,
@@ -335,16 +391,23 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white, // White button
-                        foregroundColor: _brandTeal,   // Teal text
+                        foregroundColor: _brandTeal, // Teal text
                         elevation: 4,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                      child: const Text('Add',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15)),
+                      child: const Text(
+                        'Add',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -361,10 +424,11 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
     final filteredHazards = hazardTypes
-        .where((h) => h['label']
-        .toString()
-        .toLowerCase()
-        .contains(_searchQuery.toLowerCase()))
+        .where(
+          (h) => h['label'].toString().toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          ),
+        )
         .toList();
 
     return Scaffold(
@@ -409,8 +473,10 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const Expanded(
@@ -433,33 +499,35 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
               TextField(
                 controller: _searchController,
                 // Text style is black to contrast with white background
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 15,
-                ),
+                style: const TextStyle(color: Colors.black87, fontSize: 15),
                 decoration: InputDecoration(
                   hintText: "Search hazards...",
-                  hintStyle: TextStyle(
-                      color: Colors.grey[500]),
-                  prefixIcon: Icon(Icons.search_rounded,
-                      color: Colors.grey[600]),
+                  hintStyle: TextStyle(color: Colors.grey[500]),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: Colors.grey[600],
+                  ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                    icon: Icon(Icons.clear_rounded,
-                        color: Colors.grey[600]),
-                    onPressed: () {
-                      setState(() {
-                        _searchController.clear();
-                        _searchQuery = "";
-                      });
-                    },
-                  )
+                          icon: Icon(
+                            Icons.clear_rounded,
+                            color: Colors.grey[600],
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchQuery = "";
+                            });
+                          },
+                        )
                       : null,
                   // Background
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 14),
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
 
                   // Round Borders
                   enabledBorder: OutlineInputBorder(
@@ -492,21 +560,29 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
               color: isDarkTheme ? Colors.grey[900] : Colors.grey[100],
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.search_off_rounded,
-                size: 56,
-                color: isDarkTheme ? Colors.grey[700] : Colors.grey[400]),
+            child: Icon(
+              Icons.search_off_rounded,
+              size: 56,
+              color: isDarkTheme ? Colors.grey[700] : Colors.grey[400],
+            ),
           ),
           const SizedBox(height: 20),
-          Text("No hazards found",
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isDarkTheme ? Colors.white : Colors.black87)),
+          Text(
+            "No hazards found",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: isDarkTheme ? Colors.white : Colors.black87,
+            ),
+          ),
           const SizedBox(height: 8),
-          Text("Try a different search term",
-              style: TextStyle(
-                  fontSize: 15,
-                  color: isDarkTheme ? Colors.grey[400] : Colors.grey[500])),
+          Text(
+            "Try a different search term",
+            style: TextStyle(
+              fontSize: 15,
+              color: isDarkTheme ? Colors.grey[400] : Colors.grey[500],
+            ),
+          ),
         ],
       ),
     );
@@ -554,7 +630,8 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
               foregroundColor: _brandTeal,
               elevation: 4,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: const Icon(Icons.add_rounded, size: 32),
             ),
           ),
@@ -564,14 +641,18 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
                 ? null
                 : () => Navigator.pop(context, _selected.toList()),
             icon: const Icon(Icons.check_circle_rounded, size: 22),
-            label: const Text('Confirm',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-            backgroundColor:
-            _selected.isEmpty ? Colors.grey.shade400 : _brandTeal,
+            label: const Text(
+              'Confirm',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+            backgroundColor: _selected.isEmpty
+                ? Colors.grey.shade400
+                : _brandTeal,
             foregroundColor: Colors.white,
             elevation: _selected.isEmpty ? 0 : 4,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         ],
       ),
@@ -660,14 +741,14 @@ class _HazardCardState extends State<HazardCard>
         iconData,
         fit: BoxFit.contain,
         placeholderBuilder: (_) =>
-        const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     } else {
       iconWidget = SvgPicture.asset(
         HazardCard._fallbackPath,
         fit: BoxFit.contain,
         placeholderBuilder: (_) =>
-        const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
 
@@ -692,14 +773,16 @@ class _HazardCardState extends State<HazardCard>
                     color: widget.hazardColor,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color:
-                      widget.isSelected ? Colors.white : widget.hazardColor,
+                      color: widget.isSelected
+                          ? Colors.white
+                          : widget.hazardColor,
                       width: widget.isSelected ? 4 : 0,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: widget.hazardColor
-                            .withValues(alpha: widget.isSelected ? 0.6 : 0.3),
+                        color: widget.hazardColor.withValues(
+                          alpha: widget.isSelected ? 0.6 : 0.3,
+                        ),
                         blurRadius: widget.isSelected ? 16 : 8,
                         offset: Offset(0, widget.isSelected ? 6 : 3),
                         spreadRadius: widget.isSelected ? 2 : 0,
@@ -743,7 +826,9 @@ class _HazardCardState extends State<HazardCard>
                               color: Colors.white,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                  color: widget.hazardColor, width: 2.5),
+                                color: widget.hazardColor,
+                                width: 2.5,
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.3),
@@ -776,7 +861,9 @@ class _HazardCardState extends State<HazardCard>
                             ),
                           ),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 6),
+                            horizontal: 6,
+                            vertical: 6,
+                          ),
                           child: Text(
                             widget.label,
                             style: const TextStyle(

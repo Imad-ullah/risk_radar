@@ -8,6 +8,7 @@ import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter_vibrate/flutter_vibrate.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
 
 class SharedEmergencySOSScreen extends StatefulWidget {
   final String? linkedContractorId;
@@ -117,7 +118,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
     if (_canVibrate) {
       _sirenLoopTimer = Timer.periodic(
         const Duration(milliseconds: 600),
-            (_) => Vibrate.feedback(FeedbackType.heavy),
+        (_) => Vibrate.feedback(FeedbackType.heavy),
       );
     }
   }
@@ -151,23 +152,24 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
               workerContactRes['phone'].toString().isNotEmpty) {
             loadedContacts.add({
               'name': _capitalize(
-                  workerContactRes['contact_name'] ?? 'Personal Contact'),
+                workerContactRes['contact_name'] ?? 'Personal Contact',
+              ),
               'number': workerContactRes['phone'],
-              'icon': Icons.person
+              'icon': Icons.person,
             });
           }
           if (workerContactRes['ambulance'] != null) {
             loadedContacts.add({
               'name': 'Ambulance',
               'number': workerContactRes['ambulance'],
-              'icon': Icons.medical_services
+              'icon': Icons.medical_services,
             });
           }
           if (workerContactRes['fire_brigade'] != null) {
             loadedContacts.add({
               'name': 'Fire Brigade',
               'number': workerContactRes['fire_brigade'],
-              'icon': Icons.local_fire_department
+              'icon': Icons.local_fire_department,
             });
           }
         }
@@ -192,8 +194,9 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
 
             if (hseContactRes != null) {
               final relevantWorker = hseWorkersRes.firstWhere(
-                      (w) => w['id'] == hseContactRes['hse_worker_id'],
-                  orElse: () => hseWorkersRes.first);
+                (w) => w['id'] == hseContactRes['hse_worker_id'],
+                orElse: () => hseWorkersRes.first,
+              );
 
               final hseName =
                   "${relevantWorker['first_name']} ${relevantWorker['last_name']}";
@@ -202,7 +205,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                 'name': _capitalize(hseName),
                 'number': hseContactRes['supervisor'],
                 'label': 'Safety Inspector',
-                'icon': Icons.security
+                'icon': Icons.security,
               });
             }
           }
@@ -230,12 +233,12 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
 
             if (contractorRes != null) {
               final fullName =
-              "${contractorRes['first_name'] ?? ''} ${contractorRes['last_name'] ?? ''}"
-                  .trim();
+                  "${contractorRes['first_name'] ?? ''} ${contractorRes['last_name'] ?? ''}"
+                      .trim();
 
               final emergencyList = contractorRes['emergency'] as List?;
               final supervisorPhone =
-              (emergencyList != null && emergencyList.isNotEmpty)
+                  (emergencyList != null && emergencyList.isNotEmpty)
                   ? emergencyList.first['supervisor']
                   : null;
 
@@ -246,7 +249,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                       : 'Site Contractor',
                   'number': supervisorPhone,
                   'label': 'Contractor',
-                  'icon': Icons.engineering
+                  'icon': Icons.engineering,
                 });
               }
             }
@@ -258,24 +261,25 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
         if (contacts != null) {
           if (contacts['phone'] != null) {
             loadedContacts.add({
-              'name':
-              _capitalize(contacts['contact_name'] ?? 'Personal Contact'),
+              'name': _capitalize(
+                contacts['contact_name'] ?? 'Personal Contact',
+              ),
               'number': contacts['phone'],
-              'icon': Icons.person
+              'icon': Icons.person,
             });
           }
           if (contacts['ambulance'] != null) {
             loadedContacts.add({
               'name': 'Ambulance',
               'number': contacts['ambulance'],
-              'icon': Icons.medical_services
+              'icon': Icons.medical_services,
             });
           }
           if (contacts['fire_brigade'] != null) {
             loadedContacts.add({
               'name': 'Fire Brigade',
               'number': contacts['fire_brigade'],
-              'icon': Icons.local_fire_department
+              'icon': Icons.local_fire_department,
             });
           }
         }
@@ -297,9 +301,11 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
     if (text.isEmpty) return "";
     return text
         .split(' ')
-        .map((word) => word.isNotEmpty
-        ? word[0].toUpperCase() + word.substring(1).toLowerCase()
-        : "")
+        .map(
+          (word) => word.isNotEmpty
+              ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+              : "",
+        )
         .join(' ');
   }
 
@@ -309,27 +315,39 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
       if (user == null) return;
 
       Position position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-          ));
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final role = InputSanitizer.cleanText(
+        _userRole ?? 'Worker',
+        maxLength: 40,
+      );
+      final message = InputSanitizer.cleanText(
+        'EMERGENCY: SOS triggered by $role',
+        maxLength: 120,
+      );
 
       await supabase.from('site_alerts').insert({
         'site_id': widget.currentSiteId,
         'reporter_uid': user.id,
-        'role': _userRole ?? 'Worker',
+        'role': role,
         'alert_type': 'SOS',
         'latitude': position.latitude,
         'longitude': position.longitude,
         'status': 'ACTIVE',
         'created_at': DateTime.now().toUtc().toIso8601String(),
-        'message': 'EMERGENCY: SOS triggered by ${_userRole ?? "User"}'
+        'message': message,
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content:
-            Text("🚨 GLOBAL ALERT SENT: All site personnel notified!"),
-            backgroundColor: Colors.redAccent));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("🚨 GLOBAL ALERT SENT: All site personnel notified!"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     } catch (e) {
       debugPrint("Alert failed: $e");
@@ -375,16 +393,22 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
       backgroundColor: _isAlerting ? Colors.red.shade900 : Colors.white,
       appBar: AppBar(
         leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios,
-                color: _isAlerting ? Colors.white : Colors.black),
-            onPressed: () {
-              if (_isAlerting) _stopAlarm();
-              Navigator.pop(context);
-            }),
-        title: Text("Emergency SOS",
-            style: TextStyle(
-                color: _isAlerting ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold)),
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: _isAlerting ? Colors.white : Colors.black,
+          ),
+          onPressed: () {
+            if (_isAlerting) _stopAlarm();
+            Navigator.pop(context);
+          },
+        ),
+        title: Text(
+          "Emergency SOS",
+          style: TextStyle(
+            color: _isAlerting ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -402,14 +426,17 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                 child: ElevatedButton.icon(
                   onPressed: _cancelEmergency,
                   icon: const Icon(Icons.stop_circle_outlined),
-                  label: const Text("STOP ALARM",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    "STOP ALARM",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.red.shade900,
                     minimumSize: const Size(double.infinity, 50),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
                 ),
               ),
@@ -423,9 +450,9 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                     : "Hold to broadcast emergency alert to ALL users.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color:
-                    _isAlerting ? Colors.white70 : Colors.grey.shade600,
-                    fontSize: 14),
+                  color: _isAlerting ? Colors.white70 : Colors.grey.shade600,
+                  fontSize: 14,
+                ),
               ),
             ),
             const SizedBox(height: 40),
@@ -453,7 +480,8 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: (_isAlerting ? Colors.red : gold).withValues(
-                        alpha: (0.2 * (1 - _pulseController.value))),
+                      alpha: (0.2 * (1 - _pulseController.value)),
+                    ),
                   ),
                 );
               },
@@ -466,38 +494,42 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                 strokeWidth: 10,
                 backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                    _isAlerting ? Colors.white : gold),
+                  _isAlerting ? Colors.white : gold,
+                ),
               ),
             ),
             Container(
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                  color: _isAlerting ? Colors.red : gold,
-                  shape: BoxShape.circle,
-                  boxShadow: const [
-                    BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 20,
-                        offset: Offset(0, 10))
-                  ]),
+                color: _isAlerting ? Colors.red : gold,
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                      _isAlerting
-                          ? Icons.warning_amber_rounded
-                          : Icons.touch_app,
-                      size: 50,
-                      color: Colors.white),
+                    _isAlerting ? Icons.warning_amber_rounded : Icons.touch_app,
+                    size: 50,
+                    color: Colors.white,
+                  ),
                   const SizedBox(height: 10),
                   Text(
-                      _isAlerting ? "HELP\nREQUESTED" : "HOLD TO\nALERT",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18)),
+                    _isAlerting ? "HELP\nREQUESTED" : "HOLD TO\nALERT",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -520,17 +552,22 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("DIRECT CALL CONTACTS",
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: _isAlerting ? Colors.white : Colors.grey.shade600)),
+          Text(
+            "DIRECT CALL CONTACTS",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: _isAlerting ? Colors.white : Colors.grey.shade600,
+            ),
+          ),
           const SizedBox(height: 20),
           if (_loadingContacts)
             const Center(child: CircularProgressIndicator())
           else if (_contacts.isEmpty)
-            const Text("No emergency contacts found.",
-                style: TextStyle(color: Colors.grey))
+            const Text(
+              "No emergency contacts found.",
+              style: TextStyle(color: Colors.grey),
+            )
           else
             ..._contacts.map((c) => _buildContactTile(c, _isAlerting)),
           const SizedBox(height: 20),
@@ -549,26 +586,35 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
         color: isAlert ? Colors.white.withValues(alpha: 0.15) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: isAlert ? Colors.white24 : Colors.grey.shade200),
+          color: isAlert ? Colors.white24 : Colors.grey.shade200,
+        ),
       ),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: isAlert
               ? Colors.red.shade400
               : const Color(0xFFE6A050).withValues(alpha: 0.15),
-          child: Icon(contact['icon'],
-              color: isAlert ? Colors.white : const Color(0xFFE6A050)),
+          child: Icon(
+            contact['icon'],
+            color: isAlert ? Colors.white : const Color(0xFFE6A050),
+          ),
         ),
-        title: Text(contact['name'],
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isAlert ? Colors.white : Colors.black87)),
+        title: Text(
+          contact['name'],
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isAlert ? Colors.white : Colors.black87,
+          ),
+        ),
         subtitle: Text(
-            hasNum
-                ? "${contact['label'] ?? 'Contact'}: $displayNum"
-                : "No number provided",
-            style: TextStyle(
-                color: isAlert ? Colors.white70 : Colors.grey, fontSize: 12)),
+          hasNum
+              ? "${contact['label'] ?? 'Contact'}: $displayNum"
+              : "No number provided",
+          style: TextStyle(
+            color: isAlert ? Colors.white70 : Colors.grey,
+            fontSize: 12,
+          ),
+        ),
         trailing: hasNum
             ? const Icon(Icons.call, color: Colors.green)
             : const Icon(Icons.do_not_disturb_on_rounded, color: Colors.grey),

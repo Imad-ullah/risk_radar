@@ -38,7 +38,8 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
   Future<void> _fetchHazardDetails() async {
     try {
-      final response = await supabase
+      Map<String, dynamic>? response;
+      response = await supabase
           .from('resolved_hazards')
           .select('''
             *,
@@ -47,7 +48,18 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
             site:current_site_id (name)
           ''')
           .eq('id', widget.hazardId)
-          .single();
+          .maybeSingle();
+
+      response ??= await supabase
+          .from('assign_hazards')
+          .select('''
+            *,
+            reporter:worker_id (first_name, last_name, profile_image_url, work_type),
+            site:current_site_id (name)
+          ''')
+          .eq('id', widget.hazardId)
+          .eq('status', 'resolved')
+          .maybeSingle();
 
       if (mounted) {
         setState(() {

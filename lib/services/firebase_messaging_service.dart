@@ -1,86 +1,47 @@
 // lib/services/firebase_messaging_service.dart
+import 'dart:typed_data';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:riskradar/firebase_options.dart';
 import 'package:riskradar/officers/notifications/officer_hazard_notifier.dart';
+import 'package:riskradar/services/repositories/auth_repository.dart';
+import 'package:riskradar/hse_worker/screens/hse_worker_hazard_notifier.dart'
+    as hse_notifications;
+import 'package:riskradar/workers/settings/worker_hazard_notifier.dart'
+    as worker_notifications;
 
 /// CRITICAL: This must be a top-level function for background execution
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await _ensureFirebaseInitialized();
+  await FirebaseMessagingService.ensureLocalNotificationsInitialized();
+
   debugPrint('Background message received: ${message.messageId}');
 
-  // Initialize AwesomeNotifications if needed
-  await AwesomeNotifications().initialize(
-    'resource://drawable/ic_notification',
-    [
-      NotificationChannel(
-        channelKey: 'Hazards Details',
-        channelName: 'Hazard Notifications',
-        channelDescription: 'Notifications for hazard alerts',
-        defaultColor: Colors.orange,
-        importance: NotificationImportance.High,
-        playSound: true,
-      ),
-    ],
-  );
+  await FirebaseMessagingService.showLocalNotificationFromMessage(message);
+}
 
-  // Extract data from FCM message
-  final data = message.data;
-  final hazardId = data['hazard_id'] ?? '';
-  final title = data['title'] ?? 'New Hazard Alert';
-  final body = data['body'] ?? 'A new hazard requires your attention';
-  final severity = data['severity'] ?? 'low';
-  final imageUrl = data['image_url'];
-  final sourceTable = data['source_table'] ?? 'hazards';
-
-  if (hazardId.isEmpty) return;
-
-  // Determine notification color based on severity
-  Color color = Colors.grey;
-  switch (severity.toLowerCase()) {
-    case 'high':
-      color = Colors.red;
-      break;
-    case 'moderate':
-      color = Colors.orange;
-      break;
-    case 'low':
-      color = Colors.green;
-      break;
+Future<void> _ensureFirebaseInitialized() async {
+  if (Firebase.apps.isNotEmpty) {
+    return;
   }
 
-  // Create notification even when app is terminated
-  await AwesomeNotifications().createNotification(
-    content: NotificationContent(
-      id: hazardId.hashCode,
-      channelKey: 'Hazards Details',
-      title: title,
-      body: body,
-      payload: {'hazardId': hazardId, 'sourceTable': sourceTable},
-      color: color,
-      icon: 'resource://drawable/ic_notification',
-      notificationLayout: (imageUrl != null && imageUrl.isNotEmpty)
-          ? NotificationLayout.BigPicture
-          : NotificationLayout.Default,
-      bigPicture: imageUrl,
-    ),
-    actionButtons: [
-      NotificationActionButton(
-        key: 'DETAILS',
-        label: 'VIEW DETAILS',
-      ),
-    ],
-  );
-
-  debugPrint('Background notification created for hazard: $hazardId');
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
 
 /// Foreground message handler
 class FirebaseMessagingService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static bool _localNotificationsInitialized = false;
 
   /// Initialize FCM and request permissions
   static Future<void> initialize() async {
+    await ensureLocalNotificationsInitialized();
+
     // Request permission for iOS
     final settings = await _messaging.requestPermission(
       alert: true,
@@ -104,85 +65,215 @@ class FirebaseMessagingService {
     }
   }
 
+  static Future<void> ensureLocalNotificationsInitialized() async {
+    if (_localNotificationsInitialized) {
+      return;
+    }
+
+    await AwesomeNotifications().initialize(
+      'resource://drawable/ic_notification',
+      [
+        NotificationChannel(
+          channelKey: 'Hazards Details',
+          channelName: 'Hazard Alerts',
+          channelDescription: 'Notifications for hazard alerts',
+          defaultColor: Colors.orange,
+          ledColor: Colors.orange,
+          importance: NotificationImportance.High,
+          playSound: true,
+          enableVibration: true,
+        ),
+        NotificationChannel(
+          channelKey: 'sos_alerts_critical',
+          channelName: 'Emergency SOS',
+          channelDescription: 'Critical site-wide emergency alerts',
+          defaultColor: Colors.red,
+          ledColor: Colors.red,
+          importance: NotificationImportance.Max,
+          playSound: true,
+          soundSource: 'resource://raw/sos_siren',
+          criticalAlerts: true,
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
+        ),
+      ],
+    );
+
+    _localNotificationsInitialized = true;
+  }
+
+  static Future<void> showLocalNotificationFromMessage(
+    RemoteMessage message,
+  ) async {
+    await ensureLocalNotificationsInitialized();
+
+    final data = message.data;
+    final type = data['type']?.toString();
+    if (type == 'SOS') {
+      // Android displays killed/background SOS from the FCM notification
+      // payload itself. Creating another local SOS notification here causes
+      // duplicate tray alerts and repeated siren playback.
+      return;
+    }
+
+    final hazardId = data['hazard_id']?.toString() ?? '';
+    final title =
+        data['title']?.toString() ??
+        message.notification?.title ??
+        'New Hazard Alert';
+    final body =
+        data['body']?.toString() ??
+        message.notification?.body ??
+        'A new hazard requires your attention';
+    final severity = data['severity']?.toString() ?? 'low';
+    final imageUrl = data['image_url']?.toString();
+    final sourceTable = data['source_table']?.toString() ?? 'hazards';
+
+    final notificationId = hazardId.isNotEmpty
+        ? hazardId.hashCode
+        : message.messageId?.hashCode ?? DateTime.now().hashCode;
+
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: notificationId,
+        channelKey: 'Hazards Details',
+        title: title,
+        body: body,
+        payload: {
+          if (hazardId.isNotEmpty) 'hazardId': hazardId,
+          'sourceTable': sourceTable,
+        },
+        color: _severityColor(severity),
+        icon: 'resource://drawable/ic_notification',
+        notificationLayout: imageUrl != null && imageUrl.isNotEmpty
+            ? NotificationLayout.BigPicture
+            : NotificationLayout.Default,
+        bigPicture: imageUrl,
+        wakeUpScreen: true,
+      ),
+      actionButtons: hazardId.isEmpty
+          ? null
+          : [NotificationActionButton(key: 'DETAILS', label: 'VIEW DETAILS')],
+    );
+
+    debugPrint('Local notification created for message: ${message.messageId}');
+  }
+
+  static Color _severityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'high':
+        return Colors.red;
+      case 'moderate':
+        return Colors.orange;
+      case 'low':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
   /// Handle messages when app is in foreground
-  static void _handleForegroundMessage(RemoteMessage message) {
+  static Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('Foreground message: ${message.notification?.title}');
 
     final data = message.data;
+    if (data['type']?.toString() == 'SOS') {
+      // SOS foreground routing is handled in main.dart so the alarm and
+      // acknowledge screen have a single source of truth.
+      return;
+    }
+
     final hazardId = data['hazard_id'] ?? '';
     final title = data['title'] ?? message.notification?.title ?? 'New Hazard';
-    final body = data['body'] ?? message.notification?.body ?? 'Check hazard details';
+    final body =
+        data['body'] ?? message.notification?.body ?? 'Check hazard details';
     final severity = data['severity'] ?? 'low';
     final imageUrl = data['image_url'];
     final sourceTable = data['source_table'] ?? 'hazards';
 
     if (hazardId.isEmpty) return;
 
-    // Check if already notified to prevent duplicates
-    if (officerHazardNotifier.isAlreadyNotified(hazardId)) {
-      debugPrint('Skipping duplicate FCM notification for: $hazardId');
-      return;
-    }
+    final role = AuthRepository().getRole();
+    if (role == 'worker') {
+      if (worker_notifications.workerHazardNotifier.isAlreadyNotified(
+        hazardId,
+      )) {
+        debugPrint('Skipping duplicate worker FCM notification: $hazardId');
+        return;
+      }
 
-    // Create notification object
-    final notification = OfficerNotification(
-      hazardId: hazardId,
-      sourceTable: sourceTable,
-      title: title,
-      body: body,
-      severity: severity,
-      imageUrl: imageUrl,
-      timestamp: DateTime.now(),
-      isRead: false,
-    );
+      worker_notifications.workerHazardNotifier.addNotificationFromFCM(
+        worker_notifications.WorkerNotificationItem(
+          hazardId: hazardId,
+          sourceTable: sourceTable,
+          title: title,
+          body: body,
+          severity: severity,
+          distance: 0,
+          timestamp: DateTime.now(),
+        ),
+      );
+    } else if (role == 'hse_worker') {
+      if (hse_notifications.workerHazardNotifier.isAlreadyNotified(hazardId)) {
+        debugPrint('Skipping duplicate HSE FCM notification: $hazardId');
+        return;
+      }
 
-    // Add to internal log using public method
-    officerHazardNotifier.addNotificationFromFCM(notification);
+      hse_notifications.workerHazardNotifier.addNotificationFromFCM(
+        hse_notifications.WorkerNotification(
+          hazardId: hazardId,
+          sourceTable: sourceTable,
+          title: title,
+          body: body,
+          severity: severity,
+          imageUrl: imageUrl,
+          distance: 0,
+          timestamp: DateTime.now(),
+        ),
+      );
+    } else {
+      if (officerHazardNotifier.isAlreadyNotified(hazardId)) {
+        debugPrint('Skipping duplicate FCM notification for: $hazardId');
+        return;
+      }
 
-    // Show local notification
-    Color color = Colors.grey;
-    switch (severity.toLowerCase()) {
-      case 'high':
-        color = Colors.red;
-        break;
-      case 'moderate':
-        color = Colors.orange;
-        break;
-      case 'low':
-        color = Colors.green;
-        break;
-    }
-    AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: hazardId.hashCode,
-        channelKey: 'Hazards Details',
+      final notification = OfficerNotification(
+        hazardId: hazardId,
+        sourceTable: sourceTable,
         title: title,
         body: body,
-        payload: {'hazardId': hazardId, 'sourceTable': sourceTable},
-        color: color,
-        icon: 'resource://drawable/ic_notification',
-        notificationLayout: (imageUrl != null && imageUrl.isNotEmpty)
-            ? NotificationLayout.BigPicture
-            : NotificationLayout.Default,
-        bigPicture: imageUrl,
-      ),
-      actionButtons: [
-        NotificationActionButton(
-          key: 'DETAILS',
-          label: 'VIEW DETAILS',
-        ),
-      ],
-    );
+        severity: severity,
+        imageUrl: imageUrl,
+        timestamp: DateTime.now(),
+        isRead: false,
+      );
+
+      officerHazardNotifier.addNotificationFromFCM(notification);
+    }
+
+    // Foreground system display is handled in main.dart by
+    // flutter_local_notifications to avoid duplicate notifications.
   }
 
   /// Handle messages when app opens from background notification tap
   static void _handleBackgroundMessage(RemoteMessage message) {
     debugPrint('Notification tapped: ${message.messageId}');
 
+    if (message.data['type']?.toString() == 'SOS') {
+      // SOS background/killed routing is handled in main.dart.
+      return;
+    }
+
     final hazardId = message.data['hazard_id'];
     if (hazardId != null) {
-      // Navigate to hazard details or mark as read
-      officerHazardNotifier.markAsRead(hazardId);
+      final role = AuthRepository().getRole();
+      if (role == 'worker') {
+        worker_notifications.workerHazardNotifier.markAsRead(hazardId);
+      } else if (role == 'hse_worker') {
+        hse_notifications.workerHazardNotifier.markAsRead(hazardId);
+      } else {
+        officerHazardNotifier.markAsRead(hazardId);
+      }
     }
   }
 }

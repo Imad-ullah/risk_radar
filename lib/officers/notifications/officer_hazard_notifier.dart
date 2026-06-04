@@ -61,7 +61,10 @@ Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
   officerHazardNotifier.markAsRead(hazardId);
 
   if (receivedAction.buttonKeyPressed == 'DETAILS') {
-    final hazardData = await fetchFullHazardData(hazardId, sourceTable: sourceTable);
+    final hazardData = await fetchFullHazardData(
+      hazardId,
+      sourceTable: sourceTable,
+    );
     if (hazardData != null) {
       Future.delayed(const Duration(milliseconds: 300), () {
         navigatorKey.currentState?.push(
@@ -80,14 +83,20 @@ Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
 // Helper to capitalize names
 String _capitalizeName(String name) {
   if (name.isEmpty) return name;
-  return name.split(' ').map((word) {
-    if (word.isEmpty) return '';
-    return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
-  }).join(' ');
+  return name
+      .split(' ')
+      .map((word) {
+        if (word.isEmpty) return '';
+        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+      })
+      .join(' ');
 }
 
 // ✅ FIX: Uses the SQL View & perfectly matches the robust parsing from the worker screens!
-Future<Map<String, dynamic>?> fetchFullHazardData(String hazardId, {required String sourceTable}) async {
+Future<Map<String, dynamic>?> fetchFullHazardData(
+  String hazardId, {
+  required String sourceTable,
+}) async {
   final supabase = Supabase.instance.client;
 
   try {
@@ -114,7 +123,6 @@ Future<Map<String, dynamic>?> fetchFullHazardData(String hazardId, {required Str
     if (rawHazard == null) return null;
 
     return _normaliseOfficerHazard(rawHazard);
-
   } catch (e) {
     debugPrint('Error fetching hazard details: $e');
     final cachedHazard = await _findCachedOfficerHazard(hazardId);
@@ -162,24 +170,27 @@ Map<String, dynamic> _normaliseOfficerHazard(Map<String, dynamic> rawHazard) {
       reporter?['work_type'] ?? rawHazard['reporter_work_type'] ?? 'Worker';
 
   final nameParts = rawName.split(' ');
-  final Map<String, dynamic> passedWorkerInfo = reporter ??
+  final Map<String, dynamic> passedWorkerInfo =
+      reporter ??
       {
         'id': reporterId,
         'first_name': rawHazard['reporter_first_name'] ?? nameParts.first,
-        'last_name': rawHazard['reporter_last_name'] ??
+        'last_name':
+            rawHazard['reporter_last_name'] ??
             (nameParts.length > 1 ? nameParts.last : ''),
         'work_type': reporterWorkType,
         'profile_image_url': reporterImageUrl,
       };
 
-  final List officersList = rawHazard['all_assigned_officers'] ??
-      rawHazard['assign_hazards'] ??
-      [];
+  final List officersList =
+      rawHazard['all_assigned_officers'] ?? rawHazard['assign_hazards'] ?? [];
   String assignedName = '';
 
   if (officersList.isNotEmpty) {
     final firstAssignment = officersList.first;
-    final firstHse = firstAssignment is Map ? firstAssignment['hse_worker'] : null;
+    final firstHse = firstAssignment is Map
+        ? firstAssignment['hse_worker']
+        : null;
     if (firstHse is Map) {
       assignedName =
           '${firstHse['first_name'] ?? ''} ${firstHse['last_name'] ?? ''}'
@@ -190,16 +201,22 @@ Map<String, dynamic> _normaliseOfficerHazard(Map<String, dynamic> rawHazard) {
     assignedName =
         '${assignedWorker['first_name']} ${assignedWorker['last_name']}';
   } else if (rawHazard['hse_first_name'] != null) {
-    assignedName = '${rawHazard['hse_first_name']} ${rawHazard['hse_last_name']}';
+    assignedName =
+        '${rawHazard['hse_first_name']} ${rawHazard['hse_last_name']}';
   }
   if (assignedName.isEmpty) {
     assignedName = rawHazard['assigned_to_name'] ?? 'Not Assigned';
   }
 
   final images =
-      (rawHazard['image_url'] != null && rawHazard['image_url'].toString().isNotEmpty)
-          ? rawHazard['image_url'].toString().split(',').map((e) => e.trim()).toList()
-          : <String>[];
+      (rawHazard['image_url'] != null &&
+          rawHazard['image_url'].toString().isNotEmpty)
+      ? rawHazard['image_url']
+            .toString()
+            .split(',')
+            .map((e) => e.trim())
+            .toList()
+      : <String>[];
 
   final title = rawHazard['hazard_type'] ?? 'No Type';
   final description = rawHazard['description'] ?? 'No description provided.';
@@ -228,11 +245,19 @@ Map<String, dynamic> _normaliseOfficerHazard(Map<String, dynamic> rawHazard) {
 }
 
 // Update hazard status
-Future<void> updateHazardStatus(String hazardId, String table, String status) async {
+Future<void> updateHazardStatus(
+  String hazardId,
+  String table,
+  String status,
+) async {
   final supabase = Supabase.instance.client;
   try {
     if (status == 'resolved') {
-      final hazard = await supabase.from(table).select().eq('id', hazardId).single();
+      final hazard = await supabase
+          .from(table)
+          .select()
+          .eq('id', hazardId)
+          .single();
       await supabase.from('resolved_hazards').insert({
         ...hazard,
         'status': 'resolved',
@@ -279,10 +304,7 @@ Future<void> _queueHazardStatusOffline(
     id: 'officer_notification_status_${hazardId}_${DateTime.now().millisecondsSinceEpoch}',
     table: table,
     action: 'update',
-    payload: {
-      'id': hazardId,
-      'status': status,
-    },
+    payload: {'id': hazardId, 'status': status},
   );
 }
 
@@ -321,7 +343,9 @@ Future<void> _moveCachedHazardToResolved(
 ) async {
   final active = await _hazardRepository.getOfficerActiveHazards() ?? [];
   final resolved = await _hazardRepository.getOfficerResolvedHazards() ?? [];
-  final index = active.indexWhere((hazard) => hazard['id']?.toString() == hazardId);
+  final index = active.indexWhere(
+    (hazard) => hazard['id']?.toString() == hazardId,
+  );
   if (index == -1) return;
 
   final hazard = Map<String, dynamic>.from(active.removeAt(index));
@@ -344,7 +368,8 @@ class OfficerHazardNotifier extends ChangeNotifier {
   RealtimeChannel? _insertChannel;
 
   // CRITICAL FIX: Separate tracking for shown notifications vs internal log
-  final Set<String> _permanentlyNotified = {}; // Never cleared, persists across sessions
+  final Set<String> _permanentlyNotified =
+      {}; // Never cleared, persists across sessions
   final Set<String> _processingQueue = {}; // Prevent duplicate processing
 
   String? _customOfficerUid;
@@ -360,7 +385,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
     _notifications.clear();
     // DO NOT clear _permanentlyNotified - this prevents re-notification loop
     notifyListeners();
-    debugPrint('✅ Cleared notification log (${_permanentlyNotified.length} hazards still tracked)');
+    debugPrint(
+      '✅ Cleared notification log (${_permanentlyNotified.length} hazards still tracked)',
+    );
   }
 
   void markAllAsRead() {
@@ -371,7 +398,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
   }
 
   void markAsRead(String hazardId) {
-    final index = _notifications.indexWhere((n) => n.hazardId == hazardId && !n.isRead);
+    final index = _notifications.indexWhere(
+      (n) => n.hazardId == hazardId && !n.isRead,
+    );
     if (index != -1) {
       _notifications[index].isRead = true;
       notifyListeners();
@@ -388,7 +417,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
   // Public method for FCM to add notifications
   void addNotificationFromFCM(OfficerNotification notification) {
     if (_notifications.any((n) => n.hazardId == notification.hazardId)) {
-      debugPrint('⏭️ Skipping duplicate FCM notification: ${notification.hazardId}');
+      debugPrint(
+        '⏭️ Skipping duplicate FCM notification: ${notification.hazardId}',
+      );
       return;
     }
 
@@ -407,7 +438,11 @@ class OfficerHazardNotifier extends ChangeNotifier {
     return input
         .trim()
         .split(RegExp(r'\s+'))
-        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .map(
+          (w) => w.isEmpty
+              ? w
+              : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}',
+        )
         .join(' ');
   }
 
@@ -441,7 +476,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
     }
 
     if (_customOfficerUid == null) {
-      debugPrint('❌ Custom officer ID (officer_uid) not found in officers table.');
+      debugPrint(
+        '❌ Custom officer ID (officer_uid) not found in officers table.',
+      );
       return;
     }
 
@@ -452,7 +489,8 @@ class OfficerHazardNotifier extends ChangeNotifier {
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
         debugPrint('⚠️ Location permission denied.');
         return;
       }
@@ -521,9 +559,14 @@ class OfficerHazardNotifier extends ChangeNotifier {
         try {
           await Future.delayed(const Duration(milliseconds: 500));
 
-          final hazardData = await fetchFullHazardData(id, sourceTable: 'hazards');
+          final hazardData = await fetchFullHazardData(
+            id,
+            sourceTable: 'hazards',
+          );
           if (hazardData == null) {
-            debugPrint('⚠️ Skipping notification for hazard $id - not found in database');
+            debugPrint(
+              '⚠️ Skipping notification for hazard $id - not found in database',
+            );
             _processingQueue.remove(id);
             return;
           }
@@ -533,8 +576,10 @@ class OfficerHazardNotifier extends ChangeNotifier {
           await _createNotification(
             hazardId: id,
             sourceTable: 'hazards',
-            title: '${_toTitleCase(newHaz['hazard_type']?.toString() ?? 'Hazard')} Reported',
-            body: newHaz['description'] ??
+            title:
+                '${_toTitleCase(newHaz['hazard_type']?.toString() ?? 'Hazard')} Reported',
+            body:
+                newHaz['description'] ??
                 'A new hazard was reported for your site. Open to review and assign promptly.',
             severity: newHaz['severity'] ?? 'low',
             imageUrl: newHaz['image_url'],
@@ -545,12 +590,23 @@ class OfficerHazardNotifier extends ChangeNotifier {
       },
     );
 
-    _insertChannel!.subscribe();
+    _insertChannel!.subscribe((status, [error]) {
+      if (status == RealtimeSubscribeStatus.closed ||
+          status == RealtimeSubscribeStatus.channelError) {
+        _hazardListenerActive = false;
+        if (_customOfficerUid != null) {
+          Future.delayed(const Duration(seconds: 2), _listenForNewHazards);
+        }
+      }
+    });
     debugPrint('✅ Listening for new hazards assigned to $officerId.');
   }
 
   // Proximity-based hazard check
-  Future<void> _checkNearbyHazards(Position pos, String customOfficerUid) async {
+  Future<void> _checkNearbyHazards(
+    Position pos,
+    String customOfficerUid,
+  ) async {
     try {
       final lat = pos.latitude;
       final lng = pos.longitude;
@@ -587,7 +643,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
           _permanentlyNotified.add(id);
 
           // Track the correct table origin so the click-through goes to the right place
-          final src = h.containsKey('assigned_at') ? 'assign_hazards' : 'hazards';
+          final src = h.containsKey('assigned_at')
+              ? 'assign_hazards'
+              : 'hazards';
 
           await _createNotification(
             hazardId: id,
@@ -648,29 +706,27 @@ class OfficerHazardNotifier extends ChangeNotifier {
           bigPicture: imageUrl,
         ),
         actionButtons: [
-          NotificationActionButton(
-            key: 'DETAILS',
-            label: 'VIEW DETAILS',
-          ),
+          NotificationActionButton(key: 'DETAILS', label: 'VIEW DETAILS'),
         ],
       );
 
       await Future.delayed(const Duration(milliseconds: 100));
 
-      _notifications.add(OfficerNotification(
-        hazardId: hazardId,
-        sourceTable: sourceTable,
-        title: title,
-        body: body,
-        severity: severity,
-        imageUrl: imageUrl,
-        timestamp: DateTime.now(),
-        isRead: false,
-      ));
+      _notifications.add(
+        OfficerNotification(
+          hazardId: hazardId,
+          sourceTable: sourceTable,
+          title: title,
+          body: body,
+          severity: severity,
+          imageUrl: imageUrl,
+          timestamp: DateTime.now(),
+          isRead: false,
+        ),
+      );
 
       notifyListeners();
       debugPrint('✅ Notification created for hazard: $hazardId');
-
     } catch (e) {
       debugPrint('❌ Error creating notification: $e');
     }

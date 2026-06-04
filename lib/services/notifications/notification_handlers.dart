@@ -9,6 +9,7 @@ import '../../officers/notifications/officer_hazard_notifier.dart'
     as officer_notifier;
 import '../../shared/hazards/hazard_details_screen.dart';
 import '../../shared/navigation/app_navigator.dart';
+import '../../shared/services/sos_overlay_service.dart';
 import '../app_config.dart';
 import '../firebase_messaging_service.dart' as firebase_messaging_service;
 
@@ -21,24 +22,6 @@ class NotificationHandlers {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-
-      if (message.data['type'] == 'SOS') {
-        AwesomeNotifications().createNotification(
-          content: NotificationContent(
-            id: 911,
-            channelKey: 'sos_alerts_critical',
-            title: 'Emergency SOS',
-            body: message.data['message'] ?? 'Site Emergency Triggered!',
-            notificationLayout: NotificationLayout.BigText,
-            category: NotificationCategory.Alarm,
-            backgroundColor: Colors.red,
-            color: Colors.white,
-            wakeUpScreen: true,
-            fullScreenIntent: true,
-            criticalAlert: true,
-          ),
-        );
-      }
 
       await firebase_messaging_service.firebaseMessagingBackgroundHandler(
         message,
@@ -62,6 +45,11 @@ class NotificationHandlers {
         );
       } catch (e) {
         debugPrint('Supabase already initialized: $e');
+      }
+
+      if (receivedAction.payload?['type']?.toString() == 'SOS') {
+        await _openSosOverlay(receivedAction.payload ?? <String, String?>{});
+        return;
       }
 
       final hazardId = receivedAction.payload?['hazardId']?.toString();
@@ -116,6 +104,19 @@ class NotificationHandlers {
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
     debugPrint('Navigator not ready; could not open hazard details');
+  }
+
+  static Future<void> _openSosOverlay(Map<String, String?> payload) async {
+    for (var i = 0; i < 8; i++) {
+      if (navigatorKey.currentContext != null) {
+        await SosOverlayService.showFromPayload(
+          Map<String, dynamic>.from(payload),
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    debugPrint('Navigator not ready; could not open SOS overlay');
   }
 }
 

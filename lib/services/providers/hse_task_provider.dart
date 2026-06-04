@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riskradar/services/connectivity_service.dart';
 import 'package:riskradar/services/logger_service.dart';
 import 'package:riskradar/services/providers/realtime_connection_provider.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
@@ -10,8 +11,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final hseTaskProvider =
     AsyncNotifierProvider.autoDispose<HseTaskNotifier, List<Hazard>>(
-  HseTaskNotifier.new,
-);
+      HseTaskNotifier.new,
+    );
 
 class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
     with WidgetsBindingObserver {
@@ -53,7 +54,7 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
     unawaited(refresh(silent: true));
   }
 
-  Future<void> refresh({bool silent = false}) async {
+  Future<void> refresh({bool silent = false, bool bypassCache = false}) async {
     if (!_canUseRef) {
       return;
     }
@@ -63,7 +64,14 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
     }
 
     try {
-      final List<Hazard> tasks = await _loadTasks();
+      if (bypassCache) {
+        await ConnectivityService.instance.refresh();
+      }
+      final bool liveOnly =
+          bypassCache && ConnectivityService.instance.isOnline;
+      final List<Hazard> tasks = await _loadTasks(
+        allowCacheFallback: !liveOnly,
+      );
       if (!_canUseRef) {
         return;
       }
@@ -76,9 +84,10 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
     }
   }
 
-  Future<List<Hazard>> _loadTasks() async {
+  Future<List<Hazard>> _loadTasks({bool allowCacheFallback = true}) async {
     final rows = await _hazardRepository.fetchActiveHazardsForCurrentUser(
       role: _hseWorkerRole,
+      allowCacheFallback: allowCacheFallback,
     );
     return rows.map(Hazard.fromMap).toList(growable: false);
   }
@@ -88,8 +97,9 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
       return;
     }
 
-    final RealtimeConnectionNotifier connectionNotifier =
-        ref.read(realtimeConnectionProvider.notifier);
+    final RealtimeConnectionNotifier connectionNotifier = ref.read(
+      realtimeConnectionProvider.notifier,
+    );
     final String? userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
       connectionNotifier.markDisconnected();
@@ -98,43 +108,43 @@ class HseTaskNotifier extends AsyncNotifier<List<Hazard>>
 
     connectionNotifier.markConnecting();
 
-    unawaited(_unsubscribeFromRealtimeChanges().then((_) {
-      if (!_canUseRef) {
-        return;
-      }
+    unawaited(
+      _unsubscribeFromRealtimeChanges().then((_) {
+        if (!_canUseRef) {
+          return;
+        }
 
-      _assignHazardsChannel = _supabase
-          .channel(_channelName)
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: _publicSchema,
-            table: _assignHazardsTable,
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: _assignedToColumn,
-              value: userId,
-            ),
-            callback: (PostgresChangePayload payload) {
-              if (!_canUseRef) {
-                return;
-              }
-              unawaited(refresh(silent: true));
-            },
-          )
-          .subscribe(_handleRealtimeStatus);
-    }));
+        _assignHazardsChannel = _supabase
+            .channel(_channelName)
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: _publicSchema,
+              table: _assignHazardsTable,
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: _assignedToColumn,
+                value: userId,
+              ),
+              callback: (PostgresChangePayload payload) {
+                if (!_canUseRef) {
+                  return;
+                }
+                unawaited(refresh(silent: true));
+              },
+            )
+            .subscribe(_handleRealtimeStatus);
+      }),
+    );
   }
 
-  void _handleRealtimeStatus(
-    RealtimeSubscribeStatus status, [
-    Object? error,
-  ]) {
+  void _handleRealtimeStatus(RealtimeSubscribeStatus status, [Object? error]) {
     if (!_canUseRef) {
       return;
     }
 
-    final RealtimeConnectionNotifier connectionNotifier =
-        ref.read(realtimeConnectionProvider.notifier);
+    final RealtimeConnectionNotifier connectionNotifier = ref.read(
+      realtimeConnectionProvider.notifier,
+    );
 
     if (status == RealtimeSubscribeStatus.subscribed) {
       connectionNotifier.markConnected();

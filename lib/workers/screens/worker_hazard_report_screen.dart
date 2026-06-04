@@ -16,6 +16,7 @@ import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
 import 'package:riskradar/services/repositories/sync_repository.dart';
 import 'package:riskradar/services/logger_service.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 
 class WorkerReportHazardScreen extends StatefulWidget {
@@ -44,8 +45,11 @@ class WorkerReportHazardScreen extends StatefulWidget {
 class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   static const int _descriptionMinLength = 10;
   static const int _descriptionMaxLength = 500;
+  static const int _maxSelectedHazards = 4;
   static const String _hazardTypeRequiredMessage =
       'Select at least one hazard type.';
+  static const String _maxHazardsMessage =
+      'You can only select up to 4 hazards.';
   static const String _descriptionRequiredMessage =
       'Describe the hazard before submitting.';
   static const String _descriptionTooShortMessage =
@@ -98,7 +102,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
   // Recorder/player interaction
   final GlobalKey<VoiceNoteRecorderState> _voiceRecorderKey =
-  GlobalKey<VoiceNoteRecorderState>();
+      GlobalKey<VoiceNoteRecorderState>();
   bool _isRecording = false;
   bool _isAudioPlaying = false;
 
@@ -120,7 +124,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       _severity = _normalizeSeverity(widget.initialSeverity!);
     }
     if (widget.initialHazardTypes != null) {
-      _selectedHazardTypes = widget.initialHazardTypes!;
+      _selectedHazardTypes = widget.initialHazardTypes!
+          .take(_maxSelectedHazards)
+          .toList();
     }
     if (widget.initialImage != null) {
       _selectedImages.add(XFile(widget.initialImage!.path));
@@ -210,8 +216,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
   Future<bool> _isOnline() async {
     try {
-      final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 4));
+      final result = await InternetAddress.lookup(
+        'google.com',
+      ).timeout(const Duration(seconds: 4));
       return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
     } catch (_) {
       return false;
@@ -236,6 +243,16 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     }
     if (description.length > _descriptionMaxLength) {
       return _descriptionTooLongMessage;
+    }
+    final securityError = InputSanitizer.validateLongText(
+      description,
+      minLength: _descriptionMinLength,
+      maxLength: _descriptionMaxLength,
+    );
+    if (securityError != null) {
+      return securityError == InputSanitizer.invalidInputMessage
+          ? InputSanitizer.invalidInputMessage
+          : null;
     }
     return null;
   }
@@ -301,81 +318,112 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   Future<void> _submitHazard() async {
     if (_isSubmitting) return;
 
+    setState(() => _isSubmitting = true);
+
+    void resetSubmitting() {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      } else {
+        _isSubmitting = false;
+      }
+    }
+
     if (_isRecording || _isAudioPlaying) {
       _showSnack(
         _isRecording ? _stopRecordingMessage : _stopPlaybackMessage,
         isError: true,
       );
+      resetSubmitting();
       return;
     }
 
     if (!_validateReportForm(showErrors: true)) {
       _showSnack(_formValidationMessage, isError: true);
+      resetSubmitting();
       return;
     }
 
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
       _showSnack("User not logged in", isError: true);
+      resetSubmitting();
       return;
     }
 
     if (_currentSiteId == null || _officerUid == null) {
       await _showNoSiteAssignedDialog();
+      resetSubmitting();
       return;
     }
 
-    setState(() => _isSubmitting = true);
-
     final online = await _isOnline();
-    final String description = _descriptionController.text.trim();
+    final String description = InputSanitizer.cleanText(
+      _descriptionController.text,
+      maxLength: _descriptionMaxLength,
+    );
 
     // ── OFFLINE PATH ──────────────────────────────────────────────────────
     if (!online) {
-      final recordedVoiceFiles =
-          _voiceRecorderKey.currentState?.getAllRecordedFiles() ?? [];
+      try {
+        final recordedVoiceFiles =
+            _voiceRecorderKey.currentState?.getAllRecordedFiles() ?? [];
 
-      final localId = const Uuid().v4();
-      final payload = {
-        'id': localId,
-        'worker_id': userId,
-        'officer_uid': _officerUid,
-        'current_site_id': _currentSiteId,
-        'hazard_type': _selectedHazardTypes.join(', '),
-        'description': description,
-        'severity': _severity,
-        'latitude': _currentPosition!.latitude,
-        'longitude': _currentPosition!.longitude,
-        'status': 'reported',
-        'image_url': null,
-        'voice_note_url': null,
-        'image_paths': _selectedImages.map((image) => image.path).toList(),
-        'voice_paths': recordedVoiceFiles.map((file) => file.path).toList(),
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      };
+        final localId = const Uuid().v4();
+        final payload = {
+          'id': localId,
+          'worker_id': userId,
+          'officer_uid': _officerUid,
+          'current_site_id': _currentSiteId,
+          'hazard_type': _selectedHazardTypes.join(', '),
+          'description': description,
+          'severity': _severity,
+          'latitude': _currentPosition!.latitude,
+          'longitude': _currentPosition!.longitude,
+          'status': 'reported',
+          'image_url': null,
+          'voice_note_url': null,
+          'image_paths': _selectedImages.map((image) => image.path).toList(),
+          'voice_paths': recordedVoiceFiles.map((file) => file.path).toList(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
 
-      await _syncRepository.enqueueAction(
-        id: localId,
-        table: 'hazards',
-        action: 'insert',
-        payload: payload,
-      );
-
-      // Append to local hazards cache so worker sees it immediately
-      await _hazardRepository.appendHazard(payload);
-
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                '📴 Saved offline — will sync automatically when online.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
+        await _syncRepository.enqueueAction(
+          id: localId,
+          table: 'hazards',
+          action: 'insert',
+          payload: payload,
         );
-        await Future.delayed(const Duration(seconds: 1));
-        _navigateHome();
+
+        // Append to local hazards cache so worker sees it immediately
+        await _hazardRepository.appendHazard(payload);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '📴 Saved offline — will sync automatically when online.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          await Future.delayed(const Duration(seconds: 1));
+          _navigateHome();
+        }
+        return;
+      } catch (e, s) {
+        LoggerService.error('[ReportHazard] Offline submit error', e, s);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Could not save the hazard. Please try again.',
+              ),
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+        }
+        resetSubmitting();
       }
       return;
     }
@@ -398,10 +446,11 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
               .from('hazard-images')
               .uploadBinary(fileName, fileBytes)
               .then((_) {
-            final imageUrl =
-            supabase.storage.from('hazard-images').getPublicUrl(fileName);
-            imageUrls.add(imageUrl);
-          }),
+                final imageUrl = supabase.storage
+                    .from('hazard-images')
+                    .getPublicUrl(fileName);
+                imageUrls.add(imageUrl);
+              }),
         );
       }
 
@@ -409,14 +458,14 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         final fileName =
             "voice_notes/${const Uuid().v4()}_${voiceFile.path.split('/').last}";
         uploadTasks.add(
-          supabase.storage
-              .from('voice_notes')
-              .upload(fileName, voiceFile)
-              .then((_) {
-            final voiceUrl =
-            supabase.storage.from('voice_notes').getPublicUrl(fileName);
-            voiceNoteUrls.add(voiceUrl);
-          }),
+          supabase.storage.from('voice_notes').upload(fileName, voiceFile).then(
+            (_) {
+              final voiceUrl = supabase.storage
+                  .from('voice_notes')
+                  .getPublicUrl(fileName);
+              voiceNoteUrls.add(voiceUrl);
+            },
+          ),
         );
       }
 
@@ -435,8 +484,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         'longitude': _currentPosition!.longitude,
         'status': 'reported',
         'image_url': imageUrls.isNotEmpty ? imageUrls.join(',') : null,
-        'voice_note_url':
-        voiceNoteUrls.isNotEmpty ? voiceNoteUrls.join(',') : null,
+        'voice_note_url': voiceNoteUrls.isNotEmpty
+            ? voiceNoteUrls.join(',')
+            : null,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
 
@@ -450,7 +500,6 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       await _hazardRepository.appendHazard(Map<String, dynamic>.from(inserted));
 
       if (mounted) {
-        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Hazard reported successfully!'),
@@ -468,7 +517,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error reporting hazard: $e'),
+            content: const Text(
+              'Could not report the hazard. Please try again.',
+            ),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -515,7 +566,8 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                 Text('You do not have any site assigned.'),
                 SizedBox(height: 8),
                 Text(
-                    'To report a hazard, you must be assigned to a site. Please contact your supervisor.'),
+                  'To report a hazard, you must be assigned to a site. Please contact your supervisor.',
+                ),
               ],
             ),
           ),
@@ -548,8 +600,8 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         ),
         content: const Text(
           'You are offline. Images and voice notes require an internet connection to upload.\n\n'
-              'Remove all images and voice notes to save a text-only report offline — '
-              'it will sync automatically when you reconnect.',
+          'Remove all images and voice notes to save a text-only report offline — '
+          'it will sync automatically when you reconnect.',
         ),
         actions: [
           TextButton(
@@ -682,16 +734,16 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   Future<void> _selectHazardType() async {
     final selectedTypes = await Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (context) => const SelectHazardTypeScreen()),
+      MaterialPageRoute(builder: (context) => const SelectHazardTypeScreen()),
     );
-    if (selectedTypes != null &&
-        selectedTypes is List<String> &&
-        mounted) {
+    if (selectedTypes != null && selectedTypes is List<String> && mounted) {
       setState(() {
-        _selectedHazardTypes = selectedTypes;
+        _selectedHazardTypes = selectedTypes.take(_maxSelectedHazards).toList();
         _hazardTypeError = _validateHazardTypes();
       });
+      if (selectedTypes.length > _maxSelectedHazards) {
+        _showSnack(_maxHazardsMessage, isError: true);
+      }
     }
   }
 
@@ -755,10 +807,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     );
   }
 
-  Future<void> _handlePopInvokedWithResult(
-    bool didPop,
-    Object? result,
-  ) async {
+  Future<void> _handlePopInvokedWithResult(bool didPop, Object? result) async {
     if (didPop) return;
 
     await _voiceRecorderKey.currentState?.discardActiveSession();
@@ -774,7 +823,8 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     final theme = Theme.of(context);
     final isLightTheme = theme.brightness == Brightness.light;
 
-    final canSubmit = !_isSubmitting &&
+    final canSubmit =
+        !_isSubmitting &&
         !_isRecording &&
         !_isAudioPlaying &&
         _isReportFormValid;
@@ -784,10 +834,11 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
     return Container(
       padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 8,
-          left: 8,
-          right: 8,
-          top: 8),
+        bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+        left: 8,
+        right: 8,
+        top: 8,
+      ),
       color: isLightTheme
           ? const Color(0xFFF5F5F5)
           : theme.scaffoldBackgroundColor,
@@ -824,6 +875,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                           minLines: 1,
                           maxLines: 5,
                           maxLength: _descriptionMaxLength,
+                          inputFormatters: const [
+                            SanitizingTextInputFormatter(),
+                          ],
                           validator: _validateDescription,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
@@ -847,17 +901,19 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                             hintText: _isRecording
                                 ? "Recording..."
                                 : (_isAudioPlaying
-                                    ? "Playing..."
-                                    : "Type a description..."),
+                                      ? "Playing..."
+                                      : "Type a description..."),
                           ),
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.camera_alt,
-                          color: isInputDisabled
-                              ? theme.disabledColor
-                              : theme.colorScheme.onSurface),
+                      icon: Icon(
+                        Icons.camera_alt,
+                        color: isInputDisabled
+                            ? theme.disabledColor
+                            : theme.colorScheme.onSurface,
+                      ),
                       onPressed: isInputDisabled ? null : _pickImage,
                     ),
                     IconButton(
@@ -882,8 +938,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
             child: ElevatedButton(
               onPressed: canSubmit ? _submitHazard : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    canSubmit ? AppColors.accentGold : theme.disabledColor,
+                backgroundColor: canSubmit
+                    ? AppColors.accentGold
+                    : theme.disabledColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(inputBarHeight / 2),
                 ),
@@ -902,9 +959,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                       Icons.send,
                       color: canSubmit
                           ? AppColors.brandTeal
-                          : theme.colorScheme.onSurface.withValues(
-                              alpha: 0.54,
-                            ),
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.54),
                     ),
             ),
           ),
@@ -978,11 +1033,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       );
     }
 
-    return SvgPicture.asset(
-      iconAsset,
-      width: 32,
-      height: 32,
-    );
+    return SvgPicture.asset(iconAsset, width: 32, height: 32);
   }
 
   Widget _buildHazardTypeCard() {
@@ -1025,28 +1076,35 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Hazard Type",
-                          style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
+                      const Text(
+                        "Hazard Type",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         _selectedHazardTypes.isEmpty
                             ? "Tap to select hazard types"
                             : _selectedHazardTypes.join(', '),
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios,
-                    color: Colors.white, size: 18),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ],
             ),
           ),
@@ -1061,9 +1119,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Severity Level",
-              style:
-              TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            "Severity Level",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1109,33 +1168,37 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
           decoration: BoxDecoration(
             color: isSelected
                 ? color
-                : (isLightTheme
-                ? Colors.white
-                : color.withValues(alpha: 0.1)),
+                : (isLightTheme ? Colors.white : color.withValues(alpha: 0.1)),
             borderRadius: BorderRadius.circular(12),
             border: isSelected
                 ? null
                 : Border.all(color: color.withValues(alpha: 0.3)),
             boxShadow: isLightTheme && !isSelected
                 ? [
-              BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.1),
-                blurRadius: 5,
-                offset: const Offset(0, 2),
-              )
-            ]
+                    BoxShadow(
+                      color: Colors.grey.withValues(alpha: 0.1),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
                 : [],
           ),
           child: Column(
             children: [
-              Icon(getIconForLevel(),
-                  color: isSelected ? Colors.white : color, size: 20),
+              Icon(
+                getIconForLevel(),
+                color: isSelected ? Colors.white : color,
+                size: 20,
+              ),
               const SizedBox(height: 4),
-              Text(level,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : color)),
+              Text(
+                level,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : color,
+                ),
+              ),
             ],
           ),
         ),
@@ -1158,8 +1221,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color:
-              (_currentPosition != null ? Colors.green : Colors.red)
+              color: (_currentPosition != null ? Colors.green : Colors.red)
                   .withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
@@ -1170,90 +1232,112 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
           padding: const EdgeInsets.all(20),
           child: _isLoadingLocation
               ? const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white)),
-              SizedBox(width: 12),
-              Text("Getting your location...",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600)),
-            ],
-          )
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      "Getting your location...",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                )
               : _currentPosition != null
               ? Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.location_on,
-                    color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Location Captured",
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Location Captured",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _getCurrentLocation,
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      tooltip: "Refresh location",
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.location_off,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        "Location Required",
                         style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(
-                      "${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}",
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white
-                              .withValues(alpha: 0.9)),
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: _getCurrentLocation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.red.shade700,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                      child: const Text("Get Location"),
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: _getCurrentLocation,
-                icon: const Icon(Icons.refresh,
-                    color: Colors.white),
-                tooltip: "Refresh location",
-              ),
-            ],
-          )
-              : Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.location_off,
-                    color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                  child: Text("Location Required",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold))),
-              ElevatedButton(
-                onPressed: _getCurrentLocation,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.red.shade700,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                ),
-                child: const Text("Get Location"),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1296,8 +1380,11 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                             icon: const CircleAvatar(
                               radius: 14,
                               backgroundColor: Colors.black54,
-                              child: Icon(Icons.close,
-                                  color: Colors.white, size: 16),
+                              child: Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                             onPressed: () {
                               setState(() {

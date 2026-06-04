@@ -5,16 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
+import 'package:riskradar/shared/utils/profile_photo_permission.dart';
 import 'package:riskradar/shared/widgets/full_image_viewer.dart';
 
 class HSEWorkerEditProfileScreen extends StatefulWidget {
   const HSEWorkerEditProfileScreen({super.key});
 
   @override
-  State<HSEWorkerEditProfileScreen> createState() => _HSEWorkerEditProfileScreenState();
+  State<HSEWorkerEditProfileScreen> createState() =>
+      _HSEWorkerEditProfileScreenState();
 }
 
-class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen> {
+class _HSEWorkerEditProfileScreenState
+    extends State<HSEWorkerEditProfileScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
 
@@ -40,37 +44,54 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
   }
 
   Future<void> _loadProfile() async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() => _loading = true);
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
       return;
     }
     try {
-      final hseWorker = await supabase.from('hse_workers').select().eq('id', userId).maybeSingle();
+      final hseWorker = await supabase
+          .from('hse_workers')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
       if (hseWorker != null) {
         _initialData = hseWorker;
         _firstNameController.text = hseWorker['first_name']?.toString() ?? '';
         _lastNameController.text = hseWorker['last_name']?.toString() ?? '';
         _emailController.text = hseWorker['email']?.toString() ?? '';
         _dobController.text = hseWorker['dob']?.toString() ?? '';
-        _designationController.text = hseWorker['designation']?.toString() ?? '';
+        _designationController.text =
+            hseWorker['designation']?.toString() ?? '';
         _officerUidController.text = hseWorker['officer_uid']?.toString() ?? '';
       }
     } catch (e) {
       debugPrint("Error: $e");
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   void _checkChanges() {
-    if (_initialData == null) return;
+    if (_initialData == null) {
+      return;
+    }
     setState(() {
-      _hasChanges = _firstNameController.text != (_initialData!['first_name']?.toString() ?? '') ||
-          _lastNameController.text != (_initialData!['last_name']?.toString() ?? '') ||
+      _hasChanges =
+          _firstNameController.text !=
+              (_initialData!['first_name']?.toString() ?? '') ||
+          _lastNameController.text !=
+              (_initialData!['last_name']?.toString() ?? '') ||
           _dobController.text != (_initialData!['dob']?.toString() ?? '') ||
-          _designationController.text != (_initialData!['designation']?.toString() ?? '');
+          _designationController.text !=
+              (_initialData!['designation']?.toString() ?? '');
     });
   }
 
@@ -110,7 +131,8 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
 
     if (picked != null) {
       setState(() {
-        _dobController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        _dobController.text =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
       _checkChanges();
     }
@@ -138,60 +160,132 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
         ),
       ],
     );
-    if (croppedFile != null) return File(croppedFile.path);
+    if (croppedFile != null) {
+      return File(croppedFile.path);
+    }
     return null;
   }
 
   Future<void> _pickAndUploadImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-      if (image == null) return;
+      final bool hasPermission = await requestProfilePhotoPermission(
+        context,
+        ImageSource.gallery,
+      );
+      if (!hasPermission) {
+        return;
+      }
+
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+      if (image == null) {
+        return;
+      }
 
       File? croppedImage = await _cropImage(File(image.path));
-      if (croppedImage == null) return;
+      if (croppedImage == null) {
+        return;
+      }
 
       setState(() => _uploadingImage = true);
 
       final userId = supabase.auth.currentUser!.id;
       final fileExt = image.path.split('.').last;
-      final fileName = '$userId/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final fileName =
+          '$userId/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      await supabase.storage.from('profile-images').upload(
-        fileName,
-        croppedImage,
-        fileOptions: const FileOptions(upsert: true),
-      );
+      await supabase.storage
+          .from('profile-images')
+          .upload(
+            fileName,
+            croppedImage,
+            fileOptions: const FileOptions(upsert: true),
+          );
 
-      final String publicUrl = supabase.storage.from('profile-images').getPublicUrl(fileName);
+      final String publicUrl = supabase.storage
+          .from('profile-images')
+          .getPublicUrl(fileName);
 
-      await supabase.from('hse_workers').update({
-        'profile_image_url': publicUrl
-      }).eq('id', userId);
+      await supabase
+          .from('hse_workers')
+          .update({'profile_image_url': publicUrl})
+          .eq('id', userId);
 
       await _loadProfile();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile photo updated!")));
-
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Profile photo updated!")));
+      }
     } catch (e) {
       debugPrint("Upload Error: $e");
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload failed: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Upload failed. Please try again.")),
+        );
+      }
     } finally {
-      if (mounted) setState(() => _uploadingImage = false);
+      if (mounted) {
+        setState(() => _uploadingImage = false);
+      }
     }
   }
 
   Future<void> _updateProfile() async {
     final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return;
+    if (userId == null) {
+      return;
+    }
     setState(() => _updating = true);
     try {
-      await supabase.from('hse_workers').update({
-        'first_name': _firstNameController.text,
-        'last_name': _lastNameController.text,
-        'dob': _dobController.text,
-        'designation': _designationController.text,
-      }).eq('id', userId);
+      final firstNameError = InputSanitizer.validateName(
+        _firstNameController.text,
+      );
+      final lastNameError = InputSanitizer.validateName(
+        _lastNameController.text,
+      );
+      final designationError = InputSanitizer.validateShortText(
+        _designationController.text,
+        required: false,
+        maxLength: 80,
+      );
+      final validationError =
+          firstNameError ?? lastNameError ?? designationError;
+      if (validationError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(validationError)));
+        }
+        return;
+      }
 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile updated successfully")));
+      await supabase
+          .from('hse_workers')
+          .update({
+            'first_name': InputSanitizer.cleanText(
+              _firstNameController.text,
+              maxLength: 50,
+            ),
+            'last_name': InputSanitizer.cleanText(
+              _lastNameController.text,
+              maxLength: 50,
+            ),
+            'dob': _dobController.text,
+            'designation': InputSanitizer.cleanText(
+              _designationController.text,
+              maxLength: 80,
+            ),
+          })
+          .eq('id', userId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile updated successfully")),
+        );
+      }
 
       setState(() {
         _editing = false;
@@ -200,15 +294,25 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
       _loadProfile();
     } catch (e) {
       debugPrint("Error: $e");
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Update failed: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Update failed. Please try again.")),
+        );
+      }
     }
-    if (mounted) setState(() => _updating = false);
+    if (mounted) {
+      setState(() => _updating = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_initialData == null) return const Scaffold(body: Center(child: Text("Profile not found")));
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_initialData == null) {
+      return const Scaffold(body: Center(child: Text("Profile not found")));
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -221,13 +325,16 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
     const tealColor = Color(0xFF1B3D3D);
     const goldColor = Color(0xFFE6A050);
     final imageUrl = _initialData!['profile_image_url']?.toString();
-    final fullName = "${_firstNameController.text} ${_lastNameController.text}".trim();
+    final fullName = "${_firstNameController.text} ${_lastNameController.text}"
+        .trim();
 
     return Stack(
       children: [
         // Header Background
         Positioned(
-          top: 0, left: 0, right: 0,
+          top: 0,
+          left: 0,
+          right: 0,
           height: 280,
           child: Container(
             decoration: const BoxDecoration(
@@ -253,24 +360,42 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
                       GestureDetector(
                         onTap: () {
                           if (imageUrl != null && imageUrl.isNotEmpty) {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => FullscreenImageViewer(imageUrls: [imageUrl], initialIndex: 0),
-                            ));
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullscreenImageViewer(
+                                  imageUrls: [imageUrl],
+                                  initialIndex: 0,
+                                ),
+                              ),
+                            );
                           }
                         },
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
                           child: Hero(
                             tag: 'profile_pic',
                             child: CircleAvatar(
                               radius: 60,
                               backgroundColor: Colors.grey.shade300,
-                              backgroundImage: (imageUrl != null && imageUrl.isNotEmpty) ? NetworkImage(imageUrl) : null,
+                              backgroundImage:
+                                  (imageUrl != null && imageUrl.isNotEmpty)
+                                  ? NetworkImage(imageUrl)
+                                  : null,
                               child: _uploadingImage
-                                  ? const CircularProgressIndicator(color: tealColor)
+                                  ? const CircularProgressIndicator(
+                                      color: tealColor,
+                                    )
                                   : (imageUrl == null || imageUrl.isEmpty)
-                                  ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 60,
+                                      color: Colors.grey,
+                                    )
                                   : null,
                             ),
                           ),
@@ -283,11 +408,17 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: const BoxDecoration(
-                                color: goldColor,
-                                shape: BoxShape.circle,
-                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)]
+                              color: goldColor,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black26, blurRadius: 4),
+                              ],
                             ),
-                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                     ],
@@ -301,23 +432,39 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
                   children: [
                     Text(
                       fullName.isEmpty ? "User Profile" : fullName,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => setState(() => _editing = !_editing),
                       child: Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                        child: Icon(_editing ? Icons.close : Icons.edit, color: Colors.white, size: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _editing ? Icons.close : Icons.edit,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
-                    )
+                    ),
                   ],
                 ),
                 const SizedBox(height: 5),
                 Text(
                   _designationController.text.toUpperCase(),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12, letterSpacing: 1),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 12,
+                    letterSpacing: 1,
+                  ),
                 ),
 
                 const SizedBox(height: 30),
@@ -329,37 +476,88 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("USER DETAILS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: tealColor)),
+                      const Text(
+                        "USER DETAILS",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: tealColor,
+                        ),
+                      ),
                       const SizedBox(height: 20),
-                      _buildStyledTextField("First Name", _firstNameController, Icons.person_outline),
-                      _buildStyledTextField("Last Name", _lastNameController, Icons.person_outline),
-                      _buildStyledTextField("Email ID", _emailController, Icons.email_outlined, readOnly: true),
+                      _buildStyledTextField(
+                        "First Name",
+                        _firstNameController,
+                        Icons.person_outline,
+                      ),
+                      _buildStyledTextField(
+                        "Last Name",
+                        _lastNameController,
+                        Icons.person_outline,
+                      ),
+                      _buildStyledTextField(
+                        "Email ID",
+                        _emailController,
+                        Icons.email_outlined,
+                        readOnly: true,
+                      ),
                       // ✅ UPDATED: Passing _selectDate for custom tap handling
-                      _buildStyledTextField("Date of Birth", _dobController, Icons.calendar_today_outlined, onTap: _selectDate),
-                      _buildStyledTextField("Designation", _designationController, Icons.badge_outlined),
-                      _buildStyledTextField("Contractor UID", _officerUidController, Icons.admin_panel_settings_outlined, readOnly: true),
+                      _buildStyledTextField(
+                        "Date of Birth",
+                        _dobController,
+                        Icons.calendar_today_outlined,
+                        onTap: _selectDate,
+                      ),
+                      _buildStyledTextField(
+                        "Designation",
+                        _designationController,
+                        Icons.badge_outlined,
+                      ),
+                      _buildStyledTextField(
+                        "Contractor UID",
+                        _officerUidController,
+                        Icons.admin_panel_settings_outlined,
+                        readOnly: true,
+                      ),
                       const SizedBox(height: 30),
                       if (_editing)
                         SizedBox(
                           width: double.infinity,
                           height: 55,
                           child: ElevatedButton(
-                            onPressed: _hasChanges && !_updating ? _updateProfile : null,
+                            onPressed: _hasChanges && !_updating
+                                ? _updateProfile
+                                : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: goldColor,
                               disabledBackgroundColor: Colors.grey.shade300,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                               elevation: 5,
                             ),
                             child: _updating
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text("SAVE DETAILS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : const Text(
+                                    "SAVE DETAILS",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
                           ),
                         ),
                     ],
@@ -372,7 +570,8 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
 
         // BACK BUTTON
         Positioned(
-          top: 0, left: 20,
+          top: 0,
+          left: 20,
           child: SafeArea(
             child: IconButton(
               icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
@@ -385,7 +584,13 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
   }
 
   // ✅ UPDATED: Now supports customOnTap for date picking
-  Widget _buildStyledTextField(String label, TextEditingController controller, IconData icon, {bool readOnly = false, VoidCallback? onTap}) {
+  Widget _buildStyledTextField(
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
     // If a custom onTap is provided (like Date), we treat the keyboard as read-only.
     // Otherwise, we respect the standard edit/readOnly flags.
     final bool isKeyboardReadOnly = onTap != null || !_editing || readOnly;
@@ -395,27 +600,54 @@ class _HSEWorkerEditProfileScreenState extends State<HSEWorkerEditProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
+            inputFormatters: const [SanitizingTextInputFormatter()],
             // Prevent keyboard if it's a date picker or not editing
             readOnly: isKeyboardReadOnly,
             // Trigger tap only if editing is active and it's not a strictly read-only field (like Email)
             onTap: (_editing && !readOnly && onTap != null) ? onTap : null,
             onChanged: (_) => _checkChanges(),
             style: TextStyle(
-              color: (!_editing || readOnly) ? Colors.grey.shade700 : Colors.black,
+              color: (!_editing || readOnly)
+                  ? Colors.grey.shade700
+                  : Colors.black,
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: const Color(0xFFE6A050)),
               filled: true,
-              fillColor: (!_editing || readOnly) ? Colors.grey.shade50 : Colors.white,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide(color: Colors.grey.shade300)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide(color: Colors.grey.shade300)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: const BorderSide(color: Color(0xFF1B3D3D), width: 1.5)),
+              fillColor: (!_editing || readOnly)
+                  ? Colors.grey.shade50
+                  : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 16,
+                horizontal: 20,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: const BorderSide(
+                  color: Color(0xFF1B3D3D),
+                  width: 1.5,
+                ),
+              ),
             ),
           ),
         ],

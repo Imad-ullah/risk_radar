@@ -2,13 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/services/supabase_service.dart';
 import 'package:riskradar/officers/screens/officer_home_screen.dart';
 import 'package:riskradar/hse_worker/screens/hse_worker_dashboard.dart';
 import 'package:riskradar/workers/screens/worker_home_screen.dart';
+import 'package:riskradar/shared/security/input_sanitizer.dart';
+import 'package:riskradar/shared/utils/profile_photo_permission.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart'; // ✅ Import Added
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -42,16 +43,42 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   static const String _contractorRole = 'Contractor';
   static const String _safetyRole = 'Safety Officer';
 
-  final List<String> _roles = [
-    _workerRole,
-    _safetyRole,
-    _contractorRole,
+  final List<String> _roles = [_workerRole, _safetyRole, _contractorRole];
+  final List<String> _workTypes = [
+    'Mason',
+    'Plumber',
+    'Electrician',
+    'Painter',
+    'Carpenter',
+    'Welder',
+    'Other',
   ];
-  final List<String> _workTypes = ['Mason', 'Plumber', 'Electrician', 'Painter', 'Carpenter', 'Welder', 'Other'];
-  final List<String> _hseDesignations = ['Safety Inspector', 'Safety Engineer', 'Safety Supervisor', 'Technician', 'Other'];
+  final List<String> _hseDesignations = [
+    'Safety Inspector',
+    'Safety Engineer',
+    'Safety Supervisor',
+    'Technician',
+    'Other',
+  ];
   final List<String> _days = List.generate(31, (i) => '${i + 1}');
-  final List<String> _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  final List<String> _years = List.generate(80, (i) => '${DateTime.now().year - i}');
+  final List<String> _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final List<String> _years = List.generate(
+    80,
+    (i) => '${DateTime.now().year - i}',
+  );
 
   @override
   void initState() {
@@ -70,24 +97,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _emailController.dispose();
     _officerUIDController.dispose();
     super.dispose();
-  }
-
-  // --- Android Version Check ---
-  Future<bool> _isAndroid13OrHigher() async {
-    if (Platform.isAndroid) {
-      try {
-        final versionString = Platform.operatingSystemVersion;
-        final RegExp regex = RegExp(r'Android\s+([0-9]+)');
-        final match = regex.firstMatch(versionString);
-        if (match != null && match.groupCount >= 1) {
-          final version = int.parse(match.group(1)!);
-          return version >= 13;
-        }
-      } catch (e) {
-        debugPrint("Error parsing Android version: $e");
-      }
-    }
-    return false;
   }
 
   // --- Image Cropper Logic ---
@@ -118,62 +127,31 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   // --- Pick & Crop Logic ---
   Future<void> _pickImage(ImageSource source) async {
-    Permission permission;
-
-    if (source == ImageSource.camera) {
-      permission = Permission.camera;
-    } else {
-      if (Platform.isAndroid) {
-        final isAndroid13 = await _isAndroid13OrHigher();
-        permission = isAndroid13 ? Permission.photos : Permission.storage;
-      } else {
-        permission = Permission.photos;
-      }
-    }
-
-    final status = await permission.request();
-
-    if (status.isGranted || status.isLimited) {
-      try {
-        // 1. Pick Image
-        final picked = await ImagePicker().pickImage(source: source);
-        if (picked == null) return;
-
-        // 2. Crop Image immediately after picking
-        final File? cropped = await _cropImage(File(picked.path));
-
-        // 3. Set State if crop was successful
-        if (cropped != null) {
-          setState(() => _imageFile = cropped);
-        }
-      } catch (e) {
-        if (mounted) _showMessage('Error processing image: $e');
-      }
-    } else if (status.isPermanentlyDenied) {
-      if (mounted) _showPermissionDialog();
-    } else {
-      if (mounted) _showMessage('Permission denied. Cannot upload photo.');
-    }
-  }
-
-  void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Permission Required"),
-        content: const Text("Please enable photo access in Settings to upload your profile picture."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              openAppSettings();
-            },
-            child: const Text("Settings"),
-          ),
-        ],
-      ),
+    final bool hasPermission = await requestProfilePhotoPermission(
+      context,
+      source,
     );
+    if (!hasPermission) {
+      return;
+    }
+
+    try {
+      // 1. Pick Image
+      final picked = await ImagePicker().pickImage(source: source);
+      if (picked == null) return;
+
+      // 2. Crop Image immediately after picking
+      final File? cropped = await _cropImage(File(picked.path));
+
+      // 3. Set State if crop was successful
+      if (cropped != null) {
+        setState(() => _imageFile = cropped);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Error processing image: $e');
+      }
+    }
   }
 
   void _showPicker() {
@@ -181,19 +159,36 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFF1B3D3D)),
-              title: const Text('Gallery', style: TextStyle(color: Color(0xFF1B3D3D))),
-              onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+              leading: const Icon(
+                Icons.photo_library,
+                color: Color(0xFF1B3D3D),
+              ),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(color: Color(0xFF1B3D3D)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera, color: Color(0xFF1B3D3D)),
-              title: const Text('Camera', style: TextStyle(color: Color(0xFF1B3D3D))),
-              onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
+              title: const Text(
+                'Camera',
+                style: TextStyle(color: Color(0xFF1B3D3D)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
             ),
           ],
         ),
@@ -205,13 +200,25 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     void onThemeChanged(ThemeMode mode) {}
     Widget screen;
     if (_role == _contractorRole) {
-      screen = OfficerHomeScreen(currentThemeMode: ThemeMode.system, onThemeChanged: onThemeChanged);
+      screen = OfficerHomeScreen(
+        currentThemeMode: ThemeMode.system,
+        onThemeChanged: onThemeChanged,
+      );
     } else if (_role == _safetyRole) {
-      screen = HSEWorkerHomeScreen(currentThemeMode: ThemeMode.system, onThemeChanged: onThemeChanged);
+      screen = HSEWorkerHomeScreen(
+        currentThemeMode: ThemeMode.system,
+        onThemeChanged: onThemeChanged,
+      );
     } else {
-      screen = WorkerHomeScreen(currentThemeMode: ThemeMode.system, onThemeChanged: onThemeChanged);
+      screen = WorkerHomeScreen(
+        currentThemeMode: ThemeMode.system,
+        onThemeChanged: onThemeChanged,
+      );
     }
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => screen));
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   Future<void> _changeAccount() async {
@@ -344,42 +351,98 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
     try {
-      final officer = await Supabase.instance.client.from('officers').select().eq('id', user.id).maybeSingle();
+      final officer = await Supabase.instance.client
+          .from('officers')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
       if (officer != null) {
-        setState(() { _role = _contractorRole; _firstNameController.text = officer['first_name'] ?? ''; _isProfileSaved = true; });
-        _navigateToHomeScreen(); return;
+        setState(() {
+          _role = _contractorRole;
+          _firstNameController.text = officer['first_name'] ?? '';
+          _isProfileSaved = true;
+        });
+        _navigateToHomeScreen();
+        return;
       }
-      final worker = await Supabase.instance.client.from('workers').select().eq('id', user.id).maybeSingle();
+      final worker = await Supabase.instance.client
+          .from('workers')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
       if (worker != null) {
-        setState(() { _role = _workerRole; _firstNameController.text = worker['first_name'] ?? ''; _isProfileSaved = true; });
-        _navigateToHomeScreen(); return;
+        setState(() {
+          _role = _workerRole;
+          _firstNameController.text = worker['first_name'] ?? '';
+          _isProfileSaved = true;
+        });
+        _navigateToHomeScreen();
+        return;
       }
-      final safetyWorker = await Supabase.instance.client.from('hse_workers').select().eq('id', user.id).maybeSingle();
+      final safetyWorker = await Supabase.instance.client
+          .from('hse_workers')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
       if (safetyWorker != null) {
-        setState(() { _role = _safetyRole; _firstNameController.text = safetyWorker['first_name'] ?? ''; _isProfileSaved = true; });
-        _navigateToHomeScreen(); return;
+        setState(() {
+          _role = _safetyRole;
+          _firstNameController.text = safetyWorker['first_name'] ?? '';
+          _isProfileSaved = true;
+        });
+        _navigateToHomeScreen();
+        return;
       }
-    } catch (e) { debugPrint("Error loading profile: $e"); }
+    } catch (e) {
+      debugPrint("Error loading profile: $e");
+    }
     setState(() => _isLoadingProfile = false);
   }
 
   Future<void> _onSave() async {
     if (_isSaving || _isProfileSaved) return;
-    if (_role == null || _firstNameController.text.trim().isEmpty || _imageFile == null) {
-      _showMessage('Please complete all required fields and upload a photo.', isError: true); return;
+    final firstName = InputSanitizer.cleanText(
+      _firstNameController.text,
+      maxLength: 50,
+    );
+    final lastName = InputSanitizer.cleanText(
+      _lastNameController.text,
+      maxLength: 50,
+    );
+    final firstNameError = InputSanitizer.validateName(firstName);
+    final lastNameError = InputSanitizer.validateName(
+      lastName,
+      required: false,
+    );
+    if (firstNameError == InputSanitizer.invalidInputMessage ||
+        lastNameError == InputSanitizer.invalidInputMessage) {
+      _showMessage(InputSanitizer.invalidInputMessage, isError: true);
+      return;
+    }
+    if (_role == null || firstName.isEmpty || _imageFile == null) {
+      _showMessage(
+        'Please complete all required fields and upload a photo.',
+        isError: true,
+      );
+      return;
     }
     setState(() => _isSaving = true);
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
-        _showMessage('Your session expired. Please sign in again.', isError: true);
+        _showMessage(
+          'Your session expired. Please sign in again.',
+          isError: true,
+        );
+        if (mounted) setState(() => _isSaving = false);
         return;
       }
 
       String? dobFormatted;
       if (_birthDay != null && _birthMonth != null && _birthYear != null) {
         final monthIndex = _months.indexOf(_birthMonth!) + 1;
-        dobFormatted = '${_birthYear!}-${monthIndex.toString().padLeft(2, '0')}-${_birthDay!.padLeft(2, '0')}';
+        dobFormatted =
+            '${_birthYear!}-${monthIndex.toString().padLeft(2, '0')}-${_birthDay!.padLeft(2, '0')}';
       }
 
       // Safe parse
@@ -388,9 +451,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         if (officerUid == null) {
           await _showContractorUidDialog(
             title: 'Contractor UID required',
-            message: 'Enter the contractor UID given by your contractor before continuing.',
+            message:
+                'Enter the contractor UID given by your contractor before continuing.',
             icon: Icons.badge_outlined,
           );
+          if (mounted) setState(() => _isSaving = false);
           return;
         }
 
@@ -407,16 +472,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 'We could not find a contractor assigned to UID $officerUid. Please check the UID and try again.',
             icon: Icons.person_search_rounded,
           );
+          if (mounted) setState(() => _isSaving = false);
           return;
         }
       }
 
-      final imageUrl = await SupabaseService().uploadProfileImage(_imageFile!, user.id, 'profile');
+      final imageUrl = await SupabaseService().uploadProfileImage(
+        _imageFile!,
+        user.id,
+        'profile',
+      );
 
       final data = {
         'id': user.id,
-        'first_name': _firstNameController.text.trim(),
-        'last_name': _lastNameController.text.trim(),
+        'first_name': firstName,
+        'last_name': lastName,
         'email': _emailController.text.trim(),
         'dob': dobFormatted,
         'profile_image_url': imageUrl,
@@ -424,16 +494,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       };
 
       if (_role == _workerRole) {
-        await Supabase.instance.client.from('workers').insert({...data, 'officer_uid': officerUid, 'work_type': _workType});
+        await Supabase.instance.client.from('workers').insert({
+          ...data,
+          'officer_uid': officerUid,
+          'work_type': _workType,
+        });
       } else if (_role == _safetyRole) {
-        await Supabase.instance.client.from('hse_workers').insert({...data, 'officer_uid': officerUid, 'designation': _hseDesignation});
+        await Supabase.instance.client.from('hse_workers').insert({
+          ...data,
+          'officer_uid': officerUid,
+          'designation': _hseDesignation,
+        });
       } else {
         await Supabase.instance.client.from('officers').insert(data);
       }
       _showMessage('✅ Profile saved!');
       setState(() => _isProfileSaved = true);
       _navigateToHomeScreen();
-    } catch (e) { _showMessage('❌ Error: $e'); }
+    } catch (e) {
+      debugPrint('Profile setup save failed: $e');
+      _showMessage('Could not save profile. Please try again.', isError: true);
+    }
     setState(() => _isSaving = false);
   }
 
@@ -501,12 +582,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isError ? const Color(0xFF8B1E24) : const Color(0xFF1B3D3D),
+        backgroundColor: isError
+            ? const Color(0xFF8B1E24)
+            : const Color(0xFF1B3D3D),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Text(
-          msg,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -541,7 +621,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           physics: const BouncingScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
-
             // 1. HEADER SECTION
             SizedBox(
               height: headerHeight + (avatarSize / 2) - 20,
@@ -550,7 +629,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 children: [
                   Positioned(
                     top: goldRimOffset,
-                    left: 0, right: 0,
+                    left: 0,
+                    right: 0,
                     child: ClipPath(
                       clipper: ConcaveHeaderClipper(),
                       child: Container(height: headerHeight, color: goldColor),
@@ -565,9 +645,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       padding: const EdgeInsets.only(top: 50),
                       child: const Column(
                         children: [
-                          Text("Setup Your Profile", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                          Text(
+                            "Setup Your Profile",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           SizedBox(height: 5),
-                          Text("Complete your details to continue", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                          Text(
+                            "Complete your details to continue",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -583,25 +676,49 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             shape: BoxShape.circle,
                             color: Colors.white,
                             // ✅ UPDATED: Opacity
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 8))],
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 15,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
                           ),
                           padding: const EdgeInsets.all(4),
                           child: ClipOval(
                             child: _imageFile != null
                                 ? Image.file(_imageFile!, fit: BoxFit.cover)
-                                : Image.asset('assets/default_user.png', fit: BoxFit.cover,
-                                errorBuilder: (c, o, s) => Container(color: Colors.grey.shade200, child: Icon(Icons.person, size: 60, color: Colors.grey.shade400))),
+                                : Image.asset(
+                                    'assets/default_user.png',
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, o, s) => Container(
+                                      color: Colors.grey.shade200,
+                                      child: Icon(
+                                        Icons.person,
+                                        size: 60,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                         if (!_isProfileSaved)
                           Positioned(
-                            bottom: 5, right: 5,
+                            bottom: 5,
+                            right: 5,
                             child: GestureDetector(
                               onTap: _showPicker,
                               child: Container(
                                 padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(shape: BoxShape.circle, color: goldColor),
-                                child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: goldColor,
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
@@ -621,43 +738,111 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: _buildCustomTextField(_firstNameController, "First Name", Icons.person_outline, action: TextInputAction.next)),
+                      Expanded(
+                        child: _buildCustomTextField(
+                          _firstNameController,
+                          "First Name",
+                          Icons.person_outline,
+                          action: TextInputAction.next,
+                        ),
+                      ),
                       const SizedBox(width: 15),
-                      Expanded(child: _buildCustomTextField(_lastNameController, "Last Name", Icons.person_outline, action: TextInputAction.next)),
+                      Expanded(
+                        child: _buildCustomTextField(
+                          _lastNameController,
+                          "Last Name",
+                          Icons.person_outline,
+                          action: TextInputAction.next,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildCustomTextField(_emailController, "Email", Icons.email_outlined, isEnabled: false),
+                  _buildCustomTextField(
+                    _emailController,
+                    "Email",
+                    Icons.email_outlined,
+                    isEnabled: false,
+                  ),
                   const SizedBox(height: 20),
 
                   _buildCustomDropdown("Select Role", _roles, _role, (value) {
-                    setState(() { _role = value; _workType = null; _hseDesignation = null; _officerUIDController.clear(); });
+                    setState(() {
+                      _role = value;
+                      _workType = null;
+                      _hseDesignation = null;
+                      _officerUIDController.clear();
+                    });
                   }, Icons.work_outline),
 
                   if (_role == _workerRole || _role == _safetyRole) ...[
                     const SizedBox(height: 20),
-                    _buildCustomTextField(_officerUIDController, "Contractor UID", Icons.badge_outlined, type: TextInputType.number),
+                    _buildCustomTextField(
+                      _officerUIDController,
+                      "Contractor UID",
+                      Icons.badge_outlined,
+                      type: TextInputType.number,
+                    ),
                     const SizedBox(height: 20),
                     _buildCustomDropdown(
-                        _role == _workerRole ? "Trade / Work Type" : "Safety Role",
-                        _role == _workerRole ? _workTypes : _hseDesignations,
-                        _role == _workerRole ? _workType : _hseDesignation,
-                            (val) => setState(() => _role == _workerRole ? _workType = val : _hseDesignation = val),
-                        Icons.category_outlined
+                      _role == _workerRole
+                          ? "Trade / Work Type"
+                          : "Safety Role",
+                      _role == _workerRole ? _workTypes : _hseDesignations,
+                      _role == _workerRole ? _workType : _hseDesignation,
+                      (val) => setState(
+                        () => _role == _workerRole
+                            ? _workType = val
+                            : _hseDesignation = val,
+                      ),
+                      Icons.category_outlined,
                     ),
                   ],
 
                   const SizedBox(height: 25),
-                  const Align(alignment: Alignment.centerLeft, child: Text("Date of Birth", style: TextStyle(color: tealColor, fontWeight: FontWeight.w600))),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "Date of Birth",
+                      style: TextStyle(
+                        color: tealColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 10),
 
                   Row(
                     children: [
-                      Expanded(child: _buildCustomDropdown("Day", _days, _birthDay, (val) => setState(() => _birthDay = val), null)),
+                      Expanded(
+                        child: _buildCustomDropdown(
+                          "Day",
+                          _days,
+                          _birthDay,
+                          (val) => setState(() => _birthDay = val),
+                          null,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildCustomDropdown("Month", _months, _birthMonth, (val) => setState(() => _birthMonth = val), null)),
+                      Expanded(
+                        child: _buildCustomDropdown(
+                          "Month",
+                          _months,
+                          _birthMonth,
+                          (val) => setState(() => _birthMonth = val),
+                          null,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _buildCustomDropdown("Year", _years, _birthYear, (val) => setState(() => _birthYear = val), null)),
+                      Expanded(
+                        child: _buildCustomDropdown(
+                          "Year",
+                          _years,
+                          _birthYear,
+                          (val) => setState(() => _birthYear = val),
+                          null,
+                        ),
+                      ),
                     ],
                   ),
 
@@ -667,25 +852,42 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: (_isSaving || _isProfileSaved) ? null : _onSave,
+                      onPressed: (_isSaving || _isProfileSaved)
+                          ? null
+                          : _onSave,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: goldColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
                         elevation: 8,
                         // ✅ UPDATED: Opacity
                         shadowColor: goldColor.withValues(alpha: 0.4),
                       ),
                       child: _isSaving
-                      // ✅ REPLACED: Button Loader
+                          // ✅ REPLACED: Button Loader
                           ? const RiskRadarLoader(size: 24, color: Colors.white)
                           : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(_isProfileSaved ? 'Profile Saved' : 'Complete Setup', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                          if (!_isProfileSaved) const SizedBox(width: 10),
-                          if (!_isProfileSaved) const Icon(Icons.check_circle_outline_rounded, color: Colors.white)
-                        ],
-                      ),
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _isProfileSaved
+                                      ? 'Profile Saved'
+                                      : 'Complete Setup',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                if (!_isProfileSaved) const SizedBox(width: 10),
+                                if (!_isProfileSaved)
+                                  const Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    color: Colors.white,
+                                  ),
+                              ],
+                            ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -714,36 +916,69 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  Widget _buildCustomTextField(TextEditingController controller, String label, IconData icon, {TextInputType? type, bool isEnabled = true, TextInputAction? action}) {
+  Widget _buildCustomTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType? type,
+    bool isEnabled = true,
+    TextInputAction? action,
+  }) {
     return Container(
-      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: TextField(
         controller: controller,
         keyboardType: type,
+        inputFormatters: const [SanitizingTextInputFormatter()],
+        textInputAction: action,
         enabled: isEnabled && !_isProfileSaved,
         scrollPadding: const EdgeInsets.only(bottom: 100),
-        style: const TextStyle(fontSize: 15, color: Colors.black87, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          fontSize: 15,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
-            prefixIcon: Padding(padding: const EdgeInsets.only(left: 15, right: 10), child: Icon(icon, color: const Color(0xFF1B3D3D), size: 22)),
-            hintText: label,
-            hintStyle: TextStyle(color: Colors.grey.shade500),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 18),
-            filled: true,
-            fillColor: Colors.transparent
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 15, right: 10),
+            child: Icon(icon, color: const Color(0xFF1B3D3D), size: 22),
+          ),
+          hintText: label,
+          hintStyle: TextStyle(color: Colors.grey.shade500),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          filled: true,
+          fillColor: Colors.transparent,
         ),
       ),
     );
   }
 
-  Widget _buildCustomDropdown(String label, List<String> items, String? selectedValue, void Function(String?) onChanged, IconData? icon) {
+  Widget _buildCustomDropdown(
+    String label,
+    List<String> items,
+    String? selectedValue,
+    void Function(String?) onChanged,
+    IconData? icon,
+  ) {
     return Container(
-      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedValue,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade500),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.grey.shade500,
+          ),
           hint: Row(
             children: [
               if (icon != null) ...[
@@ -762,10 +997,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           isExpanded: true,
           dropdownColor: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          items: items.map((e) => DropdownMenuItem(
-              value: e,
-              child: Text(e, style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)
-          )).toList(),
+          items: items
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(
+                    e,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
           onChanged: _isProfileSaved ? null : onChanged,
         ),
       ),
@@ -780,7 +1027,12 @@ class ConcaveHeaderClipper extends CustomClipper<Path> {
     path.lineTo(0, size.height - 50);
     var controlPoint = Offset(size.width / 2, size.height + 60);
     var endPoint = Offset(size.width, size.height - 50);
-    path.quadraticBezierTo(controlPoint.dx, controlPoint.dy, endPoint.dx, endPoint.dy);
+    path.quadraticBezierTo(
+      controlPoint.dx,
+      controlPoint.dy,
+      endPoint.dx,
+      endPoint.dy,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;

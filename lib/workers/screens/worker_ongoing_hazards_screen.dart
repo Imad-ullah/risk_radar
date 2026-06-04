@@ -14,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/shared/hazards/hazard_details_screen.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
+import 'package:riskradar/services/repositories/sync_repository.dart';
 
 class WorkerOngoingHazardsScreen extends StatefulWidget {
   const WorkerOngoingHazardsScreen({super.key});
@@ -27,6 +28,7 @@ class _WorkerOngoingHazardsScreenState
     extends State<WorkerOngoingHazardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   final HazardRepository _hazardRepository = HazardRepository();
+  final SyncRepository _syncRepository = SyncRepository();
   final ScrollController _scrollController = ScrollController();
 
   static const int _pageSize = 20;
@@ -144,7 +146,9 @@ class _WorkerOngoingHazardsScreenState
 
   Future<void> _loadHazards() async {
     // ── Step 1: Paint from cache immediately ──────────────────────────────
-    final cached = await _hazardRepository.getOngoingHazards();
+    final cached = await _mergePendingOfflineReports(
+      await _hazardRepository.getOngoingHazards(),
+    );
     if (cached.isNotEmpty) {
       setState(() {
         allHazards = cached;
@@ -304,13 +308,15 @@ class _WorkerOngoingHazardsScreenState
       final List<Map<String, dynamic>> updatedHazards = resetPagination
           ? combined
           : <Map<String, dynamic>>[...allHazards, ...combined];
+      final List<Map<String, dynamic>> visibleHazards =
+          await _mergePendingOfflineReports(updatedHazards);
 
       // Persist to cache
-      await _hazardRepository.saveOngoingHazards(updatedHazards);
+      await _hazardRepository.saveOngoingHazards(visibleHazards);
 
       if (!mounted) return;
       setState(() {
-        allHazards = updatedHazards;
+        allHazards = visibleHazards;
         _hasMoreHazards = !reachedLastPage;
         isLoading = false;
         _isRefreshing = false;
@@ -343,6 +349,65 @@ class _WorkerOngoingHazardsScreenState
   // ══════════════════════════════════════════════════════════════════════════
   // FILTERING & SORTING — unchanged logic
   // ══════════════════════════════════════════════════════════════════════════
+
+  Future<List<Map<String, dynamic>>> _mergePendingOfflineReports(
+    List<Map<String, dynamic>> baseRows,
+  ) async {
+    final String? userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      return baseRows;
+    }
+
+    final Map<String, Map<String, dynamic>> rowsById =
+        <String, Map<String, dynamic>>{};
+
+    void addRow(Map<String, dynamic> row) {
+      final String? id = row['id']?.toString();
+      if (id == null || id.isEmpty) {
+        return;
+      }
+      rowsById[id] = Map<String, dynamic>.from(row);
+    }
+
+    for (final Map<String, dynamic> row in baseRows) {
+      addRow(row);
+    }
+
+    try {
+      final List<Map<String, dynamic>> pendingActions =
+          await _syncRepository.getPendingActions();
+
+      for (final Map<String, dynamic> action in pendingActions) {
+        if (action['table'] != 'hazards' || action['action'] != 'insert') {
+          continue;
+        }
+
+        final payload = action['payload'];
+        if (payload is! Map) {
+          continue;
+        }
+
+        final Map<String, dynamic> hazard =
+            Map<String, dynamic>.from(payload);
+        final String? workerId = hazard['worker_id']?.toString();
+        if (workerId != userId || !_isActiveHazardStatus(hazard['status'])) {
+          continue;
+        }
+
+        hazard['offline_pending'] = true;
+        addRow(hazard);
+      }
+    } catch (e) {
+      debugPrint('[OngoingHazards] Pending offline merge failed: $e');
+    }
+
+    return rowsById.values.toList(growable: false);
+  }
+
+  bool _isActiveHazardStatus(dynamic status) {
+    final String normalized = status?.toString().toLowerCase().trim() ?? '';
+    return normalized != 'resolved' && normalized != 'resolved by other';
+  }
 
   void _applyFiltersAndSort() {
     List<Map<String, dynamic>> tempHazards = List.from(allHazards);

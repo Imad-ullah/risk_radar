@@ -1,21 +1,39 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'services/app_initializer.dart';
 import 'services/error_service.dart';
+import 'services/sos_alarm_manager.dart';
 import 'services/sync_service.dart';
 import 'shared/navigation/app_navigator.dart' as app_navigation;
 import 'shared/navigation/app_router.dart';
+import 'shared/services/sos_overlay_service.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/widgets/emergency_permission_dialog.dart';
 import 'shared/widgets/error_boundary.dart';
 
 final navigatorKey = app_navigation.navigatorKey;
+final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+Map<String, dynamic>? _pendingInitialSosPayload;
+
+const AndroidNotificationChannel _sosNotificationChannel =
+    AndroidNotificationChannel(
+  'sos_alerts_critical',
+  'SOS Critical Alerts',
+  description: 'Critical SOS and hazard foreground alerts',
+  importance: Importance.max,
+  playSound: true,
+  sound: RawResourceAndroidNotificationSound('sos_siren'),
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +53,7 @@ void main() async {
 
   try {
     await AppInitializer.initializeCritical();
+    await _initializeForegroundPushNotifications();
     runApp(const ProviderScope(child: MyApp()));
   } catch (e, stackTrace) {
     ErrorService.report(
@@ -44,6 +63,123 @@ void main() async {
       fatal: true,
     );
     runApp(_ErrorApp(error: e.toString(), stackTrace: stackTrace.toString()));
+  }
+}
+
+Future<void> _initializeForegroundPushNotifications() async {
+  const AndroidInitializationSettings androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initializationSettings =
+      InitializationSettings(android: androidSettings);
+
+  await _localNotificationsPlugin.initialize(initializationSettings);
+
+  final androidPlugin = _localNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+  await androidPlugin?.createNotificationChannel(_sosNotificationChannel);
+
+  final messaging = FirebaseMessaging.instance;
+  await messaging.requestPermission(alert: true, badge: true, sound: true);
+
+  final initialToken = await messaging.getToken();
+  if (initialToken != null) {
+    debugPrint('🔑 [FCM][Startup] Token: $initialToken');
+    await _saveTokenToSupabase(initialToken);
+  }
+
+  messaging.onTokenRefresh.listen((token) {
+    debugPrint('🔑 [FCM][Refresh] Token: $token');
+    unawaited(_saveTokenToSupabase(token));
+  });
+
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    if (data.event == AuthChangeEvent.signedIn ||
+        data.event == AuthChangeEvent.tokenRefreshed ||
+        data.event == AuthChangeEvent.initialSession) {
+      final token = await messaging.getToken();
+      if (token != null) {
+        debugPrint('🔑 [FCM][Auth ${data.event.name}] Token: $token');
+        await _saveTokenToSupabase(token);
+      }
+    }
+  });
+
+  FirebaseMessaging.onMessage.listen(_showForegroundNotification);
+
+  FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    if (_isSosMessage(message)) {
+      unawaited(
+        SosOverlayService.showFromPayload(Map<String, dynamic>.from(message.data)),
+      );
+    }
+  });
+
+  final initialMessage = await messaging.getInitialMessage();
+  if (initialMessage != null && _isSosMessage(initialMessage)) {
+    _pendingInitialSosPayload = Map<String, dynamic>.from(initialMessage.data);
+  }
+}
+
+Future<void> _showForegroundNotification(RemoteMessage message) async {
+  final notification = message.notification;
+  final data = message.data;
+  if (_isSosMessage(message)) {
+    await SosAlarmManager.instance.startAlarm();
+    await SosOverlayService.showFromPayload(Map<String, dynamic>.from(data));
+    return;
+  }
+
+  final title =
+      data['title']?.toString() ?? notification?.title ?? 'RiskRadar Alert';
+  final body =
+      data['body']?.toString() ?? data['message']?.toString() ?? notification?.body ?? '';
+
+  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    'sos_alerts_critical',
+    'SOS Critical Alerts',
+    channelDescription: 'Critical SOS and hazard foreground alerts',
+    importance: Importance.max,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound('sos_siren'),
+    enableVibration: true,
+    category: AndroidNotificationCategory.alarm,
+    fullScreenIntent: true,
+  );
+  const NotificationDetails notificationDetails =
+      NotificationDetails(android: androidDetails);
+
+  await _localNotificationsPlugin.show(
+    message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
+    title,
+    body,
+    notificationDetails,
+    payload: data.isEmpty ? null : data.toString(),
+  );
+}
+
+bool _isSosMessage(RemoteMessage message) =>
+    message.data['type']?.toString() == 'SOS';
+
+Future<void> _saveTokenToSupabase(String token) async {
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) {
+    return;
+  }
+
+  try {
+    debugPrint('🔑 [FCM][Supabase upsert] Token for ${user.id}: $token');
+    await Supabase.instance.client.from('user_fcm_tokens').upsert(
+      {
+        'user_id': user.id,
+        'fcm_token': token,
+      },
+      onConflict: 'user_id',
+    );
+  } catch (e) {
+    debugPrint('Failed to save FCM token: $e');
   }
 }
 
@@ -182,6 +318,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(AppInitializer.initializeDeferred());
+      final pendingSosPayload = _pendingInitialSosPayload;
+      _pendingInitialSosPayload = null;
+      if (pendingSosPayload != null) {
+        unawaited(SosOverlayService.showFromPayload(pendingSosPayload));
+      }
       final context = navigatorKey.currentContext;
       if (context != null) {
         EmergencyPermissionDialog.showIfNeeded(context);

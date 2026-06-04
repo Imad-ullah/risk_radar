@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/services/providers/hazard_provider.dart';
 import 'package:riskradar/services/providers/notification_count_provider.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
+import 'package:riskradar/officers/notifications/officer_hazard_notifier.dart';
 
 // Screens
 import 'package:riskradar/officers/screens/resolved_hazards_screen.dart';
@@ -27,7 +28,8 @@ import 'package:riskradar/officers/notifications/notification_screen.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 
 class OfficerDashboardCache {
-  static final OfficerDashboardCache _instance = OfficerDashboardCache._internal();
+  static final OfficerDashboardCache _instance =
+      OfficerDashboardCache._internal();
   factory OfficerDashboardCache() => _instance;
   OfficerDashboardCache._internal();
 
@@ -69,12 +71,13 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 300)
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
     );
     _curveAnimation = Tween<double>(begin: 0, end: 0).animate(
-        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut)
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    officerHazardNotifier.startChecking();
     _loadDashboardCacheFirst();
   }
 
@@ -87,8 +90,16 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
-    _curveAnimation = Tween<double>(begin: _curveAnimation.value, end: index.toDouble())
-        .animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
+    _curveAnimation =
+        Tween<double>(
+          begin: _curveAnimation.value,
+          end: index.toDouble(),
+        ).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
     _animationController.forward(from: 0);
   }
 
@@ -167,7 +178,9 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
   void _onAboutTap(BuildContext context) {
     Navigator.push(
-        context, MaterialPageRoute(builder: (_) => const AboutAppScreen()));
+      context,
+      MaterialPageRoute(builder: (_) => const AboutAppScreen()),
+    );
   }
 
   void _onProfileTap() {
@@ -176,16 +189,28 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
   Future<int> fetchResolvedHazardsCount(dynamic officerUid) async {
     try {
-      final response = await supabase.from('resolved_hazards').select().eq('officer_uid', officerUid).count();
+      final response = await supabase
+          .from('resolved_hazards')
+          .select()
+          .eq('officer_uid', officerUid)
+          .count();
       return response.count;
-    } catch (e) { return 0; }
+    } catch (e) {
+      return 0;
+    }
   }
 
   Future<int> fetchTotalSitesCount(dynamic officerUid) async {
     try {
-      final response = await supabase.from('sites').select().eq('officer_uid', officerUid).count();
+      final response = await supabase
+          .from('sites')
+          .select()
+          .eq('officer_uid', officerUid)
+          .count();
       return response.count;
-    } catch (e) { return 0; }
+    } catch (e) {
+      return 0;
+    }
   }
 
   void _navigateToSOS() {
@@ -212,23 +237,61 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
             decoration: const BoxDecoration(color: Color(0xFF142E2E)),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
-              backgroundImage: cache.officerProfileImageUrl != null ? NetworkImage(cache.officerProfileImageUrl!) : null,
+              backgroundImage: cache.officerProfileImageUrl != null
+                  ? NetworkImage(cache.officerProfileImageUrl!)
+                  : null,
               child: cache.officerProfileImageUrl == null
-                  ? Text(cache.officerName.isNotEmpty ? cache.officerName[0].toUpperCase() : "O",
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.brandTeal))
+                  ? Text(
+                      cache.officerName.isNotEmpty
+                          ? cache.officerName[0].toUpperCase()
+                          : "O",
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.brandTeal,
+                      ),
+                    )
                   : null,
             ),
-            accountName: Text(cache.officerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-            accountEmail: Text("UID: ${cache.officerUid ?? '-'}", style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14)),
+            accountName: Text(
+              cache.officerName,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+            accountEmail: Text(
+              "UID: ${cache.officerUid ?? '-'}",
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 14,
+              ),
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("OFFICER CONTEXT", style: TextStyle(color: AppColors.accentGold.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                Text(
+                  "OFFICER CONTEXT",
+                  style: TextStyle(
+                    color: AppColors.accentGold.withValues(alpha: 0.8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
                 const SizedBox(height: 15),
-                _drawerInfoTile(Icons.business_rounded, "Total Sites", "${cache.totalSitesCount} Sites"),
+                _drawerInfoTile(
+                  Icons.business_rounded,
+                  "Total Sites",
+                  "${cache.totalSitesCount} Sites",
+                ),
                 _drawerInfoTile(Icons.security, "Role", "Contractor"),
               ],
             ),
@@ -243,7 +306,13 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
             _onItemTapped(4);
           }),
           const Spacer(),
-          const Padding(padding: EdgeInsets.all(16.0), child: Text("RiskRadar v1.0.2", style: TextStyle(color: Colors.white24, fontSize: 11))),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              "RiskRadar v1.0.2",
+              style: TextStyle(color: Colors.white24, fontSize: 11),
+            ),
+          ),
         ],
       ),
     );
@@ -252,7 +321,14 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
   Widget _drawerTile(IconData icon, String title, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: Colors.white70),
-      title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
       onTap: onTap,
     );
   }
@@ -264,10 +340,26 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
         children: [
           Icon(icon, size: 20, color: AppColors.accentGold),
           const SizedBox(width: 15),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))),
-            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
-          ]),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -286,7 +378,12 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
         );
 
         return RefreshIndicator(
-          onRefresh: _fetchData,
+          onRefresh: () async {
+            await Future.wait([
+              _fetchData(showBlockingLoader: false),
+              ref.read(hazardProvider.notifier).refresh(bypassCache: true),
+            ]);
+          },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(24),
@@ -386,7 +483,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
     required String count,
     required IconData icon,
     required Color color,
-    required VoidCallback onTap
+    required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -404,24 +501,40 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: color, size: 28), // Updated icon color to use passed variable slightly
-                const Icon(Icons.arrow_forward, color: Colors.white24, size: 20),
+                Icon(
+                  icon,
+                  color: color,
+                  size: 28,
+                ), // Updated icon color to use passed variable slightly
+                const Icon(
+                  Icons.arrow_forward,
+                  color: Colors.white24,
+                  size: 20,
+                ),
               ],
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    count,
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)
+                  count,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                    title,
-                    style: const TextStyle(fontSize: 12, color: Colors.white54, height: 1.2)
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white54,
+                    height: 1.2,
+                  ),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -454,13 +567,17 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
     super.build(context);
     if (isLoading) {
       return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: const Center(child: CircularProgressIndicator(color: AppColors.brandTeal))
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.brandTeal),
+        ),
       );
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.grey.shade50;
+    final backgroundColor = isDark
+        ? const Color(0xFF121212)
+        : Colors.grey.shade50;
 
     return PopScope(
       canPop: _selectedIndex == 0,
@@ -478,7 +595,13 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
         resizeToAvoidBottomInset: false,
 
         appBar: AppBar(
-          title: Text(_titles[_selectedIndex], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          title: Text(
+            _titles[_selectedIndex],
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           backgroundColor: AppColors.brandTeal,
           centerTitle: true,
           elevation: 0,
@@ -488,25 +611,37 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
           leading: (_selectedIndex == 0)
               ? GestureDetector(
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
-              child: Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: CircleAvatar(
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: CircleAvatar(
                       backgroundColor: Colors.white,
-                      backgroundImage: cache.officerProfileImageUrl != null ? NetworkImage(cache.officerProfileImageUrl!) : null,
+                      backgroundImage: cache.officerProfileImageUrl != null
+                          ? NetworkImage(cache.officerProfileImageUrl!)
+                          : null,
                       child: cache.officerProfileImageUrl == null
-                          ? Text(cache.officerName.isNotEmpty ? cache.officerName[0].toUpperCase() : "O", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.brandTeal))
-                          : null
-                  )
-              )
-          )
+                          ? Text(
+                              cache.officerName.isNotEmpty
+                                  ? cache.officerName[0].toUpperCase()
+                                  : "O",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.brandTeal,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                )
               : null,
 
           actions: [
             const RealtimeConnectionIndicator(),
             Consumer(
               builder: (context, ref, child) {
-                final count = ref.watch(notificationCountProvider).when(
+                final count = ref
+                    .watch(notificationCountProvider)
+                    .when(
                       data: (value) => value,
                       error: (error, stackTrace) => 0,
                       loading: () => 0,
@@ -515,7 +650,11 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                   alignment: Alignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28),
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -533,12 +672,22 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                           decoration: BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.brandTeal, width: 1.5),
+                            border: Border.all(
+                              color: AppColors.brandTeal,
+                              width: 1.5,
+                            ),
                           ),
-                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
                           child: Text(
                             '$count',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -560,16 +709,24 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
           ],
         ),
 
-        floatingActionButton: _selectedIndex == 0 ? Padding(
-          padding: const EdgeInsets.only(bottom: 90.0),
-          child: FloatingActionButton.extended(
-            backgroundColor: Colors.red.shade600,
-            onPressed: _navigateToSOS,
-            elevation: 4,
-            icon: const Icon(Icons.sos_rounded, color: Colors.white),
-            label: const Text("EMERGENCY", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
-        ) : null,
+        floatingActionButton: _selectedIndex == 0
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 90.0),
+                child: FloatingActionButton.extended(
+                  backgroundColor: Colors.red.shade600,
+                  onPressed: _navigateToSOS,
+                  elevation: 4,
+                  icon: const Icon(Icons.sos_rounded, color: Colors.white),
+                  label: const Text(
+                    "EMERGENCY",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              )
+            : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
         bottomNavigationBar: _buildConcaveNavBar(),
@@ -584,16 +741,18 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            left: 0, right: 0, bottom: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: AnimatedBuilder(
               animation: _curveAnimation,
               builder: (context, child) {
                 return CustomPaint(
                   size: Size(MediaQuery.of(context).size.width, 85),
                   painter: ConcaveNavPainter(
-                      selectedIndex: _curveAnimation.value,
-                      itemsCount: 5,
-                      color: AppColors.brandTeal
+                    selectedIndex: _curveAnimation.value,
+                    itemsCount: 5,
+                    color: AppColors.brandTeal,
                   ),
                 );
               },
@@ -623,7 +782,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 65, height: 85,
+        width: 65,
+        height: 85,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
@@ -633,9 +793,19 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               curve: Curves.easeOutBack,
               top: isSelected ? 0 : 20,
               child: Container(
-                width: 45, height: 45,
-                decoration: BoxDecoration(color: isSelected ? AppColors.accentGold : Colors.transparent, shape: BoxShape.circle),
-                child: Icon(icon, color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.5), size: 22),
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.accentGold : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.5),
+                  size: 22,
+                ),
               ),
             ),
             Positioned(
@@ -643,9 +813,18 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: 1.0,
-                child: Text(label, style: TextStyle(color: isSelected ? AppColors.accentGold : Colors.white70, fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? AppColors.accentGold : Colors.white70,
+                    fontSize: 10,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -660,10 +839,16 @@ class ConcaveNavPainter extends CustomPainter {
   final double selectedIndex;
   final int itemsCount;
   final Color color;
-  ConcaveNavPainter({required this.selectedIndex, required this.itemsCount, required this.color});
+  ConcaveNavPainter({
+    required this.selectedIndex,
+    required this.itemsCount,
+    required this.color,
+  });
   @override
   void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()..color = color..style = PaintingStyle.fill;
+    Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     Path path = Path();
     double barHeight = 65.0;
     double topOffset = size.height - barHeight;
@@ -672,8 +857,22 @@ class ConcaveNavPainter extends CustomPainter {
     double notchRadius = 38.0;
     path.moveTo(0, topOffset);
     path.lineTo(currentCenter - notchRadius - 5, topOffset);
-    path.cubicTo(currentCenter - notchRadius, topOffset, currentCenter - notchRadius + 5, topOffset + 40, currentCenter, topOffset + 40);
-    path.cubicTo(currentCenter + notchRadius - 5, topOffset + 40, currentCenter + notchRadius, topOffset, currentCenter + notchRadius + 5, topOffset);
+    path.cubicTo(
+      currentCenter - notchRadius,
+      topOffset,
+      currentCenter - notchRadius + 5,
+      topOffset + 40,
+      currentCenter,
+      topOffset + 40,
+    );
+    path.cubicTo(
+      currentCenter + notchRadius - 5,
+      topOffset + 40,
+      currentCenter + notchRadius,
+      topOffset,
+      currentCenter + notchRadius + 5,
+      topOffset,
+    );
     path.lineTo(size.width, topOffset);
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
@@ -681,9 +880,9 @@ class ConcaveNavPainter extends CustomPainter {
     canvas.drawShadow(path, Colors.black.withValues(alpha: 0.15), 4.0, true);
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant ConcaveNavPainter oldDelegate) {
     return oldDelegate.selectedIndex != selectedIndex;
   }
 }
-
