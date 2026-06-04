@@ -7,7 +7,8 @@ class EmergencyPermissionDialog {
 
   static Future<void> showIfNeeded(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    final alreadyAsked = prefs.getBool('sos_permission_asked') ?? false;
+    final alreadyAsked =
+        prefs.getBool('sos_critical_permission_asked_v2') ?? false;
 
     if (alreadyAsked || !context.mounted) return;
 
@@ -54,10 +55,7 @@ class EmergencyPermissionDialog {
                   const SizedBox(height: 4),
                   const Text(
                     'One-time safety configuration',
-                    style: TextStyle(
-                      color: Color(0xB3FFFFFF),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Color(0xB3FFFFFF), fontSize: 12),
                   ),
                 ],
               ),
@@ -165,7 +163,7 @@ class EmergencyPermissionDialog {
       ),
     );
 
-    await prefs.setBool('sos_permission_asked', true);
+    await prefs.setBool('sos_critical_permission_asked_v2', true);
 
     if (userAgreed == true) {
       await AwesomeNotifications().requestPermissionToSendNotifications(
@@ -179,6 +177,7 @@ class EmergencyPermissionDialog {
           NotificationPermission.OverrideDnD,
         ],
       );
+      await AwesomeNotifications().showGlobalDndOverridePage();
       await prefs.setBool('sos_permission_granted', true);
       debugPrint('SOS emergency permissions granted');
     } else {
@@ -210,11 +209,7 @@ class _PermissionItem extends StatelessWidget {
               color: const Color(0x141B3D3D),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF1B3D3D),
-              size: 18,
-            ),
+            child: Icon(icon, color: const Color(0xFF1B3D3D), size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -231,10 +226,7 @@ class _PermissionItem extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),

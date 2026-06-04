@@ -27,13 +27,14 @@ Map<String, dynamic>? _pendingInitialSosPayload;
 
 const AndroidNotificationChannel _sosNotificationChannel =
     AndroidNotificationChannel(
-  'sos_alerts_critical',
-  'SOS Critical Alerts',
-  description: 'Critical SOS and hazard foreground alerts',
-  importance: Importance.max,
-  playSound: true,
-  sound: RawResourceAndroidNotificationSound('sos_siren'),
-);
+      'sos_alerts_critical',
+      'SOS Critical Alerts',
+      description: 'Critical SOS and hazard foreground alerts',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('sos_alarm'),
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+    );
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,14 +70,16 @@ void main() async {
 Future<void> _initializeForegroundPushNotifications() async {
   const AndroidInitializationSettings androidSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: androidSettings);
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: androidSettings,
+  );
 
   await _localNotificationsPlugin.initialize(initializationSettings);
 
   final androidPlugin = _localNotificationsPlugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+        AndroidFlutterLocalNotificationsPlugin
+      >();
   await androidPlugin?.createNotificationChannel(_sosNotificationChannel);
 
   final messaging = FirebaseMessaging.instance;
@@ -110,7 +113,9 @@ Future<void> _initializeForegroundPushNotifications() async {
   FirebaseMessaging.onMessageOpenedApp.listen((message) {
     if (_isSosMessage(message)) {
       unawaited(
-        SosOverlayService.showFromPayload(Map<String, dynamic>.from(message.data)),
+        SosOverlayService.showFromPayload(
+          Map<String, dynamic>.from(message.data),
+        ),
       );
     }
   });
@@ -133,7 +138,10 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
   final title =
       data['title']?.toString() ?? notification?.title ?? 'RiskRadar Alert';
   final body =
-      data['body']?.toString() ?? data['message']?.toString() ?? notification?.body ?? '';
+      data['body']?.toString() ??
+      data['message']?.toString() ??
+      notification?.body ??
+      '';
 
   const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'sos_alerts_critical',
@@ -143,13 +151,15 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
     priority: Priority.high,
     icon: '@mipmap/ic_launcher',
     playSound: true,
-    sound: RawResourceAndroidNotificationSound('sos_siren'),
+    sound: RawResourceAndroidNotificationSound('sos_alarm'),
+    audioAttributesUsage: AudioAttributesUsage.alarm,
     enableVibration: true,
     category: AndroidNotificationCategory.alarm,
     fullScreenIntent: true,
   );
-  const NotificationDetails notificationDetails =
-      NotificationDetails(android: androidDetails);
+  const NotificationDetails notificationDetails = NotificationDetails(
+    android: androidDetails,
+  );
 
   await _localNotificationsPlugin.show(
     message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
@@ -171,13 +181,10 @@ Future<void> _saveTokenToSupabase(String token) async {
 
   try {
     debugPrint('🔑 [FCM][Supabase upsert] Token for ${user.id}: $token');
-    await Supabase.instance.client.from('user_fcm_tokens').upsert(
-      {
-        'user_id': user.id,
-        'fcm_token': token,
-      },
-      onConflict: 'user_id',
-    );
+    await Supabase.instance.client.from('user_fcm_tokens').upsert({
+      'user_id': user.id,
+      'fcm_token': token,
+    }, onConflict: 'user_id');
   } catch (e) {
     debugPrint('Failed to save FCM token: $e');
   }
@@ -201,7 +208,11 @@ class _ErrorApp extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 100, color: Colors.red.shade700),
+                Icon(
+                  Icons.error_outline,
+                  size: 100,
+                  color: Colors.red.shade700,
+                ),
                 const SizedBox(height: 24),
                 Text(
                   'Failed to Initialize App',
@@ -284,7 +295,11 @@ class _ErrorApp extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline, size: 16, color: Colors.grey.shade600),
+          Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: Colors.grey.shade600,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -405,9 +420,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
           onUnknownRoute: AppRouter.onUnknownRoute,
           builder: (context, child) {
-            return ErrorBoundary(
-              child: child ?? const SizedBox.shrink(),
-            );
+            return ErrorBoundary(child: child ?? const SizedBox.shrink());
           },
         );
       },
@@ -443,9 +456,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         closeIconColor: Colors.white,
         behavior: SnackBarBehavior.floating,
         elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       ),
       inputDecorationTheme: InputDecorationTheme(
