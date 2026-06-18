@@ -8,6 +8,8 @@ class AppColors {
   static const Color accentGold = Color(0xFFE6A050);
 
   // Surface and Background variants
-  static const Color surfaceTeal = Color(0xFF2C5151); // Lighter version for tabs
+  static const Color surfaceTeal = Color(
+    0xFF2C5151,
+  ); // Lighter version for tabs
   static const Color backgroundLight = Color(0xFFF5F5F5); // Neutral light grey
 }

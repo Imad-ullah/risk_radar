@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -67,7 +68,8 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
         _filteredWorkers = List.from(_workers);
       } else {
         _filteredWorkers = _workers.where((worker) {
-          final fullName = "${worker['first_name']} ${worker['last_name']}".toLowerCase();
+          final fullName = "${worker['first_name']} ${worker['last_name']}"
+              .toLowerCase();
           return fullName.contains(query);
         }).toList();
       }
@@ -80,7 +82,9 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
         _currentSiteId != null &&
         _currentSiteId!.isNotEmpty) {
       _workers = cached
-          .where((worker) => worker['current_site_id']?.toString() == _currentSiteId)
+          .where(
+            (worker) => worker['current_site_id']?.toString() == _currentSiteId,
+          )
           .toList();
       _filterLists();
       setState(() => loading = false);
@@ -159,14 +163,18 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
 
   String _capitalize(String text) {
     if (text.isEmpty) return "";
-    return text.split(' ').map((word) {
-      if (word.isEmpty) return "";
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join(' ');
+    return text
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return "";
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        })
+        .join(' ');
   }
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const tealColor = Color(0xFF1B3D3D);
 
@@ -174,76 +182,103 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: tealColor,
-        title: const Text("Site Workforce", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          "Site Workforce",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
       body: loading
-          ? const Center(child: CircularProgressIndicator(color: tealColor))
+          ? Center(child: CircularProgressIndicator(color: tealColor))
           : Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-            decoration: const BoxDecoration(
-              color: tealColor,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search workers...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.1),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
-              ),
-            ),
-          ),
-
-          Expanded(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: _filteredWorkers.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.group_off_rounded, size: 60, color: Colors.grey.shade400),
-                    const SizedBox(height: 10),
-                    Text(
-                      _mustRegisterToSite
-                          ? _registerToSiteMessage
-                          : "No workers found",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.grey, fontSize: 16),
+              children: [
+                Container(
+                  padding: EdgeInsets.fromLTRB(
+                    R.blockH * 5,
+                    R.blockV * 1.25,
+                    R.blockH * 5,
+                    R.blockV * 2.5,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: tealColor,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
                     ),
-                  ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    style: TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Search workers...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                      prefixIcon: Icon(Icons.search, color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: R.blockV * 0,
+                        horizontal: R.blockH * 5,
+                      ),
+                    ),
+                  ),
                 ),
-              )
-                  : GridView.builder(
-                padding: const EdgeInsets.all(20),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.95, // Kept this ratio
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: _filteredWorkers.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.group_off_rounded,
+                                  size: 60,
+                                  color: Colors.grey.shade400,
+                                ),
+                                SizedBox(height: R.blockV * 1.25),
+                                Text(
+                                  _mustRegisterToSite
+                                      ? _registerToSiteMessage
+                                      : "No workers found",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: R.blockH * 4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : GridView.builder(
+                            padding: EdgeInsets.all(R.blockH * 5),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.95, // Kept this ratio
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                            itemCount: _filteredWorkers.length,
+                            itemBuilder: (context, index) {
+                              return _buildStylishMemberCard(
+                                _filteredWorkers[index],
+                                index,
+                              );
+                            },
+                          ),
+                  ),
                 ),
-                itemCount: _filteredWorkers.length,
-                itemBuilder: (context, index) {
-                  return _buildStylishMemberCard(_filteredWorkers[index], index);
-                },
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -261,10 +296,8 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => WorkerProfileScreen(
-              worker: user,
-              tableName: 'workers',
-            ),
+            builder: (_) =>
+                WorkerProfileScreen(worker: user, tableName: 'workers'),
           ),
         );
       },
@@ -275,7 +308,7 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
-              offset: const Offset(0, 5),
+              offset: Offset(0, 5),
             ),
           ],
         ),
@@ -293,10 +326,7 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [
-                            tealColor,
-                            Color(0xFF2C5E5E),
-                          ],
+                          colors: [tealColor, Color(0xFF2C5E5E)],
                         ),
                       ),
                     ),
@@ -306,7 +336,12 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
                     child: Container(
                       color: Colors.white,
                       width: double.infinity,
-                      padding: const EdgeInsets.only(top: 38, left: 4, right: 4, bottom: 5),
+                      padding: EdgeInsets.only(
+                        top: R.blockV * 4.75,
+                        left: R.blockH * 1,
+                        right: R.blockH * 1,
+                        bottom: R.blockV * 0.625,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
@@ -315,20 +350,20 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
                             textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
+                            style: TextStyle(
+                              fontSize: R.blockH * 4,
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(height: 0),
+                          SizedBox(height: 0),
                           Text(
                             designation.toUpperCase(),
                             textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: R.blockH * 2.75,
                               fontWeight: FontWeight.w600,
                               color: tealColor.withValues(alpha: 0.7),
                               letterSpacing: 0.5,
@@ -350,21 +385,26 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
+                      border: Border.all(
+                        color: Colors.white,
+                        width: R.blockH * 1.067,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        )
+                          offset: Offset(0, 4),
+                        ),
                       ],
                     ),
                     child: CircleAvatar(
                       radius: 38,
                       backgroundColor: Colors.grey.shade200,
-                      backgroundImage: imageUrl != null ? CachedNetworkImageProvider(imageUrl) : null,
+                      backgroundImage: imageUrl != null
+                          ? CachedNetworkImageProvider(imageUrl)
+                          : null,
                       child: imageUrl == null
-                          ? const Icon(Icons.person, size: 40, color: Colors.grey)
+                          ? Icon(Icons.person, size: 40, color: Colors.grey)
                           : null,
                     ),
                   ),
@@ -377,4 +417,3 @@ class _HSETeamMembersScreenState extends State<HSETeamMembersScreen>
     );
   }
 }
-

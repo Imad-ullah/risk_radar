@@ -1,5 +1,6 @@
 // lib/officer_emergency_details_screen.dart
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -251,6 +252,7 @@ class _OfficerEmergencyDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark
         ? const Color(0xFF121212)
@@ -259,7 +261,7 @@ class _OfficerEmergencyDetailsScreenState
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'My Emergency Details',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
@@ -267,14 +269,17 @@ class _OfficerEmergencyDetailsScreenState
         foregroundColor: Colors.white,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: R.blockH * 4,
+                vertical: R.blockV * 3,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -292,16 +297,16 @@ class _OfficerEmergencyDetailsScreenState
                               ? 'Please enter a contact name'
                               : null,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: R.blockV * 2),
                         _buildTextField(
                           controller: _relationshipController,
                           label: 'Relationship',
                           isDark: isDark,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: R.blockV * 2),
                         ..._phoneControllers.asMap().entries.map((entry) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
+                            padding: EdgeInsets.only(bottom: R.blockV * 1.5),
                             child: _buildTextField(
                               controller: entry.value,
                               label: 'Phone Number ${entry.key + 1}',
@@ -309,7 +314,7 @@ class _OfficerEmergencyDetailsScreenState
                               inputType: TextInputType.phone,
                               suffixIcon: _phoneControllers.length > 1
                                   ? IconButton(
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.remove_circle,
                                         color: Colors.redAccent,
                                       ),
@@ -327,11 +332,11 @@ class _OfficerEmergencyDetailsScreenState
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
                             onPressed: _addPhoneNumber,
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.add_rounded,
                               color: AppColors.brandTeal,
                             ),
-                            label: const Text(
+                            label: Text(
                               'Add Number',
                               style: TextStyle(
                                 color: AppColors.brandTeal,
@@ -342,7 +347,7 @@ class _OfficerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: R.blockV * 2.5),
                     _buildSectionCard(
                       title: 'Medical Information',
                       icon: Icons.medical_services_rounded,
@@ -373,13 +378,13 @@ class _OfficerEmergencyDetailsScreenState
                               : Colors.white,
                           decoration: _inputDecoration('Blood Type', isDark),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: R.blockV * 2),
                         _buildTextField(
                           controller: _allergiesController,
                           label: 'Allergies',
                           isDark: isDark,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: R.blockV * 2),
                         _buildTextField(
                           controller: _conditionsController,
                           label: 'Chronic Conditions',
@@ -387,7 +392,7 @@ class _OfficerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: R.blockV * 2.5),
                     _buildSectionCard(
                       title: 'Emergency Services',
                       icon: Icons.local_hospital_rounded,
@@ -399,7 +404,7 @@ class _OfficerEmergencyDetailsScreenState
                           isDark: isDark,
                           inputType: TextInputType.phone,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: R.blockV * 2),
                         _buildTextField(
                           controller: _fireBrigadeController,
                           label: 'Fire Brigade Number',
@@ -408,7 +413,7 @@ class _OfficerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: R.blockV * 2.5),
                     _buildSectionCard(
                       title: 'Contact For Workers',
                       icon: Icons.work_rounded,
@@ -423,7 +428,7 @@ class _OfficerEmergencyDetailsScreenState
                                     : Colors.grey[700],
                               ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: R.blockV * 2),
                         _buildTextField(
                           controller: _supervisorController,
                           label: 'Your Contact Number',
@@ -435,7 +440,7 @@ class _OfficerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: R.blockV * 4),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -443,22 +448,22 @@ class _OfficerEmergencyDetailsScreenState
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.brandTeal,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: EdgeInsets.symmetric(vertical: R.blockV * 2),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 4,
                         ),
-                        child: const Text(
+                        child: Text(
                           'Save My Details',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: R.blockH * 4,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: R.blockV * 2.5),
                   ],
                 ),
               ),
@@ -480,36 +485,36 @@ class _OfficerEmergencyDetailsScreenState
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(R.blockH * 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(R.blockH * 2),
                 decoration: BoxDecoration(
                   color: AppColors.brandTeal.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: AppColors.brandTeal, size: 22),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: R.blockH * 3.2),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: R.blockH * 4.5,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: R.blockV * 2.5),
           ...children,
         ],
       ),
@@ -553,7 +558,10 @@ class _OfficerEmergencyDetailsScreenState
       labelStyle: TextStyle(color: labelColor),
       filled: true,
       fillColor: fillColor,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: R.blockH * 4,
+        vertical: R.blockV * 1.75,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: borderColor),

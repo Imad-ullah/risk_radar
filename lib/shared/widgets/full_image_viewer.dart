@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 
 class FullscreenImageViewer extends StatefulWidget {
   final List<String> imageUrls;
@@ -27,6 +28,7 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -50,9 +52,9 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
                       fit: BoxFit.contain,
                       loadingBuilder: (_, child, progress) => progress == null
                           ? child
-                          : const Center(child: CircularProgressIndicator()),
+                          : Center(child: CircularProgressIndicator()),
                       errorBuilder: (_, _, _) =>
-                      const Center(child: Icon(Icons.error, color: Colors.white)),
+                          Center(child: Icon(Icons.error, color: Colors.white)),
                     ),
                   ),
                 ),
@@ -65,7 +67,7 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
             top: 40,
             right: 20,
             child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              icon: Icon(Icons.close, color: Colors.white, size: 28),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -81,11 +83,13 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
                 children: List.generate(widget.imageUrls.length, (index) {
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    height: 8,
+                    margin: EdgeInsets.symmetric(horizontal: R.blockH * 1),
+                    height: R.blockV * 1,
                     width: _currentIndex == index ? 24 : 8,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: _currentIndex == index ? 0.9 : 0.4),
+                      color: Colors.white.withValues(
+                        alpha: _currentIndex == index ? 0.9 : 0.4,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   );

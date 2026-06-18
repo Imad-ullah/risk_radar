@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 
@@ -28,6 +29,7 @@ class WorkerProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     // Both First and Last name initials capitalized
     final firstName = capitalize(worker['first_name'] ?? '');
     final lastName = capitalize(worker['last_name'] ?? '');
@@ -50,12 +52,12 @@ class WorkerProfileScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Profile',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -67,21 +69,19 @@ class WorkerProfileScreen extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            height: 320,
+            height: R.blockV * 40,
             child: ClipPath(
               clipper: ProfileHeaderClipper(),
-              child: Container(
-                color: _headerTeal,
-              ),
+              child: Container(color: _headerTeal),
             ),
           ),
 
           // 2. MAIN CONTENT
           SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: R.blockH * 6),
             child: Column(
               children: [
-                const SizedBox(height: 110),
+                SizedBox(height: R.blockV * 13.75),
 
                 // 3. FLOATING PROFILE CARD
                 Stack(
@@ -89,8 +89,13 @@ class WorkerProfileScreen extends StatelessWidget {
                   alignment: Alignment.topCenter,
                   children: [
                     Container(
-                      margin: const EdgeInsets.only(top: 50),
-                      padding: const EdgeInsets.fromLTRB(20, 65, 20, 30),
+                      margin: EdgeInsets.only(top: R.blockV * 6.25),
+                      padding: EdgeInsets.fromLTRB(
+                        R.blockH * 5,
+                        R.blockV * 8.125,
+                        R.blockH * 5,
+                        R.blockV * 3.75,
+                      ),
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: _cardWhite,
@@ -99,7 +104,7 @@ class WorkerProfileScreen extends StatelessWidget {
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 20,
-                            offset: const Offset(0, 10),
+                            offset: Offset(0, 10),
                           ),
                         ],
                       ),
@@ -108,26 +113,29 @@ class WorkerProfileScreen extends StatelessWidget {
                           // Name Header (Strictly Capitalized)
                           Text(
                             fullName.isEmpty ? "Unknown Profile" : fullName,
-                            style: const TextStyle(
-                              fontSize: 24,
+                            style: TextStyle(
+                              fontSize: R.blockH * 6,
                               fontWeight: FontWeight.bold,
                               color: _textDark,
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: R.blockV * 2),
                           // ID Chip (Role mention removed from here as requested)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: R.blockH * 3.5,
+                              vertical: R.blockV * 0.75,
+                            ),
                             decoration: BoxDecoration(
                               color: _headerTeal.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               "Worker ID: $uid",
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _headerTeal,
-                                fontSize: 13,
+                                fontSize: R.blockH * 3.25,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -140,7 +148,7 @@ class WorkerProfileScreen extends StatelessWidget {
                     Positioned(
                       top: 0,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: EdgeInsets.all(R.blockH * 1),
                         decoration: const BoxDecoration(
                           color: _cardWhite,
                           shape: BoxShape.circle,
@@ -149,10 +157,12 @@ class WorkerProfileScreen extends StatelessWidget {
                           radius: 50,
                           backgroundColor: Colors.grey.shade200,
                           backgroundImage: worker['profile_image_url'] != null
-                              ? CachedNetworkImageProvider(worker['profile_image_url'])
+                              ? CachedNetworkImageProvider(
+                                  worker['profile_image_url'],
+                                )
                               : null,
                           child: worker['profile_image_url'] == null
-                              ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                              ? Icon(Icons.person, size: 50, color: Colors.grey)
                               : null,
                         ),
                       ),
@@ -160,21 +170,21 @@ class WorkerProfileScreen extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 30),
+                SizedBox(height: R.blockV * 3.75),
 
                 // 4. GENERAL INFO LIST
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     "General Information",
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: R.blockH * 4.5,
                       fontWeight: FontWeight.bold,
                       color: _textDark,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: R.blockV * 2),
 
                 // Colorful Info Tiles
                 _buildInfoTile(
@@ -207,7 +217,7 @@ class WorkerProfileScreen extends StatelessWidget {
                   bgColor: Colors.deepPurple.withValues(alpha: 0.1),
                 ),
 
-                const SizedBox(height: 40),
+                SizedBox(height: R.blockV * 5),
               ],
             ),
           ),
@@ -224,8 +234,11 @@ class WorkerProfileScreen extends StatelessWidget {
     required Color bgColor,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      margin: EdgeInsets.only(bottom: R.blockV * 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: R.blockH * 4,
+        vertical: R.blockV * 2,
+      ),
       decoration: BoxDecoration(
         color: _cardWhite,
         borderRadius: BorderRadius.circular(16),
@@ -234,15 +247,15 @@ class WorkerProfileScreen extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: R.blockH * 12.267,
+            height: R.blockV * 5.75,
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: iconColor, size: 24),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: R.blockH * 4.267),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,16 +263,16 @@ class WorkerProfileScreen extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: R.blockH * 3,
                     color: Colors.grey.shade500,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 15,
+                  style: TextStyle(
+                    fontSize: R.blockH * 3.75,
                     color: _textDark,
                     fontWeight: FontWeight.bold,
                   ),
@@ -281,10 +294,10 @@ class ProfileHeaderClipper extends CustomClipper<Path> {
     final path = Path();
     path.lineTo(0, size.height - 60);
     path.quadraticBezierTo(
-        size.width / 2,
-        size.height,
-        size.width,
-        size.height - 60
+      size.width / 2,
+      size.height,
+      size.width,
+      size.height - 60,
     );
     path.lineTo(size.width, 0);
     path.close();

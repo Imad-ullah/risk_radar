@@ -1,6 +1,7 @@
 // lib/officers/screens/officer_analytics_screen.dart
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/services/repositories/officer_repository.dart';
@@ -112,7 +113,9 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
       // 4. Fetch Resolved
       _rawResolved = await supabase
           .from('resolved_hazards')
-          .select('id, current_site_id, created_at, resolved_at, hazard_type, severity')
+          .select(
+            'id, current_site_id, created_at, resolved_at, hazard_type, severity',
+          )
           .eq('officer_uid', officerUid);
 
       await OfficerRepository.instance.saveOfficerAnalytics({
@@ -123,7 +126,6 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
       });
 
       _applyFilter();
-
     } on SocketException {
       debugPrint("Officer analytics offline - using cached data.");
     } catch (e) {
@@ -158,7 +160,8 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
 
     bool isMatch(Map<String, dynamic> h, String dateField) {
       // 1. Check Site Filter
-      if (_selectedSiteId != null && h['current_site_id'].toString() != _selectedSiteId) {
+      if (_selectedSiteId != null &&
+          h['current_site_id'].toString() != _selectedSiteId) {
         return false;
       }
       // 2. Check Time Filter
@@ -172,8 +175,12 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     }
 
     // 1. Filter the lists
-    final filteredReported = _rawReported.where((h) => isMatch(h, 'created_at')).toList();
-    final filteredAssigned = _rawAssigned.where((h) => isMatch(h, 'created_at')).toList();
+    final filteredReported = _rawReported
+        .where((h) => isMatch(h, 'created_at'))
+        .toList();
+    final filteredAssigned = _rawAssigned
+        .where((h) => isMatch(h, 'created_at'))
+        .toList();
 
     final Map<String, dynamic> uniqueResolved = {};
     for (var hazard in _rawResolved) {
@@ -203,7 +210,8 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
       if (hazard['created_at'] != null && hazard['resolved_at'] != null) {
         final DateTime created = DateTime.parse(hazard['created_at']);
         final DateTime resolved = DateTime.parse(hazard['resolved_at']);
-        final double hoursTaken = resolved.difference(created).inMinutes.abs() / 60.0;
+        final double hoursTaken =
+            resolved.difference(created).inMinutes.abs() / 60.0;
         totalHours += hoursTaken;
         validTimeRecords++;
       }
@@ -254,7 +262,8 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
       }
       typeCounts[type] = (typeCounts[type] ?? 0) + 1;
 
-      String severity = hazard['severity']?.toString().toLowerCase().trim() ?? 'low';
+      String severity =
+          hazard['severity']?.toString().toLowerCase().trim() ?? 'low';
       if (severity == 'high') {
         _highSeverityCount++;
       } else if (severity == 'moderate') {
@@ -274,7 +283,8 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
       processChartData(h);
     }
 
-    var sortedTypes = typeCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    var sortedTypes = typeCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     _topHazardsByType = sortedTypes.take(5).toList();
   }
 
@@ -300,6 +310,7 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
@@ -309,181 +320,258 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('System Analytics', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          'System Analytics',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppColors.brandTeal,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.brandTeal))
+          ? Center(child: CircularProgressIndicator(color: AppColors.brandTeal))
           : RefreshIndicator(
-        onRefresh: () => _fetchAnalyticsData(showBlockingLoader: false),
-        color: AppColors.brandTeal,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Dashboard Header with Filter Dropdowns
-              Text('EXECUTIVE VISIBILITY',
-                  style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Dashboard & KPIs',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.brandTeal)),
-              const SizedBox(height: 20),
-
-              // Filter Row (Now fully restored and properly wrapped)
-              Row(
-                children: [
-                  // TIME FILTER
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: AppColors.brandTeal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<TimeFilter>(
-                          isExpanded: true,
-                          value: _selectedFilter,
-                          icon: Icon(Icons.calendar_today, size: 16, color: filterTextColor),
-                          style: TextStyle(color: filterTextColor, fontWeight: FontWeight.bold, fontSize: 13),
-                          dropdownColor: cardColor,
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                _selectedFilter = val;
-                                _applyFilter();
-                              });
-                            }
-                          },
-                          items: TimeFilter.values.map((TimeFilter filter) {
-                            return DropdownMenuItem<TimeFilter>(
-                              value: filter,
-                              child: Text(_getFilterLabel(filter)),
-                            );
-                          }).toList(),
-                        ),
+              onRefresh: () => _fetchAnalyticsData(showBlockingLoader: false),
+              color: AppColors.brandTeal,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(R.blockH * 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Dashboard Header with Filter Dropdowns
+                    Text(
+                      'EXECUTIVE VISIBILITY',
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontSize: R.blockH * 3,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // SITE FILTER
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: AppColors.brandTeal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          isExpanded: true,
-                          value: _selectedSiteId,
-                          icon: Icon(Icons.location_on, size: 16, color: filterTextColor),
-                          style: TextStyle(color: filterTextColor, fontWeight: FontWeight.bold, fontSize: 13),
-                          dropdownColor: cardColor,
-                          onChanged: (val) {
-                            setState(() {
-                              _selectedSiteId = val;
-                              _applyFilter();
-                            });
-                          },
-                          items: [
-                            const DropdownMenuItem<String?>(value: null, child: Text("All Sites")),
-                            ..._availableSites.map((site) {
-                              return DropdownMenuItem<String?>(
-                                value: site['id'].toString(),
-                                child: Text(site['name'] ?? 'Unknown Site', maxLines: 1, overflow: TextOverflow.ellipsis),
-                              );
-                            }),
-                          ],
-                        ),
+                    SizedBox(height: R.blockV * 0.5),
+                    Text(
+                      'Dashboard & KPIs',
+                      style: TextStyle(
+                        fontSize: R.blockH * 5.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.brandTeal,
                       ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: R.blockV * 2.5),
+
+                    // Filter Row (Now fully restored and properly wrapped)
+                    Row(
+                      children: [
+                        // TIME FILTER
+                        Expanded(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: R.blockH * 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.brandTeal.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<TimeFilter>(
+                                isExpanded: true,
+                                value: _selectedFilter,
+                                icon: Icon(
+                                  Icons.calendar_today,
+                                  size: 16,
+                                  color: filterTextColor,
+                                ),
+                                style: TextStyle(
+                                  color: filterTextColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: R.blockH * 3.25,
+                                ),
+                                dropdownColor: cardColor,
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedFilter = val;
+                                      _applyFilter();
+                                    });
+                                  }
+                                },
+                                items: TimeFilter.values.map((
+                                  TimeFilter filter,
+                                ) {
+                                  return DropdownMenuItem<TimeFilter>(
+                                    value: filter,
+                                    child: Text(_getFilterLabel(filter)),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: R.blockH * 3.2),
+
+                        // SITE FILTER
+                        Expanded(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: R.blockH * 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.brandTeal.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String?>(
+                                isExpanded: true,
+                                value: _selectedSiteId,
+                                icon: Icon(
+                                  Icons.location_on,
+                                  size: 16,
+                                  color: filterTextColor,
+                                ),
+                                style: TextStyle(
+                                  color: filterTextColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: R.blockH * 3.25,
+                                ),
+                                dropdownColor: cardColor,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _selectedSiteId = val;
+                                    _applyFilter();
+                                  });
+                                },
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text("All Sites"),
+                                  ),
+                                  ..._availableSites.map((site) {
+                                    return DropdownMenuItem<String?>(
+                                      value: site['id'].toString(),
+                                      child: Text(
+                                        site['name'] ?? 'Unknown Site',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: R.blockV * 3),
+
+                    // KPI Grid
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildKPICard(
+                            icon: Icons.warning_amber_rounded,
+                            label: "Total Hazards",
+                            value: _totalHazards.toString(),
+                            indicatorLabel: _getFilterLabel(_selectedFilter),
+                            indicatorColor: Colors.blue.shade600,
+                            backgroundColor: cardColor,
+                            isDark: isDark,
+                          ),
+                        ),
+                        SizedBox(width: R.blockH * 4.267),
+                        Expanded(
+                          child: _buildKPICard(
+                            icon: Icons.access_time_filled_rounded,
+                            label: "Avg. Time",
+                            value: "${_resolutionTimeAvg.toStringAsFixed(1)}h",
+                            indicatorLabel: "per hazard",
+                            indicatorColor: const Color(0xFF10B981),
+                            backgroundColor: cardColor,
+                            isDark: isDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: R.blockV * 2),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildKPICard(
+                            icon: Icons.check_circle_rounded,
+                            label: "Resolution",
+                            value:
+                                "${(_resolutionRatePercentage * 100).toInt()}%",
+                            indicatorLabel: _resolutionRatePercentage > 0.8
+                                ? "On target"
+                                : "Needs Review",
+                            indicatorColor: _resolutionRatePercentage > 0.8
+                                ? const Color(0xFF10B981)
+                                : Colors.orange,
+                            backgroundColor: cardColor,
+                            isDark: isDark,
+                          ),
+                        ),
+                        SizedBox(width: R.blockH * 4.267),
+                        Expanded(
+                          child: _buildKPICard(
+                            icon: Icons.location_on_rounded,
+                            label: "Sites Checked",
+                            value: _sitesMonitoredTotal.toString(),
+                            indicatorLabel: "$_sitesActiveCount active",
+                            indicatorColor: _sitesActiveCount > 0
+                                ? Colors.red.shade600
+                                : Colors.grey,
+                            backgroundColor: cardColor,
+                            isDark: isDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: R.blockV * 3),
+
+                    // Charts
+                    _buildDonutChartCard(
+                      backgroundColor: cardColor,
+                      isDark: isDark,
+                    ),
+                    SizedBox(height: R.blockV * 3),
+
+                    _buildBarChartCard(
+                      backgroundColor: cardColor,
+                      isDark: isDark,
+                    ),
+                    SizedBox(height: R.blockV * 3),
+
+                    _buildSeverityChartCard(
+                      backgroundColor: cardColor,
+                      isDark: isDark,
+                    ),
+                    SizedBox(height: R.blockV * 5),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-
-              // KPI Grid
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildKPICard(
-                        icon: Icons.warning_amber_rounded,
-                        label: "Total Hazards",
-                        value: _totalHazards.toString(),
-                        indicatorLabel: _getFilterLabel(_selectedFilter),
-                        indicatorColor: Colors.blue.shade600,
-                        backgroundColor: cardColor,
-                        isDark: isDark),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildKPICard(
-                        icon: Icons.access_time_filled_rounded,
-                        label: "Avg. Time",
-                        value: "${_resolutionTimeAvg.toStringAsFixed(1)}h",
-                        indicatorLabel: "per hazard",
-                        indicatorColor: const Color(0xFF10B981),
-                        backgroundColor: cardColor,
-                        isDark: isDark),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildKPICard(
-                        icon: Icons.check_circle_rounded,
-                        label: "Resolution",
-                        value: "${(_resolutionRatePercentage * 100).toInt()}%",
-                        indicatorLabel: _resolutionRatePercentage > 0.8 ? "On target" : "Needs Review",
-                        indicatorColor: _resolutionRatePercentage > 0.8 ? const Color(0xFF10B981) : Colors.orange,
-                        backgroundColor: cardColor,
-                        isDark: isDark),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildKPICard(
-                        icon: Icons.location_on_rounded,
-                        label: "Sites Checked",
-                        value: _sitesMonitoredTotal.toString(),
-                        indicatorLabel: "$_sitesActiveCount active",
-                        indicatorColor: _sitesActiveCount > 0 ? Colors.red.shade600 : Colors.grey,
-                        backgroundColor: cardColor,
-                        isDark: isDark),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Charts
-              _buildDonutChartCard(backgroundColor: cardColor, isDark: isDark),
-              const SizedBox(height: 24),
-
-              _buildBarChartCard(backgroundColor: cardColor, isDark: isDark),
-              const SizedBox(height: 24),
-
-              _buildSeverityChartCard(backgroundColor: cardColor, isDark: isDark),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
   // --- Helper Builders ---
 
   Widget _buildKPICard({
-    required IconData icon, required String label, required String value,
-    required String indicatorLabel, required Color indicatorColor,
-    required Color backgroundColor, required bool isDark,
+    required IconData icon,
+    required String label,
+    required String value,
+    required String indicatorLabel,
+    required Color indicatorColor,
+    required Color backgroundColor,
+    required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(12)),
+      padding: EdgeInsets.all(R.blockH * 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -492,32 +580,63 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(icon, color: AppColors.brandTeal, size: 24),
-              const SizedBox(width: 8),
+              SizedBox(width: R.blockH * 2.133),
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(color: indicatorColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: R.blockH * 1.5,
+                    vertical: R.blockV * 0.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: indicatorColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(indicatorLabel, style: TextStyle(color: indicatorColor, fontWeight: FontWeight.w600, fontSize: 10)),
+                    child: Text(
+                      indicatorLabel,
+                      style: TextStyle(
+                        color: indicatorColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: R.blockH * 2.5,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: R.blockV * 1.5),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: R.blockH * 7,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
           ),
-          const SizedBox(height: 2),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+          SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: R.blockH * 2.75,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDonutChartCard({required Color backgroundColor, required bool isDark}) {
+  Widget _buildDonutChartCard({
+    required Color backgroundColor,
+    required bool isDark,
+  }) {
     double resolvedPercent = 0.0;
     double inProgressPercent = 0.0;
     double reportedPercent = 0.0;
@@ -529,61 +648,101 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(12)),
+      padding: EdgeInsets.all(R.blockH * 5),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Hazard Status Distribution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
+          Text(
+            'Hazard Status Distribution',
+            style: TextStyle(
+              fontSize: R.blockH * 4,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: R.blockV * 2.5),
           if (_totalHazards == 0)
-            const SizedBox(height: 150, child: Center(child: Text("No hazards in this period.")))
+            SizedBox(
+              height: R.blockV * 18.75,
+              child: Center(child: Text("No hazards in this period.")),
+            )
           else
             AspectRatio(
               aspectRatio: 1.5,
               child: PieChart(
                 PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 50,
-                    sections: [
-                      PieChartSectionData(
-                          color: const Color(0xFF10B981),
-                          value: resolvedPercent,
-                          title: "${(resolvedPercent * 100).toStringAsFixed(1)}%",
-                          radius: 30,
-                          titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                      PieChartSectionData(
-                          color: const Color(0xFF172554),
-                          value: inProgressPercent,
-                          title: "${(inProgressPercent * 100).toStringAsFixed(1)}%",
-                          radius: 30,
-                          titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                      PieChartSectionData(
-                          color: const Color(0xFFF59E0B),
-                          value: reportedPercent,
-                          title: "${(reportedPercent * 100).toStringAsFixed(1)}%",
-                          radius: 30,
-                          titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ]),
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 50,
+                  sections: [
+                    PieChartSectionData(
+                      color: const Color(0xFF10B981),
+                      value: resolvedPercent,
+                      title: "${(resolvedPercent * 100).toStringAsFixed(1)}%",
+                      radius: 30,
+                      titleStyle: TextStyle(
+                        fontSize: R.blockH * 2.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    PieChartSectionData(
+                      color: const Color(0xFF172554),
+                      value: inProgressPercent,
+                      title: "${(inProgressPercent * 100).toStringAsFixed(1)}%",
+                      radius: 30,
+                      titleStyle: TextStyle(
+                        fontSize: R.blockH * 2.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    PieChartSectionData(
+                      color: const Color(0xFFF59E0B),
+                      value: reportedPercent,
+                      title: "${(reportedPercent * 100).toStringAsFixed(1)}%",
+                      radius: 30,
+                      titleStyle: TextStyle(
+                        fontSize: R.blockH * 2.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          const SizedBox(height: 16),
+          SizedBox(height: R.blockV * 2),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 16,
             runSpacing: 8,
             children: [
-              _buildLegendItem(color: const Color(0xFF10B981), label: "Resolved ($_resolvedCount)"),
-              _buildLegendItem(color: const Color(0xFF172554), label: "In Progress ($_inProgressCount)"),
-              _buildLegendItem(color: const Color(0xFFF59E0B), label: "Reported ($_reportedCount)"),
+              _buildLegendItem(
+                color: const Color(0xFF10B981),
+                label: "Resolved ($_resolvedCount)",
+              ),
+              _buildLegendItem(
+                color: const Color(0xFF172554),
+                label: "In Progress ($_inProgressCount)",
+              ),
+              _buildLegendItem(
+                color: const Color(0xFFF59E0B),
+                label: "Reported ($_reportedCount)",
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildBarChartCard({required Color backgroundColor, required bool isDark}) {
+  Widget _buildBarChartCard({
+    required Color backgroundColor,
+    required bool isDark,
+  }) {
     final textColor = isDark ? Colors.white70 : Colors.black54;
     final axisLineColor = isDark ? Colors.white30 : Colors.black26;
 
@@ -600,85 +759,120 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(12)),
+      padding: EdgeInsets.all(R.blockH * 5),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Top Hazards by Type', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                'Top Hazards by Type',
+                style: TextStyle(
+                  fontSize: R.blockH * 4,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Icon(Icons.bar_chart_rounded, color: Colors.grey.shade400),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: R.blockV * 2.5),
 
           if (_topHazardsByType.isEmpty)
-            const SizedBox(height: 150, child: Center(child: Text("No hazards in this period.")))
+            SizedBox(
+              height: R.blockV * 18.75,
+              child: Center(child: Text("No hazards in this period.")),
+            )
           else
             AspectRatio(
               aspectRatio: 1.3,
               child: BarChart(
                 BarChartData(
-                    maxY: maxY,
-                    gridData: const FlGridData(show: false),
-                    titlesData: FlTitlesData(
-                        show: true,
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 30,
-                              interval: yInterval,
-                              getTitlesWidget: (value, meta) {
-                                return Text(value.toInt().toString(), style: TextStyle(color: textColor, fontSize: 10));
-                              },
-                            )
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 28,
-                              getTitlesWidget: (value, meta) {
-                                if (value.toInt() >= _topHazardsByType.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Text(_shortenLabel(_topHazardsByType[value.toInt()].key), style: TextStyle(color: textColor, fontSize: 10)),
-                                );
-                              }),
-                        )),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: Border(
-                        left: BorderSide(color: axisLineColor, width: 1.5),
-                        bottom: BorderSide(color: axisLineColor, width: 1.5),
-                        top: BorderSide.none,
-                        right: BorderSide.none,
+                  maxY: maxY,
+                  gridData: const FlGridData(show: false),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: yInterval,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: R.blockH * 2.5,
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    barGroups: List.generate(_topHazardsByType.length, (index) {
-                      final int value = _topHazardsByType[index].value;
-                      return BarChartGroupData(
-                        x: index,
-                        barRods: [
-                          BarChartRodData(
-                              toY: value.toDouble(),
-                              color: AppColors.brandTeal,
-                              width: 20,
-                              borderRadius: const BorderRadius.all(Radius.circular(4)),
-                              backDrawRodData: BackgroundBarChartRodData(
-                                show: true,
-                                toY: maxY,
-                                color: AppColors.brandTeal.withValues(alpha: 0.05),
-                              )
-                          )
-                        ],
-                      );
-                    })),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= _topHazardsByType.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: EdgeInsets.only(top: R.blockV * 1),
+                            child: Text(
+                              _shortenLabel(
+                                _topHazardsByType[value.toInt()].key,
+                              ),
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: R.blockH * 2.5,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border(
+                      left: BorderSide(color: axisLineColor, width: 1.5),
+                      bottom: BorderSide(color: axisLineColor, width: 1.5),
+                      top: BorderSide.none,
+                      right: BorderSide.none,
+                    ),
+                  ),
+                  barGroups: List.generate(_topHazardsByType.length, (index) {
+                    final int value = _topHazardsByType[index].value;
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: value.toDouble(),
+                          color: AppColors.brandTeal,
+                          width: R.blockH * 5.333,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(4),
+                          ),
+                          backDrawRodData: BackgroundBarChartRodData(
+                            show: true,
+                            toY: maxY,
+                            color: AppColors.brandTeal.withValues(alpha: 0.05),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
               ),
             ),
         ],
@@ -686,7 +880,10 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     );
   }
 
-  Widget _buildSeverityChartCard({required Color backgroundColor, required bool isDark}) {
+  Widget _buildSeverityChartCard({
+    required Color backgroundColor,
+    required bool isDark,
+  }) {
     final textColor = isDark ? Colors.white70 : Colors.black54;
     final axisLineColor = isDark ? Colors.white30 : Colors.black26;
 
@@ -707,86 +904,139 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(12)),
+      padding: EdgeInsets.all(R.blockH * 5),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Hazards by Severity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                'Hazards by Severity',
+                style: TextStyle(
+                  fontSize: R.blockH * 4,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Icon(Icons.assessment_outlined, color: Colors.grey.shade400),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: R.blockV * 2.5),
 
           if (_totalHazards == 0)
-            const SizedBox(height: 150, child: Center(child: Text("No hazards in this period.")))
+            SizedBox(
+              height: R.blockV * 18.75,
+              child: Center(child: Text("No hazards in this period.")),
+            )
           else
             AspectRatio(
               aspectRatio: 1.3,
               child: BarChart(
                 BarChartData(
-                    maxY: maxY,
-                    gridData: const FlGridData(show: false),
-                    titlesData: FlTitlesData(
-                        show: true,
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 30,
-                            interval: yInterval,
-                            getTitlesWidget: (value, meta) {
-                              return Text(value.toInt().toString(), style: TextStyle(color: textColor, fontSize: 10));
-                            },
-                          ),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 28,
-                              getTitlesWidget: (value, meta) {
-                                String text = '';
-                                if (value.toInt() == 0) {
-                                  text = 'High';
-                                } else if (value.toInt() == 1) {
-                                  text = 'Moderate';
-                                } else if (value.toInt() == 2) {
-                                  text = 'Low';
-                                }
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Text(text, style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.bold)),
-                                );
-                              }),
-                        )),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: Border(
-                        left: BorderSide(color: axisLineColor, width: 1.5),
-                        bottom: BorderSide(color: axisLineColor, width: 1.5),
-                        top: BorderSide.none,
-                        right: BorderSide.none,
+                  maxY: maxY,
+                  gridData: const FlGridData(show: false),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: yInterval,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: R.blockH * 2.5,
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    barGroups: [
-                      BarChartGroupData(
-                          x: 0,
-                          barRods: [BarChartRodData(toY: _highSeverityCount.toDouble(), color: Colors.red.shade400, width: 28, borderRadius: BorderRadius.circular(4))]
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) {
+                          String text = '';
+                          if (value.toInt() == 0) {
+                            text = 'High';
+                          } else if (value.toInt() == 1) {
+                            text = 'Moderate';
+                          } else if (value.toInt() == 2) {
+                            text = 'Low';
+                          }
+
+                          return Padding(
+                            padding: EdgeInsets.only(top: R.blockV * 1),
+                            child: Text(
+                              text,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: R.blockH * 2.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      BarChartGroupData(
-                          x: 1,
-                          barRods: [BarChartRodData(toY: _moderateSeverityCount.toDouble(), color: Colors.orange.shade400, width: 28, borderRadius: BorderRadius.circular(4))]
-                      ),
-                      BarChartGroupData(
-                          x: 2,
-                          barRods: [BarChartRodData(toY: _lowSeverityCount.toDouble(), color: const Color(0xFF10B981), width: 28, borderRadius: BorderRadius.circular(4))]
-                      ),
-                    ]),
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border(
+                      left: BorderSide(color: axisLineColor, width: 1.5),
+                      bottom: BorderSide(color: axisLineColor, width: 1.5),
+                      top: BorderSide.none,
+                      right: BorderSide.none,
+                    ),
+                  ),
+                  barGroups: [
+                    BarChartGroupData(
+                      x: 0,
+                      barRods: [
+                        BarChartRodData(
+                          toY: _highSeverityCount.toDouble(),
+                          color: Colors.red.shade400,
+                          width: R.blockH * 7.467,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    ),
+                    BarChartGroupData(
+                      x: 1,
+                      barRods: [
+                        BarChartRodData(
+                          toY: _moderateSeverityCount.toDouble(),
+                          color: Colors.orange.shade400,
+                          width: R.blockH * 7.467,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    ),
+                    BarChartGroupData(
+                      x: 2,
+                      barRods: [
+                        BarChartRodData(
+                          toY: _lowSeverityCount.toDouble(),
+                          color: const Color(0xFF10B981),
+                          width: R.blockH * 7.467,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -798,11 +1048,17 @@ class _OfficerAnalyticsScreenState extends State<OfficerAnalyticsScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Container(
+          width: R.blockH * 2.667,
+          height: R.blockV * 1.25,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        SizedBox(width: R.blockH * 1.6),
+        Text(
+          label,
+          style: TextStyle(fontSize: R.blockH * 2.5, color: Colors.grey),
+        ),
       ],
     );
   }
 }
-

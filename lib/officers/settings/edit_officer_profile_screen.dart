@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/services/logger_service.dart';
@@ -150,16 +151,16 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Photo Gallery'),
+                leading: Icon(Icons.photo_library),
+                title: Text('Photo Gallery'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Camera'),
+                leading: Icon(Icons.camera_alt),
+                title: Text('Camera'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera);
@@ -306,14 +307,15 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Officer Profile')),
+      appBar: AppBar(title: Text('Edit Officer Profile')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(R.blockH * 5),
         child: Column(
           children: [
             GestureDetector(
@@ -335,23 +337,19 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                         ? Colors.grey
                         : null,
                     child: (_imageUrl == null && _imageFile == null)
-                        ? const Icon(
-                            Icons.person,
-                            size: 50,
-                            color: Colors.white,
-                          )
+                        ? Icon(Icons.person, size: 50, color: Colors.white)
                         : null,
                   ),
                   Positioned(
                     bottom: 0,
                     right: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: EdgeInsets.all(R.blockH * 1),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.camera_alt,
                         color: Colors.white,
                         size: 18,
@@ -361,19 +359,19 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             _buildTextField("First Name", _firstName),
             _buildTextField("Last Name", _lastName),
             _buildTextField("Email", _email, type: TextInputType.emailAddress),
-            const SizedBox(height: 10),
-            const Align(
+            SizedBox(height: R.blockV * 1.25),
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 "Date of Birth",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: R.blockV * 1),
             Row(
               children: [
                 Expanded(
@@ -384,7 +382,7 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                     (v) => setState(() => _birthDay = v),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: R.blockH * 2.133),
                 Expanded(
                   child: _buildDropdown(
                     "Month",
@@ -393,7 +391,7 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                     (v) => setState(() => _birthMonth = v),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: R.blockH * 2.133),
                 Expanded(
                   child: _buildDropdown(
                     "Year",
@@ -404,10 +402,10 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 15),
+            SizedBox(height: R.blockV * 1.875),
             if (_officerUID != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 20),
+                padding: EdgeInsets.only(bottom: R.blockV * 2.5),
                 child: Text(
                   "Officer UID: $_officerUID",
                   style: TextStyle(
@@ -416,19 +414,19 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
                   ),
                 ),
               ),
-            const SizedBox(height: 10),
+            SizedBox(height: R.blockV * 1.25),
             ElevatedButton.icon(
               onPressed: (!_hasChanges || _saving) ? null : _saveProfile,
               icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
+                  ? SizedBox(
+                      width: R.blockH * 4.8,
+                      height: R.blockV * 2.25,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.save),
+                  : Icon(Icons.save),
               label: Text(_saving ? "Saving..." : "Save"),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
@@ -450,14 +448,14 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
     TextInputType? type,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
+      padding: EdgeInsets.only(bottom: R.blockV * 1.875),
       child: TextField(
         controller: controller,
         keyboardType: type,
         inputFormatters: const [SanitizingTextInputFormatter()],
         decoration: InputDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
+          border: OutlineInputBorder(),
         ),
       ),
     );
@@ -472,7 +470,7 @@ class _EditOfficerProfileScreenState extends State<EditOfficerProfileScreen> {
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(
         labelText: label,
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(),
       ),
       initialValue: selected,
       items: items

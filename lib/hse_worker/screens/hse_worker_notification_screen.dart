@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
@@ -94,6 +95,7 @@ class _HSEWorkerNotificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final Color unreadColorLight = AppColors.brandTeal.withValues(alpha: 0.08);
     final Color unreadColorDark = AppColors.brandTeal.withValues(alpha: 0.18);
 
@@ -104,13 +106,13 @@ class _HSEWorkerNotificationScreenState
         centerTitle: true,
         foregroundColor: Colors.white,
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text(
+        title: Text(
           'Hazard Notifications',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: EdgeInsets.only(right: R.blockH * 2),
             child: ListenableBuilder(
               listenable: workerHazardNotifier,
               builder: (BuildContext context, Widget? _) {
@@ -118,26 +120,26 @@ class _HSEWorkerNotificationScreenState
                 return Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(Icons.notifications, color: Colors.white),
+                    Icon(Icons.notifications, color: Colors.white),
                     if (count > 0)
                       Positioned(
                         right: 0,
                         top: 6,
                         child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
+                          padding: EdgeInsets.all(R.blockH * 0.5),
+                          decoration: BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
                           ),
-                          constraints: const BoxConstraints(
+                          constraints: BoxConstraints(
                             minWidth: 16,
                             minHeight: 16,
                           ),
                           child: Text(
                             count.toString(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: R.blockH * 2.5,
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
@@ -150,7 +152,7 @@ class _HSEWorkerNotificationScreenState
             ),
           ),
           PopupMenuButton<NotificationAction>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            icon: Icon(Icons.more_vert, color: Colors.white),
             onSelected: (NotificationAction result) {
               if (result == NotificationAction.markAllRead) {
                 workerHazardNotifier.markAllAsRead();
@@ -160,7 +162,7 @@ class _HSEWorkerNotificationScreenState
             },
             itemBuilder: (BuildContext context) =>
                 <PopupMenuEntry<NotificationAction>>[
-                  const PopupMenuItem<NotificationAction>(
+                  PopupMenuItem<NotificationAction>(
                     value: NotificationAction.markAllRead,
                     child: Row(
                       children: [
@@ -169,12 +171,12 @@ class _HSEWorkerNotificationScreenState
                           size: 20,
                           color: Colors.black54,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: R.blockH * 2.133),
                         Text('Mark All as Read'),
                       ],
                     ),
                   ),
-                  const PopupMenuItem<NotificationAction>(
+                  PopupMenuItem<NotificationAction>(
                     value: NotificationAction.clearAll,
                     child: Row(
                       children: [
@@ -183,7 +185,7 @@ class _HSEWorkerNotificationScreenState
                           size: 20,
                           color: Colors.black54,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: R.blockH * 2.133),
                         Text('Clear All Notifications'),
                       ],
                     ),
@@ -211,15 +213,21 @@ class _HSEWorkerNotificationScreenState
                     size: 80,
                     color: Colors.grey.shade400,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
+                  SizedBox(height: R.blockV * 2),
+                  Text(
                     'No hazard notifications yet.',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: R.blockH * 4.5,
+                      color: Colors.grey,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  SizedBox(height: R.blockV * 1),
+                  Text(
                     'You\'ll be notified when tasks are assigned nearby.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: R.blockH * 3.5,
+                      color: Colors.grey,
+                    ),
                   ),
                 ],
               ),
@@ -228,7 +236,12 @@ class _HSEWorkerNotificationScreenState
 
           return ListView.builder(
             itemCount: notifications.length,
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),
+            padding: EdgeInsets.fromLTRB(
+              R.blockH * 0,
+              R.blockV * 1,
+              R.blockH * 0,
+              R.blockV * 15,
+            ),
             itemBuilder: (BuildContext context, int index) {
               final WorkerNotification notification = notifications[index];
               final String formattedTime = _formatTime(notification.timestamp);
@@ -241,7 +254,10 @@ class _HSEWorkerNotificationScreenState
               return Card(
                 elevation: notification.isRead ? 0.5 : 2,
                 color: cardColor,
-                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                margin: EdgeInsets.symmetric(
+                  horizontal: R.blockH * 2.5,
+                  vertical: R.blockV * 0.5,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                   side: !notification.isRead && !isDark
@@ -252,14 +268,14 @@ class _HSEWorkerNotificationScreenState
                       : BorderSide.none,
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
+                  contentPadding: EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
                   leading: Container(
-                    width: 48,
-                    height: 48,
-                    padding: const EdgeInsets.all(10),
+                    width: R.blockH * 12.8,
+                    height: R.blockV * 6,
+                    padding: EdgeInsets.all(R.blockH * 2.5),
                     decoration: BoxDecoration(
                       color: severityColor.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
@@ -271,7 +287,7 @@ class _HSEWorkerNotificationScreenState
                         BoxShadow(
                           color: severityColor.withValues(alpha: 0.20),
                           blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          offset: Offset(0, 2),
                         ),
                       ],
                     ),
@@ -291,7 +307,7 @@ class _HSEWorkerNotificationScreenState
                     ),
                   ),
                   subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: EdgeInsets.only(top: R.blockV * 0.5),
                     child: Text(
                       '${notification.body}\n${notification.distance}m away\nSeverity: ${notification.severity.toUpperCase()}',
                       maxLines: 4,
@@ -306,7 +322,10 @@ class _HSEWorkerNotificationScreenState
                   ),
                   trailing: Text(
                     formattedTime,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(
+                      fontSize: R.blockH * 3,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   onTap: () async {
                     workerHazardNotifier.markAsRead(notification.hazardId);
@@ -424,14 +443,14 @@ class _HSEWorkerNotificationScreenState
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Clear All Notifications?'),
-          content: const Text(
+          title: Text('Clear All Notifications?'),
+          content: Text(
             'This will permanently remove all notification history.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
@@ -439,7 +458,7 @@ class _HSEWorkerNotificationScreenState
                 Navigator.of(context).pop();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Clear All'),
+              child: Text('Clear All'),
             ),
           ],
         );

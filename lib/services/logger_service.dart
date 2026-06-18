@@ -11,15 +11,10 @@ class LoggerService {
     debugPrint('[WARN] $message${_formatError(error)}');
   }
 
-  static void error(
-    String message, [
-    Object? error,
-    StackTrace? stackTrace,
-  ]) {
+  static void error(String message, [Object? error, StackTrace? stackTrace]) {
     debugPrint('[ERROR] $message${_formatError(error)}');
     if (stackTrace != null) debugPrint(stackTrace.toString());
   }
 
-  static String _formatError(Object? error) =>
-      error == null ? '' : ' | $error';
+  static String _formatError(Object? error) => error == null ? '' : ' | $error';
 }

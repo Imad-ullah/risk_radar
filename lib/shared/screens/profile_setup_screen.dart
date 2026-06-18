@@ -156,21 +156,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   void _showPicker() {
     if (_isProfileSaved) return;
+    final size = MediaQuery.of(context).size;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(size.width * 0.051),
+        ),
       ),
       builder: (_) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(
-                Icons.photo_library,
-                color: Color(0xFF1B3D3D),
-              ),
-              title: const Text(
+              leading: Icon(Icons.photo_library, color: Color(0xFF1B3D3D)),
+              title: Text(
                 'Gallery',
                 style: TextStyle(color: Color(0xFF1B3D3D)),
               ),
@@ -180,11 +180,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera, color: Color(0xFF1B3D3D)),
-              title: const Text(
-                'Camera',
-                style: TextStyle(color: Color(0xFF1B3D3D)),
-              ),
+              leading: Icon(Icons.photo_camera, color: Color(0xFF1B3D3D)),
+              title: Text('Camera', style: TextStyle(color: Color(0xFF1B3D3D))),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
@@ -223,14 +220,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   Future<void> _changeAccount() async {
     if (_isSaving) return;
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.071),
+        ),
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        elevation: size.width * 0.0,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(size.width * 0.060),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -240,12 +243,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 const Color(0xFF1B3D3D).withValues(alpha: 0.85),
               ],
             ),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(size.width * 0.071),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                blurRadius: size.width * 0.051,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.012),
               ),
             ],
           ),
@@ -253,69 +256,69 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(size.width * 0.040),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.logout_rounded,
                   color: Colors.white,
-                  size: 32,
+                  size: size.width * 0.081,
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: visibleHeight * 0.025),
+              Text(
                 'Change Account',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: size.width * 0.055,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: visibleHeight * 0.015),
               Text(
                 'You will be signed out and returned to login so you can use a different email.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: size.width * 0.038,
                   color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: visibleHeight * 0.035),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
                     style: TextButton.styleFrom(foregroundColor: Colors.white),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: size.width * 0.040,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: size.width * 0.032),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFF1B3D3D),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: size.width * 0.061,
+                        vertical: visibleHeight * 0.015,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(size.width * 0.041),
                       ),
-                      elevation: 4,
+                      elevation: size.width * 0.010,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Sign Out',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: size.width * 0.040,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -524,69 +527,125 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     required IconData icon,
   }) async {
     if (!mounted) return;
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6A050).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFFE6A050)),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.071),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: size.width * 0.0,
+        child: Container(
+          padding: EdgeInsets.all(size.width * 0.060),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF1B3D3D),
+                const Color(0xFF1B3D3D).withValues(alpha: 0.85),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF1B3D3D),
-                  fontWeight: FontWeight.w800,
+            borderRadius: BorderRadius.circular(size.width * 0.071),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: size.width * 0.051,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.012),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: size.width * 0.112,
+                    height: visibleHeight * 0.053,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6A050).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(size.width * 0.031),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: const Color(0xFFE6A050),
+                      size: size.width * 0.056,
+                    ),
+                  ),
+                  SizedBox(width: size.width * 0.032),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: size.width * 0.046,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: visibleHeight * 0.018),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.86),
+                    height: visibleHeight * 0.0017,
+                    fontSize: size.width * 0.036,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: TextStyle(
-            color: Colors.grey.shade700,
-            height: 1.35,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Edit UID',
-              style: TextStyle(
-                color: Color(0xFF1B3D3D),
-                fontWeight: FontWeight.w800,
+              SizedBox(height: visibleHeight * 0.020),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF1B3D3D),
+                  ),
+                  child: Text(
+                    'Edit UID',
+                    style: TextStyle(
+                      color: const Color(0xFFE6A050),
+                      fontWeight: FontWeight.w800,
+                      fontSize: size.width * 0.038,
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   void _showMessage(String msg, {bool isError = false}) {
+    final size = MediaQuery.of(context).size;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: isError
             ? const Color(0xFF8B1E24)
             : const Color(0xFF1B3D3D),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.036),
+        ),
+        content: Text(
+          msg,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: size.width * 0.036,
+          ),
+        ),
       ),
     );
   }
@@ -596,17 +655,35 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     const Color tealColor = Color(0xFF1B3D3D);
     const Color goldColor = Color(0xFFE6A050);
-    const double headerHeight = 240;
-    const double avatarSize = 130;
-    const double goldRimOffset = 6.0;
+    final headerHeight = visibleHeight * 0.275;
+    final avatarSize = size.width * 0.33;
+    final goldRimOffset = visibleHeight * 0.006;
+    final horizontalPadding = size.width * 0.077;
+    final hasRoleDetails = _role == _workerRole || _role == _safetyRole;
+    final fieldGap = visibleHeight * (hasRoleDetails ? 0.012 : 0.022);
+    final formTopGap = visibleHeight * (hasRoleDetails ? 0.026 : 0.070);
+    final dobTopGap = visibleHeight * (hasRoleDetails ? 0.018 : 0.031);
+    final buttonTopGap = visibleHeight * (hasRoleDetails ? 0.026 : 0.050);
+    final postButtonGap = visibleHeight * (hasRoleDetails ? 0.008 : 0.018);
+    final buttonHeight = visibleHeight * 0.061;
+    final titleFont = size.width * 0.060;
+    final subtitleFont = size.width * 0.035;
+    final labelFont = size.width * 0.038;
+    final iconSize = size.width * 0.056;
 
     if (_isLoadingProfile) {
       // ✅ REPLACED: Full Screen Loader
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.white,
-        body: RiskRadarLoader(size: 80, color: tealColor),
+        body: Center(
+          child: RiskRadarLoader(size: size.width * 0.205, color: tealColor),
+        ),
       );
     }
 
@@ -623,14 +700,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           children: [
             // 1. HEADER SECTION
             SizedBox(
-              height: headerHeight + (avatarSize / 2) - 20,
+              height: headerHeight + (avatarSize / 2) - (visibleHeight * 0.020),
               child: Stack(
                 alignment: Alignment.topCenter,
                 children: [
                   Positioned(
                     top: goldRimOffset,
-                    left: 0,
-                    right: 0,
+                    left: size.width * 0.0,
+                    right: size.width * 0.0,
                     child: ClipPath(
                       clipper: ConcaveHeaderClipper(),
                       child: Container(height: headerHeight, color: goldColor),
@@ -642,23 +719,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       height: headerHeight,
                       width: double.infinity,
                       color: tealColor,
-                      padding: const EdgeInsets.only(top: 50),
-                      child: const Column(
+                      padding: EdgeInsets.only(top: visibleHeight * 0.080),
+                      child: Column(
                         children: [
                           Text(
                             "Setup Your Profile",
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 24,
+                              fontSize: titleFont,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 5),
+                          SizedBox(height: visibleHeight * 0.006),
                           Text(
                             "Complete your details to continue",
                             style: TextStyle(
                               color: Colors.white70,
-                              fontSize: 14,
+                              fontSize: subtitleFont,
                             ),
                           ),
                         ],
@@ -666,7 +743,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                   ),
                   Positioned(
-                    top: headerHeight - (avatarSize / 2) - 30,
+                    top:
+                        headerHeight -
+                        (avatarSize / 2) -
+                        (visibleHeight * 0.030),
                     child: Stack(
                       children: [
                         Container(
@@ -679,12 +759,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
+                                blurRadius: size.width * 0.038,
+                                offset: Offset(
+                                  size.width * 0.0,
+                                  visibleHeight * 0.008,
+                                ),
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.all(4),
+                          padding: EdgeInsets.all(size.width * 0.010),
                           child: ClipOval(
                             child: _imageFile != null
                                 ? Image.file(_imageFile!, fit: BoxFit.cover)
@@ -695,7 +778,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                       color: Colors.grey.shade200,
                                       child: Icon(
                                         Icons.person,
-                                        size: 60,
+                                        size: size.width * 0.154,
                                         color: Colors.grey.shade400,
                                       ),
                                     ),
@@ -704,19 +787,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                         if (!_isProfileSaved)
                           Positioned(
-                            bottom: 5,
-                            right: 5,
+                            bottom: visibleHeight * 0.006,
+                            right: size.width * 0.013,
                             child: GestureDetector(
                               onTap: _showPicker,
                               child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
+                                padding: EdgeInsets.all(size.width * 0.020),
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: goldColor,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.camera_alt,
-                                  size: 20,
+                                  size: iconSize,
                                   color: Colors.white,
                                 ),
                               ),
@@ -729,11 +812,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
             ),
 
-            const SizedBox(height: 40),
+            SizedBox(height: formTopGap),
 
             // 2. FORM SECTION
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Column(
                 children: [
                   Row(
@@ -746,7 +829,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           action: TextInputAction.next,
                         ),
                       ),
-                      const SizedBox(width: 15),
+                      SizedBox(width: size.width * 0.040),
                       Expanded(
                         child: _buildCustomTextField(
                           _lastNameController,
@@ -757,14 +840,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: fieldGap),
                   _buildCustomTextField(
                     _emailController,
                     "Email",
                     Icons.email_outlined,
                     isEnabled: false,
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: fieldGap),
 
                   _buildCustomDropdown("Select Role", _roles, _role, (value) {
                     setState(() {
@@ -775,15 +858,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     });
                   }, Icons.work_outline),
 
-                  if (_role == _workerRole || _role == _safetyRole) ...[
-                    const SizedBox(height: 20),
+                  if (hasRoleDetails) ...[
+                    SizedBox(height: fieldGap),
                     _buildCustomTextField(
                       _officerUIDController,
                       "Contractor UID",
                       Icons.badge_outlined,
                       type: TextInputType.number,
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: fieldGap),
                     _buildCustomDropdown(
                       _role == _workerRole
                           ? "Trade / Work Type"
@@ -799,18 +882,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 25),
-                  const Align(
+                  SizedBox(height: dobTopGap),
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       "Date of Birth",
                       style: TextStyle(
                         color: tealColor,
                         fontWeight: FontWeight.w600,
+                        fontSize: labelFont,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: visibleHeight * 0.013),
 
                   Row(
                     children: [
@@ -823,7 +907,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           null,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: size.width * 0.027),
                       Expanded(
                         child: _buildCustomDropdown(
                           "Month",
@@ -833,7 +917,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           null,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: size.width * 0.027),
                       Expanded(
                         child: _buildCustomDropdown(
                           "Year",
@@ -846,11 +930,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: buttonTopGap),
 
                   SizedBox(
                     width: double.infinity,
-                    height: 55,
+                    height: buttonHeight,
                     child: ElevatedButton(
                       onPressed: (_isSaving || _isProfileSaved)
                           ? null
@@ -858,15 +942,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: goldColor,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(buttonHeight / 2),
                         ),
-                        elevation: 8,
+                        elevation: size.width * 0.021,
                         // ✅ UPDATED: Opacity
                         shadowColor: goldColor.withValues(alpha: 0.4),
                       ),
                       child: _isSaving
                           // ✅ REPLACED: Button Loader
-                          ? const RiskRadarLoader(size: 24, color: Colors.white)
+                          ? RiskRadarLoader(
+                              size: size.width * 0.062,
+                              color: Colors.white,
+                            )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -874,39 +961,44 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   _isProfileSaved
                                       ? 'Profile Saved'
                                       : 'Complete Setup',
-                                  style: const TextStyle(
-                                    fontSize: 18,
+                                  style: TextStyle(
+                                    fontSize: size.width * 0.041,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                   ),
                                 ),
-                                if (!_isProfileSaved) const SizedBox(width: 10),
                                 if (!_isProfileSaved)
-                                  const Icon(
+                                  SizedBox(width: size.width * 0.027),
+                                if (!_isProfileSaved)
+                                  Icon(
                                     Icons.check_circle_outline_rounded,
                                     color: Colors.white,
+                                    size: iconSize,
                                   ),
                               ],
                             ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: postButtonGap),
                   TextButton.icon(
                     onPressed: _isSaving ? null : _changeAccount,
                     style: TextButton.styleFrom(
                       foregroundColor: tealColor,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 10,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: size.width * 0.046,
+                        vertical: visibleHeight * 0.012,
                       ),
                     ),
-                    icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: const Text(
+                    icon: Icon(Icons.logout_rounded, size: size.width * 0.046),
+                    label: Text(
                       'Change account',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: size.width * 0.036,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 26),
+                  SizedBox(height: visibleHeight * 0.033),
                 ],
               ),
             ),
@@ -924,10 +1016,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     bool isEnabled = true,
     TextInputAction? action,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(size.width * 0.077),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: TextField(
@@ -936,21 +1032,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         inputFormatters: const [SanitizingTextInputFormatter()],
         textInputAction: action,
         enabled: isEnabled && !_isProfileSaved,
-        scrollPadding: const EdgeInsets.only(bottom: 100),
-        style: const TextStyle(
-          fontSize: 15,
+        scrollPadding: EdgeInsets.only(bottom: visibleHeight * 0.125),
+        style: TextStyle(
+          fontSize: size.width * 0.038,
           color: Colors.black87,
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
           prefixIcon: Padding(
-            padding: const EdgeInsets.only(left: 15, right: 10),
-            child: Icon(icon, color: const Color(0xFF1B3D3D), size: 22),
+            padding: EdgeInsets.only(
+              left: size.width * 0.038,
+              right: size.width * 0.026,
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF1B3D3D),
+              size: size.width * 0.056,
+            ),
           ),
           hintText: label,
           hintStyle: TextStyle(color: Colors.grey.shade500),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          contentPadding: EdgeInsets.symmetric(vertical: visibleHeight * 0.018),
           filled: true,
           fillColor: Colors.transparent,
         ),
@@ -965,13 +1068,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     void Function(String?) onChanged,
     IconData? icon,
   ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final leadingGap = size.width * 0.038;
+    final iconTextGap = size.width * 0.050;
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(size.width * 0.077),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: EdgeInsets.symmetric(horizontal: leadingGap),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedValue,
@@ -982,30 +1089,64 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           hint: Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, color: const Color(0xFF1B3D3D), size: 22),
-                const SizedBox(width: 8),
+                Icon(
+                  icon,
+                  color: const Color(0xFF1B3D3D),
+                  size: size.width * 0.056,
+                ),
+                SizedBox(width: iconTextGap),
               ],
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: size.width * 0.033,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
+          selectedItemBuilder: (_) => items
+              .map(
+                (e) => Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(
+                        icon,
+                        color: const Color(0xFF1B3D3D),
+                        size: size.width * 0.056,
+                      ),
+                      SizedBox(width: iconTextGap),
+                    ],
+                    Expanded(
+                      child: Text(
+                        e,
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: size.width * 0.038,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+              .toList(),
           isExpanded: true,
           dropdownColor: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size.width * 0.051),
           items: items
               .map(
                 (e) => DropdownMenuItem(
                   value: e,
                   child: Text(
                     e,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.black87,
-                      fontSize: 15,
+                      fontSize: size.width * 0.038,
                       fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1024,16 +1165,17 @@ class ConcaveHeaderClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     var path = Path();
-    path.lineTo(0, size.height - 50);
-    var controlPoint = Offset(size.width / 2, size.height + 60);
-    var endPoint = Offset(size.width, size.height - 50);
+    final dip = size.height * 0.21;
+    path.lineTo(size.width * 0.0, size.height - dip);
+    var controlPoint = Offset(size.width * 0.5, size.height + (dip * 1.2));
+    var endPoint = Offset(size.width, size.height - dip);
     path.quadraticBezierTo(
       controlPoint.dx,
       controlPoint.dy,
       endPoint.dx,
       endPoint.dy,
     );
-    path.lineTo(size.width, 0);
+    path.lineTo(size.width, size.height * 0.0);
     path.close();
     return path;
   }

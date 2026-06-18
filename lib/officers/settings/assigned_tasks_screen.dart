@@ -1,5 +1,6 @@
 // lib/officers/settings/assigned_tasks_screen.dart
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -62,7 +63,9 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
     List<Map<String, dynamic>> hazards,
   ) {
     final workerList = workers
-        .where((worker) => worker['current_site_id']?.toString() == widget.siteId)
+        .where(
+          (worker) => worker['current_site_id']?.toString() == widget.siteId,
+        )
         .toList();
 
     _hazardCounts.clear();
@@ -143,15 +146,17 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
         setState(() => _workers = workerList);
       }
     } on SocketException {
-      final cachedWorkers = OfficerRepository.instance.getOfficerHseWorkers() ?? [];
+      final cachedWorkers =
+          OfficerRepository.instance.getOfficerHseWorkers() ?? [];
       final cachedHazards =
           await _hazardRepository.getOfficerActiveHazards() ?? [];
       _applyWorkerRows(cachedWorkers, cachedHazards);
     } catch (e) {
       debugPrint("Error fetching workers: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to load workers')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to load workers')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -170,13 +175,16 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
       final id = worker['id']?.toString();
       if (id != null) byId[id] = worker;
     }
-    await OfficerRepository.instance.saveOfficerHseWorkers(byId.values.toList());
+    await OfficerRepository.instance.saveOfficerHseWorkers(
+      byId.values.toList(),
+    );
   }
 
   Future<void> _submitAssignment() async {
     if (_selectedWorkerId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a worker')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a worker')));
       return;
     }
     setState(() => _isSubmitting = true);
@@ -185,26 +193,34 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
       final assignedAt = DateTime.now().toIso8601String();
       if (widget.isReassigning) {
         // This query is now correct because widget.hazardId is a String.
-        await supabase.from('assign_hazards').update({
-          'assigned_to': _selectedWorkerId,
-          'assigned_at': assignedAt,
-          'status': 'assigned',
-        }).eq('id', widget.hazardId);
+        await supabase
+            .from('assign_hazards')
+            .update({
+              'assigned_to': _selectedWorkerId,
+              'assigned_at': assignedAt,
+              'status': 'assigned',
+            })
+            .eq('id', widget.hazardId);
       } else {
-        await supabase.rpc('assign_hazard_to_hse', params: {
-          'p_hazard_id': widget.hazardId,
-          'p_assigned_to': _selectedWorkerId,
-          'p_assigned_at': assignedAt,
-        });
+        await supabase.rpc(
+          'assign_hazard_to_hse',
+          params: {
+            'p_hazard_id': widget.hazardId,
+            'p_assigned_to': _selectedWorkerId,
+            'p_assigned_at': assignedAt,
+          },
+        );
       }
       await _updateCachedAssignment(assignedAt);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.isReassigning
-                ? 'Task reassigned successfully!'
-                : 'Task assigned successfully!'),
+            content: Text(
+              widget.isReassigning
+                  ? 'Task reassigned successfully!'
+                  : 'Task assigned successfully!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -295,7 +311,9 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
     List<Map<String, dynamic>>? cachedHazards,
   }) async {
     final active =
-        cachedHazards ?? (await _hazardRepository.getOfficerActiveHazards()) ?? [];
+        cachedHazards ??
+        (await _hazardRepository.getOfficerActiveHazards()) ??
+        [];
     final hazard = active.firstWhere(
       (item) => item['id']?.toString() == widget.hazardId,
       orElse: () => {},
@@ -317,7 +335,7 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
         'assigned_at': assignedAt,
         'assigned_to': _selectedWorkerId,
         if (selectedWorker.isNotEmpty) 'hse_worker': selectedWorker,
-      }
+      },
     ];
     await _hazardRepository.saveOfficerActiveHazards(active);
   }
@@ -329,166 +347,181 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isReassigning ? 'Reassign Hazard' : 'Assign Hazard'),
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Expanded(
-              child: _workers.isEmpty
-                  ? const Center(
-                child: Text(
-                  "No HSE workers found in this zone.",
-                  style:
-                  TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-              )
-                  : ListView.builder(
-                itemCount: _workers.length,
-                itemBuilder: (context, index) {
-                  final worker = _workers[index];
-                  final workerId = worker['id'] as String;
-                  final workerName =
-                  "${_capitalize(worker['first_name'] ?? '')} ${_capitalize(worker['last_name'] ?? '')}"
-                      .trim();
-                  final profileImage = worker['profile_image_url'];
-                  final isSelected = _selectedWorkerId == workerId;
-                  final hazardCount = _hazardCounts[workerId] ?? 0;
+              padding: EdgeInsets.all(R.blockH * 4),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _workers.isEmpty
+                        ? Center(
+                            child: Text(
+                              "No HSE workers found in this zone.",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: R.blockH * 4,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _workers.length,
+                            itemBuilder: (context, index) {
+                              final worker = _workers[index];
+                              final workerId = worker['id'] as String;
+                              final workerName =
+                                  "${_capitalize(worker['first_name'] ?? '')} ${_capitalize(worker['last_name'] ?? '')}"
+                                      .trim();
+                              final profileImage = worker['profile_image_url'];
+                              final isSelected = _selectedWorkerId == workerId;
+                              final hazardCount = _hazardCounts[workerId] ?? 0;
 
-                  return GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedWorkerId = workerId),
-                    child: Card(
-                      color: Theme.of(context).colorScheme.surface,
-                      margin:
-                      const EdgeInsets.symmetric(vertical: 8),
-                      elevation: isSelected ? 8 : 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        side: isSelected
-                            ? BorderSide(
-                            color:
-                            Theme.of(context).primaryColor,
-                            width: 2)
-                            : BorderSide.none,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 16),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 28,
-                              backgroundColor: Theme.of(context)
-                                  .primaryColorLight,
-                              backgroundImage: profileImage != null
-                                  ? CachedNetworkImageProvider(
-                                  profileImage)
-                                  : null,
-                              child: profileImage == null
-                                  ? Text(
-                                workerName.isNotEmpty
-                                    ? workerName[0]
-                                    : '?',
-                                style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight:
-                                    FontWeight.bold),
-                              )
-                                  : null,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    workerName.isNotEmpty
-                                        ? workerName
-                                        : 'Unnamed Worker',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16),
+                              return GestureDetector(
+                                onTap: () => setState(
+                                  () => _selectedWorkerId = workerId,
+                                ),
+                                child: Card(
+                                  color: Theme.of(context).colorScheme.surface,
+                                  margin: EdgeInsets.symmetric(
+                                    vertical: R.blockV * 1,
                                   ),
-                                  Text(
-                                    worker['designation'] ?? 'N/A',
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade400),
+                                  elevation: isSelected ? 8 : 4,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                    side: isSelected
+                                        ? BorderSide(
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
+                                            width: 2,
+                                          )
+                                        : BorderSide.none,
                                   ),
-                                ],
-                              ),
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 28,
+                                          backgroundColor: Theme.of(
+                                            context,
+                                          ).primaryColorLight,
+                                          backgroundImage: profileImage != null
+                                              ? CachedNetworkImageProvider(
+                                                  profileImage,
+                                                )
+                                              : null,
+                                          child: profileImage == null
+                                              ? Text(
+                                                  workerName.isNotEmpty
+                                                      ? workerName[0]
+                                                      : '?',
+                                                  style: TextStyle(
+                                                    fontSize: R.blockH * 6,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                        SizedBox(width: R.blockH * 4.267),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                workerName.isNotEmpty
+                                                    ? workerName
+                                                    : 'Unnamed Worker',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: R.blockH * 4,
+                                                ),
+                                              ),
+                                              Text(
+                                                worker['designation'] ?? 'N/A',
+                                                style: TextStyle(
+                                                  fontSize: R.blockH * 3.25,
+                                                  color: Colors.grey.shade400,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Chip(
+                                          label: Text(
+                                            hazardCount == 0
+                                                ? "Free"
+                                                : "$hazardCount Active",
+                                            style: TextStyle(
+                                              fontSize: R.blockH * 2.75,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          backgroundColor: hazardCount == 0
+                                              ? Colors.green.shade600
+                                              : Colors.orange.shade800,
+                                        ),
+                                        Radio<String>(
+                                          value: workerId,
+                                          // ignore: deprecated_member_use
+                                          groupValue: _selectedWorkerId,
+                                          // ignore: deprecated_member_use
+                                          onChanged: (String? value) {
+                                            setState(() {
+                                              _selectedWorkerId = value;
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  SizedBox(height: R.blockV * 2), // Added for spacing
+                  ElevatedButton.icon(
+                    icon: _isSubmitting
+                        ? Container(
+                            width: R.blockH * 6.4,
+                            height: R.blockV * 3,
+                            padding: EdgeInsets.all(R.blockH * 0.5),
+                            child: const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
                             ),
-                            Chip(
-                              label: Text(
-                                hazardCount == 0
-                                    ? "Free"
-                                    : "$hazardCount Active",
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white),
-                              ),
-                              backgroundColor: hazardCount == 0
-                                  ? Colors.green.shade600
-                                  : Colors.orange.shade800,
-                            ),
-                            Radio<String>(
-                              value: workerId,
-                              // ignore: deprecated_member_use
-                              groupValue: _selectedWorkerId,
-                              // ignore: deprecated_member_use
-                              onChanged: (String? value) {
-                                setState(() {
-                                  _selectedWorkerId = value;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                          )
+                        : Icon(Icons.assignment_turned_in_rounded),
+                    label: Text(
+                      widget.isReassigning ? 'Reassign Task' : 'Assign Task',
                     ),
-                  );
-                },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _isSubmitting || _workers.isEmpty
+                        ? null
+                        : _submitAssignment,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16), // Added for spacing
-            ElevatedButton.icon(
-              icon: _isSubmitting
-                  ? Container(
-                  width: 24,
-                  height: 24,
-                  padding: const EdgeInsets.all(2.0),
-                  child: const CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ))
-                  : const Icon(Icons.assignment_turned_in_rounded),
-              label: Text(widget.isReassigning
-                  ? 'Reassign Task'
-                  : 'Assign Task'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: _isSubmitting || _workers.isEmpty
-                  ? null
-                  : _submitAssignment,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
-

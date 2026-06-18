@@ -185,6 +185,10 @@ class _WorkerEmergencyDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     // Detect Theme
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -196,7 +200,7 @@ class _WorkerEmergencyDetailsScreenState
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'My Emergency Details',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
@@ -205,14 +209,17 @@ class _WorkerEmergencyDetailsScreenState
         centerTitle: true,
         // Standardized Back Button
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: size.width * 0.040,
+                vertical: visibleHeight * 0.004,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -230,16 +237,18 @@ class _WorkerEmergencyDetailsScreenState
                               ? 'Please enter a contact name'
                               : null,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: visibleHeight * 0.005),
                         _buildTextField(
                           controller: _relationshipController,
                           label: 'Relationship',
                           isDark: isDark,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: visibleHeight * 0.005),
                         ..._phoneControllers.asMap().entries.map((entry) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
+                            padding: EdgeInsets.only(
+                              bottom: visibleHeight * 0.005,
+                            ),
                             child: _buildTextField(
                               controller: entry.value,
                               label: 'Phone Number ${entry.key + 1}',
@@ -247,7 +256,7 @@ class _WorkerEmergencyDetailsScreenState
                               inputType: TextInputType.phone,
                               suffixIcon: _phoneControllers.length > 1
                                   ? IconButton(
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.remove_circle,
                                         color: Colors.redAccent,
                                       ),
@@ -265,14 +274,14 @@ class _WorkerEmergencyDetailsScreenState
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
                             onPressed: _addPhoneNumber,
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.add_rounded,
-                              color: AppColors.brandTeal,
+                              color: AppColors.accentGold,
                             ),
-                            label: const Text(
+                            label: Text(
                               'Add Number',
                               style: TextStyle(
-                                color: AppColors.brandTeal,
+                                color: AppColors.accentGold,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -280,7 +289,7 @@ class _WorkerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: visibleHeight * 0.006),
                     _buildSectionCard(
                       title: 'Medical Information',
                       icon: Icons.medical_services_rounded,
@@ -311,13 +320,13 @@ class _WorkerEmergencyDetailsScreenState
                               : Colors.white,
                           decoration: _inputDecoration('Blood Type', isDark),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: visibleHeight * 0.005),
                         _buildTextField(
                           controller: _allergiesController,
                           label: 'Allergies',
                           isDark: isDark,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: visibleHeight * 0.005),
                         _buildTextField(
                           controller: _conditionsController,
                           label: 'Chronic Conditions',
@@ -325,7 +334,7 @@ class _WorkerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: visibleHeight * 0.006),
                     _buildSectionCard(
                       title: 'Emergency Services',
                       icon: Icons.local_hospital_rounded,
@@ -337,7 +346,7 @@ class _WorkerEmergencyDetailsScreenState
                           isDark: isDark,
                           inputType: TextInputType.phone,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: visibleHeight * 0.005),
                         _buildTextField(
                           controller: _fireBrigadeController,
                           label: 'Fire Brigade Number',
@@ -346,30 +355,34 @@ class _WorkerEmergencyDetailsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: visibleHeight * 0.008),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: _loading ? null : _saveEmergencyDetails,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.brandTeal,
+                          backgroundColor: AppColors.accentGold,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                          padding: EdgeInsets.symmetric(
+                            vertical: visibleHeight * 0.011,
                           ),
-                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              size.width * 0.041,
+                            ),
+                          ),
+                          elevation: size.width * 0.011,
                         ),
-                        child: const Text(
+                        child: Text(
                           'Save My Details',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: size.width * 0.035,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: visibleHeight * 0.006),
                   ],
                 ),
               ),
@@ -385,44 +398,52 @@ class _WorkerEmergencyDetailsScreenState
     required bool isDark,
     required List<Widget> children,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(size.width * 0.038),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: size.width * 0.027,
+            offset: Offset(size.width * 0.0, visibleHeight * 0.005),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(size.width * 0.024),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(size.width * 0.010),
                 decoration: BoxDecoration(
-                  color: AppColors.brandTeal.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.accentGold.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(size.width * 0.018),
                 ),
-                child: Icon(icon, color: AppColors.brandTeal, size: 22),
+                child: Icon(
+                  icon,
+                  color: AppColors.accentGold,
+                  size: size.width * 0.046,
+                ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: size.width * 0.020),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: size.width * 0.036,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: visibleHeight * 0.006),
           ...children,
         ],
       ),
@@ -459,6 +480,10 @@ class _WorkerEmergencyDetailsScreenState
   }
 
   InputDecoration _inputDecoration(String label, bool isDark) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     // Dynamic colors for Dark/Light mode
     final fillColor = isDark ? const Color(0xFF2C2C2C) : Colors.grey[50];
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey[300]!;
@@ -469,21 +494,24 @@ class _WorkerEmergencyDetailsScreenState
       labelStyle: TextStyle(color: labelColor),
       filled: true,
       fillColor: fillColor,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.030,
+        vertical: visibleHeight * 0.005,
+      ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(size.width * 0.031),
         borderSide: BorderSide(color: borderColor),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(size.width * 0.031),
         borderSide: BorderSide(color: borderColor),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.brandTeal, width: 2),
+        borderRadius: BorderRadius.circular(size.width * 0.031),
+        borderSide: const BorderSide(color: AppColors.accentGold, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(size.width * 0.031),
         borderSide: const BorderSide(color: Colors.redAccent, width: 1),
       ),
     );

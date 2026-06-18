@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:riskradar/workers/screens/worker_hazard_report_screen.dart';
 import 'package:riskradar/services/hazard_service.dart';
@@ -14,7 +15,8 @@ class HazardScreen extends StatefulWidget {
   State<HazardScreen> createState() => _HazardScreenState();
 }
 
-class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMixin {
+class _HazardScreenState extends State<HazardScreen>
+    with TickerProviderStateMixin {
   final HazardService _hazardService = HazardService();
 
   File? _selectedImage;
@@ -39,7 +41,10 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _scannerAnimation = Tween<double>(begin: 0, end: 1).animate(_scannerController);
+    _scannerAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(_scannerController);
   }
 
   @override
@@ -99,9 +104,12 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
       String hazDesc = hazard['description'] ?? '';
       String hazAction = hazard['action'] ?? '';
 
-      descriptionBuffer.writeln("- [${hazSev.toUpperCase()}] $hazType: $hazDesc (Action: $hazAction)");
+      descriptionBuffer.writeln(
+        "- ${hazSev.toUpperCase()} - $hazType: $hazDesc (Action: $hazAction)",
+      );
 
-      if (hazSev.toLowerCase() == 'critical' || hazSev.toLowerCase() == 'high') {
+      if (hazSev.toLowerCase() == 'critical' ||
+          hazSev.toLowerCase() == 'high') {
         severity = 'High';
       } else if (hazSev.toLowerCase() == 'medium' && severity != 'High') {
         severity = 'Moderate';
@@ -138,11 +146,15 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
   Color _getSeverityColor(String? severity) {
     switch (severity?.toLowerCase()) {
       case 'critical':
-      case 'high': return Colors.red.shade700;
+      case 'high':
+        return Colors.red.shade700;
       case 'medium':
-      case 'moderate': return Colors.orange.shade800;
-      case 'low': return Colors.green.shade700;
-      default: return Colors.grey.shade700;
+      case 'moderate':
+        return Colors.orange.shade800;
+      case 'low':
+        return Colors.green.shade700;
+      default:
+        return Colors.grey.shade700;
     }
   }
 
@@ -150,6 +162,7 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     // If analysis is done, show the result list preview
     if (_analysisResults != null) {
       return _buildResultsDetailView();
@@ -167,37 +180,52 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
     return Scaffold(
       backgroundColor: _brandTeal,
       appBar: AppBar(
-        title: const Text("AI Safety Scanner", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          "AI Safety Scanner",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           if (hasImage)
-            IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _resetScanner)
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.white),
+              onPressed: _resetScanner,
+            ),
         ],
       ),
       body: Column(
         children: [
-          const SizedBox(height: 10),
+          SizedBox(height: R.blockV * 1.25),
           Expanded(
             flex: 3,
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
+              margin: EdgeInsets.symmetric(horizontal: R.blockH * 6),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: Offset(0, 10),
+                  ),
+                ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(28),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (hasImage) Image.file(_selectedImage!, fit: BoxFit.cover) else const _ScannerPlaceholder(),
+                    if (hasImage)
+                      Image.file(_selectedImage!, fit: BoxFit.cover)
+                    else
+                      const _ScannerPlaceholder(),
                     if (_isLoading) _buildLaserScanner(),
                     if (hasImage && !_isLoading) const _ScannerOverlay(),
                   ],
@@ -208,14 +236,14 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
           Expanded(
             flex: 2,
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: EdgeInsets.all(R.blockH * 6),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildStatusText(hasImage),
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: R.blockV * 7,
                     child: _buildScannerActionButton(hasImage),
                   ),
                 ],
@@ -237,12 +265,15 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Scan Preview", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          "Scan Preview",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: _brandTeal,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          icon: Icon(Icons.refresh_rounded, color: Colors.white),
           onPressed: _resetScanner, // Allow rescanning
         ),
       ),
@@ -250,40 +281,58 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
         children: [
           // Visual context image header
           Container(
-            height: 180,
+            height: R.blockV * 22.5,
             width: double.infinity,
-            decoration: const BoxDecoration(color: Colors.black),
+            decoration: BoxDecoration(color: Colors.black),
             child: Image.file(_selectedImage!, fit: BoxFit.cover),
           ),
 
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(R.blockH * 5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Assessment Summary Section
-                  const Text(
-                      "ASSESSMENT SUMMARY",
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _brandTeal, letterSpacing: 1.1)
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(16)),
-                    child: Text(
-                        summary,
-                        style: TextStyle(fontSize: 14, height: 1.5, color: Colors.grey[900], fontWeight: FontWeight.w500)
+                  Text(
+                    "ASSESSMENT SUMMARY",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: R.blockH * 3.25,
+                      color: _brandTeal,
+                      letterSpacing: 1.1,
                     ),
                   ),
-                  const SizedBox(height: 25),
+                  SizedBox(height: R.blockV * 1.25),
+                  Container(
+                    padding: EdgeInsets.all(R.blockH * 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F7FA),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      summary,
+                      style: TextStyle(
+                        fontSize: R.blockH * 3.5,
+                        height: 1.5,
+                        color: Colors.grey[900],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: R.blockV * 3.125),
 
                   // Hazards List Section
-                  const Text(
-                      "DETAILED HAZARDS & ACTIONS",
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _brandTeal, letterSpacing: 1.1)
+                  Text(
+                    "DETAILED HAZARDS & ACTIONS",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: R.blockH * 3.25,
+                      color: _brandTeal,
+                      letterSpacing: 1.1,
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: R.blockV * 1.25),
                   ...hazards.map((h) => _buildHazardResultCard(h)),
                 ],
               ),
@@ -292,25 +341,43 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
 
           // Bottom Action: Generate Report
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(R.blockH * 5),
             decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))]
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: Offset(0, -5),
+                ),
+              ],
             ),
             child: SizedBox(
               width: double.infinity,
-              height: 56,
+              height: R.blockV * 7,
               child: ElevatedButton.icon(
                 onPressed: _proceedToReport,
-                icon: const Icon(Icons.assignment_turned_in_rounded, color: Colors.white),
-                label: const Text("GENERATE OFFICIAL REPORT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                icon: Icon(
+                  Icons.assignment_turned_in_rounded,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  "GENERATE OFFICIAL REPORT",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: R.blockH * 4,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFC62828), // Deep Alert Red
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                  backgroundColor: const Color(0xFFC62828), // Deep Alert Red
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -321,13 +388,19 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
     final sevColor = _getSeverityColor(hazard['severity']);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: R.blockV * 1.5),
+      padding: EdgeInsets.all(R.blockH * 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 5, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,45 +409,70 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                  hazard['category'] ?? "General",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black)
+                hazard['category'] ?? "General",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: R.blockH * 4,
+                  color: Colors.black,
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: sevColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: R.blockH * 2.5,
+                  vertical: R.blockV * 0.625,
+                ),
+                decoration: BoxDecoration(
+                  color: sevColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(
-                    (hazard['severity'] ?? "LOW").toUpperCase(),
-                    style: TextStyle(color: sevColor, fontWeight: FontWeight.bold, fontSize: 11)
+                  (hazard['severity'] ?? "LOW").toUpperCase(),
+                  style: TextStyle(
+                    color: sevColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: R.blockH * 2.75,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: R.blockV * 1),
           Text(
-              hazard['description'] ?? "",
-              style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.3)
+            hazard['description'] ?? "",
+            style: TextStyle(
+              fontSize: R.blockH * 3.5,
+              color: Colors.grey[800],
+              height: 1.3,
+            ),
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Colors.grey),
-          const SizedBox(height: 12),
+          SizedBox(height: R.blockV * 1.5),
+          Divider(height: 1, color: Colors.grey),
+          SizedBox(height: R.blockV * 1.5),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.bolt_rounded, size: 18, color: sevColor),
-              const SizedBox(width: 8),
+              SizedBox(width: R.blockH * 2.133),
               Expanded(
                 child: RichText(
                   text: TextSpan(
-                    style: TextStyle(fontSize: 13, color: Colors.grey[900], height: 1.4),
+                    style: TextStyle(
+                      fontSize: R.blockH * 3.25,
+                      color: Colors.grey[900],
+                      height: 1.4,
+                    ),
                     children: [
-                      const TextSpan(text: "Action Needed: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                      const TextSpan(
+                        text: "Action Needed: ",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       TextSpan(text: hazard['action'] ?? 'Review immediately'),
                     ],
                   ),
                 ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -390,17 +488,33 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
           children: [
             Container(color: Colors.black.withValues(alpha: 0.2)),
             Positioned(
-              top: MediaQuery.of(context).size.height * 0.45 * _scannerAnimation.value,
-              left: 0, right: 0,
+              top:
+                  MediaQuery.of(context).size.height *
+                  0.45 *
+                  _scannerAnimation.value,
+              left: 0,
+              right: 0,
               child: Container(
-                height: 4,
+                height: R.blockV * 0.5,
                 decoration: BoxDecoration(
-                  boxShadow: [BoxShadow(color: _accentGold.withValues(alpha: 0.8), blurRadius: 15, spreadRadius: 4)],
-                  gradient: const LinearGradient(colors: [Colors.transparent, _accentGold, Colors.transparent]),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentGold.withValues(alpha: 0.8),
+                      blurRadius: 15,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                  gradient: const LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      _accentGold,
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
-            const Center(child: CircularProgressIndicator(color: Colors.white)),
+            Center(child: CircularProgressIndicator(color: Colors.white)),
           ],
         );
       },
@@ -408,27 +522,75 @@ class _HazardScreenState extends State<HazardScreen> with TickerProviderStateMix
   }
 
   Widget _buildStatusText(bool hasImage) {
-    if (_errorMessage != null) return Text("Error: $_errorMessage", textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFFF8A80)));
-    if (_isLoading) return const Text("Analyzing site imagery...", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
+    if (_errorMessage != null)
+      return Text(
+        "Error: $_errorMessage",
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Color(0xFFFF8A80)),
+      );
+    if (_isLoading)
+      return Text(
+        "Analyzing site imagery...",
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      );
     return Text(
-      hasImage ? "Capture locked. Tap to analyze site." : "Position the hazard inside the frame\nand ensure good lighting.",
+      hasImage
+          ? "Capture locked. Tap to analyze site."
+          : "Position the hazard inside the frame\nand ensure good lighting.",
       textAlign: TextAlign.center,
-      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14, height: 1.5, fontWeight: FontWeight.w500),
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.85),
+        fontSize: R.blockH * 3.5,
+        height: 1.5,
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 
   Widget _buildScannerActionButton(bool hasImage) {
     if (_isLoading) return const SizedBox.shrink();
-    if (!hasImage) return _cmdBtn("CAPTURE PHOTO", Icons.camera_alt_rounded, _pickImage, _accentGold, Colors.white);
-    return _cmdBtn("ANALYZE SITE", Icons.analytics_rounded, _analyzeImage, _accentGold, Colors.white);
+    if (!hasImage)
+      return _cmdBtn(
+        "CAPTURE PHOTO",
+        Icons.camera_alt_rounded,
+        _pickImage,
+        _accentGold,
+        Colors.white,
+      );
+    return _cmdBtn(
+      "ANALYZE SITE",
+      Icons.analytics_rounded,
+      _analyzeImage,
+      _accentGold,
+      Colors.white,
+    );
   }
 
-  Widget _cmdBtn(String label, IconData icon, VoidCallback onPressed, Color bg, Color tx) {
+  Widget _cmdBtn(
+    String label,
+    IconData icon,
+    VoidCallback onPressed,
+    Color bg,
+    Color tx,
+  ) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, color: tx),
-      label: Text(label, textAlign: TextAlign.center, style: TextStyle(color: tx, fontWeight: FontWeight.bold, fontSize: 16)),
-      style: ElevatedButton.styleFrom(backgroundColor: bg, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+      label: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: tx,
+          fontWeight: FontWeight.bold,
+          fontSize: R.blockH * 4,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+      ),
     );
   }
 }
@@ -437,12 +599,24 @@ class _ScannerPlaceholder extends StatelessWidget {
   const _ScannerPlaceholder();
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.qr_code_scanner_rounded, size: 80, color: Colors.grey.shade300),
-        const SizedBox(height: 20),
-        Text("Scanner Standby", style: TextStyle(color: Colors.grey.shade400, fontSize: 18, fontWeight: FontWeight.bold)),
+        Icon(
+          Icons.qr_code_scanner_rounded,
+          size: 80,
+          color: Colors.grey.shade300,
+        ),
+        SizedBox(height: R.blockV * 2.5),
+        Text(
+          "Scanner Standby",
+          style: TextStyle(
+            color: Colors.grey.shade400,
+            fontSize: R.blockH * 4.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
@@ -452,6 +626,7 @@ class _ScannerOverlay extends StatelessWidget {
   const _ScannerOverlay();
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return const Stack(
       children: [
         Positioned(left: 20, top: 20, child: _ScannerCorner(rotation: 0)),
@@ -470,27 +645,38 @@ class _ScannerCorner extends StatefulWidget {
   State<_ScannerCorner> createState() => _ScannerCornerState();
 }
 
-class _ScannerCornerState extends State<_ScannerCorner> with SingleTickerProviderStateMixin {
+class _ScannerCornerState extends State<_ScannerCorner>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
   }
+
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return FadeTransition(
       opacity: Tween<double>(begin: 0.3, end: 1.0).animate(_ctrl),
       child: RotatedBox(
         quarterTurns: widget.rotation,
         child: Container(
-          width: 44, height: 44,
-          decoration: const BoxDecoration(
+          width: R.blockH * 11.733,
+          height: R.blockV * 5.5,
+          decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(color: Colors.white, width: 4),
-              left: BorderSide(color: Colors.white, width: 4),
+              top: BorderSide(color: Colors.white, width: R.blockH * 1.067),
+              left: BorderSide(color: Colors.white, width: R.blockH * 1.067),
             ),
           ),
         ),

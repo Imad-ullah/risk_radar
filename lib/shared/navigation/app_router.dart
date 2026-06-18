@@ -18,9 +18,9 @@ class AppRouter {
   }) {
     return {
       '/': (_) => AuthWrapper(
-            currentThemeMode: currentThemeMode,
-            onThemeChanged: onThemeChanged,
-          ),
+        currentThemeMode: currentThemeMode,
+        onThemeChanged: onThemeChanged,
+      ),
       '/login': (_) => const LoginScreen(),
       '/signup': (_) => const SignupScreen(),
       '/profile-setup': (_) => const ProfileSetupScreen(),

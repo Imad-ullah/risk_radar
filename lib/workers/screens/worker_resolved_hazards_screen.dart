@@ -240,14 +240,12 @@ class _WorkerResolvedHazardsScreenState
     final normalized = type.toLowerCase().trim();
     if (normalized.contains('slip') || normalized.contains('wet'))
       return 'assets/hazards/slip_falling.svg';
-    if (normalized.contains('stair'))
-      return 'assets/hazards/stairs_fall.svg';
+    if (normalized.contains('stair')) return 'assets/hazards/stairs_fall.svg';
     if (normalized.contains('fall') && !normalized.contains('slip'))
       return 'assets/hazards/falling_objects.svg';
     if (normalized.contains('electric') || normalized.contains('shock'))
       return 'assets/hazards/electric_shock.svg';
-    if (normalized.contains('explosion'))
-      return 'assets/hazards/explosion.svg';
+    if (normalized.contains('explosion')) return 'assets/hazards/explosion.svg';
     if (normalized.contains('freeze') || normalized.contains('ice'))
       return 'assets/hazards/freeze.svg';
     if (normalized.contains('high heat') || normalized.contains('heat'))
@@ -274,9 +272,14 @@ class _WorkerResolvedHazardsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor =
-    isDark ? const Color(0xFF121212) : const Color(0xFFF9FAFB);
+    final backgroundColor = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF9FAFB);
     final timeTextColor = isDark ? Colors.white54 : Colors.black54;
     final dashedLineColor = isDark ? Colors.white24 : Colors.black12;
 
@@ -291,38 +294,43 @@ class _WorkerResolvedHazardsScreenState
             children: [
               // 1. SCROLLABLE LIST
               loading
-                  ? const Center(
-                  child: CircularProgressIndicator(color: _headerTeal))
+                  ? Center(child: CircularProgressIndicator(color: _headerTeal))
                   : _filteredHazards.isEmpty
                   ? Padding(
-                padding: const EdgeInsets.only(top: 220),
-                child: _buildEmptyState(isDark),
-              )
+                      padding: EdgeInsets.only(top: visibleHeight * 0.275),
+                      child: _buildEmptyState(isDark),
+                    )
                   : ListView.builder(
-                controller: _scrollController,
-                padding:
-                const EdgeInsets.fromLTRB(20, 220, 20, 120),
-                itemCount: _filteredHazards.length +
-                    (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _filteredHazards.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: _headerTeal,
-                        ),
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        size.width * 0.050,
+                        visibleHeight * 0.275,
+                        size.width * 0.050,
+                        visibleHeight * 0.150,
                       ),
-                    );
-                  }
-                  return _buildTimelineItem(
-                    _filteredHazards[index],
-                    index,
-                    timeTextColor,
-                    dashedLineColor,
-                  );
-                },
-              ),
+                      itemCount:
+                          _filteredHazards.length + (_isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _filteredHazards.length) {
+                          return Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: visibleHeight * 0.020,
+                            ),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: _headerTeal,
+                              ),
+                            ),
+                          );
+                        }
+                        return _buildTimelineItem(
+                          _filteredHazards[index],
+                          index,
+                          timeTextColor,
+                          dashedLineColor,
+                        );
+                      },
+                    ),
 
               // 2. CURVED HEADER
               Positioned(
@@ -332,31 +340,30 @@ class _WorkerResolvedHazardsScreenState
                 child: CustomPaint(
                   painter: HeaderCurvePainter(color: _headerTeal),
                   child: Container(
-                    padding: const EdgeInsets.only(bottom: 50),
+                    padding: EdgeInsets.only(bottom: visibleHeight * 0.063),
                     child: SafeArea(
                       bottom: false,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(height: 10),
+                          SizedBox(height: visibleHeight * 0.013),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                DateFormat('MMMM yyyy')
-                                    .format(_selectedDate),
-                                style: const TextStyle(
+                                DateFormat('MMMM yyyy').format(_selectedDate),
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 22,
+                                  fontSize: size.width * 0.055,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               // Subtle refresh indicator
                               if (_isRefreshing) ...[
-                                const SizedBox(width: 10),
-                                const SizedBox(
-                                  width: 14,
-                                  height: 14,
+                                SizedBox(width: size.width * 0.027),
+                                SizedBox(
+                                  width: size.width * 0.037,
+                                  height: visibleHeight * 0.018,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: Colors.white54,
@@ -365,25 +372,25 @@ class _WorkerResolvedHazardsScreenState
                               ],
                             ],
                           ),
-                          const SizedBox(height: 15),
+                          SizedBox(height: visibleHeight * 0.019),
                           SizedBox(
-                            height: 90,
+                            height: visibleHeight * 0.112,
                             child: RotatedBox(
                               quarterTurns: -1,
                               child: ListWheelScrollView.useDelegate(
                                 controller: _calendarController,
-                                itemExtent: 65,
+                                itemExtent: size.width * 0.173,
                                 perspective: 0.002,
                                 diameterRatio: 1.5,
                                 physics: const FixedExtentScrollPhysics(),
                                 onSelectedItemChanged: (index) {
                                   final today = DateTime.now();
-                                  final date = today
-                                      .subtract(Duration(days: 30 - index));
+                                  final date = today.subtract(
+                                    Duration(days: 30 - index),
+                                  );
                                   _filterHazardsByDate(date);
                                 },
-                                childDelegate:
-                                ListWheelChildBuilderDelegate(
+                                childDelegate: ListWheelChildBuilderDelegate(
                                   childCount: 31,
                                   builder: (context, index) {
                                     return RotatedBox(
@@ -411,21 +418,26 @@ class _WorkerResolvedHazardsScreenState
   // ── All widget builders below are completely unchanged ─────────────────────
 
   Widget _buildDateCapsule(int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final today = DateTime.now();
     final date = today.subtract(Duration(days: 30 - index));
-    final isSelected = date.year == _selectedDate.year &&
+    final isSelected =
+        date.year == _selectedDate.year &&
         date.month == _selectedDate.month &&
         date.day == _selectedDate.day;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: 58,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: size.width * 0.155,
+      margin: EdgeInsets.symmetric(horizontal: size.width * 0.010),
       decoration: BoxDecoration(
         color: isSelected
             ? _selectedDateColor
             : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(size.width * 0.077),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -434,16 +446,16 @@ class _WorkerResolvedHazardsScreenState
             DateFormat('d').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white,
-              fontSize: 20,
+              fontSize: size.width * 0.050,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: visibleHeight * 0.005),
           Text(
             DateFormat('E').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white60,
-              fontSize: 12,
+              fontSize: size.width * 0.030,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -452,8 +464,16 @@ class _WorkerResolvedHazardsScreenState
     );
   }
 
-  Widget _buildTimelineItem(Map<String, dynamic> hazard, int index,
-      Color timeColor, Color lineColor) {
+  Widget _buildTimelineItem(
+    Map<String, dynamic> hazard,
+    int index,
+    Color timeColor,
+    Color lineColor,
+  ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final dateStr = hazard['resolved_at'] ?? hazard['created_at'];
     String timeDisplay = '--';
     if (dateStr != null) {
@@ -466,7 +486,7 @@ class _WorkerResolvedHazardsScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 55,
+            width: size.width * 0.147,
             child: Column(
               children: [
                 Text(
@@ -474,10 +494,10 @@ class _WorkerResolvedHazardsScreenState
                   style: TextStyle(
                     color: timeColor,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: size.width * 0.033,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: visibleHeight * 0.010),
                 Expanded(
                   child: CustomPaint(
                     painter: DashedLinePainter(color: lineColor),
@@ -488,7 +508,7 @@ class _WorkerResolvedHazardsScreenState
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 20.0),
+              padding: EdgeInsets.only(bottom: visibleHeight * 0.025),
               child: _buildTabbedGradientCard(hazard, index),
             ),
           ),
@@ -497,16 +517,21 @@ class _WorkerResolvedHazardsScreenState
     );
   }
 
-  Widget _buildTabbedGradientCard(
-      Map<String, dynamic> hazard, int index) {
+  Widget _buildTabbedGradientCard(Map<String, dynamic> hazard, int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final hazardType = hazard['hazard_type'] ?? 'Hazard';
     final description = hazard['description'] ?? 'No description';
     final severity = hazard['severity'];
     final String? reportNumber = hazard['report_number']?.toString();
 
-    final bool hasVoice = hazard['voice_note_url'] != null &&
+    final bool hasVoice =
+        hazard['voice_note_url'] != null &&
         hazard['voice_note_url'].toString().isNotEmpty;
-    final bool hasImage = hazard['image_url'] != null &&
+    final bool hasImage =
+        hazard['image_url'] != null &&
         hazard['image_url'].toString().isNotEmpty;
     final bool hasMedia = hasVoice || hasImage;
 
@@ -525,7 +550,7 @@ class _WorkerResolvedHazardsScreenState
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 30 * (1 - value)),
+          offset: Offset(size.width * 0.0, visibleHeight * 0.037 * (1 - value)),
           child: Opacity(opacity: value, child: child),
         );
       },
@@ -534,9 +559,8 @@ class _WorkerResolvedHazardsScreenState
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ResolvedHazardReportScreen(
-                hazardId: hazard['id'].toString(),
-              ),
+              builder: (_) =>
+                  ResolvedHazardReportScreen(hazardId: hazard['id'].toString()),
             ),
           );
         },
@@ -549,112 +573,138 @@ class _WorkerResolvedHazardsScreenState
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            padding: EdgeInsets.fromLTRB(
+              size.width * 0.040,
+              visibleHeight * 0.015,
+              size.width * 0.040,
+              visibleHeight * 0.025,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    if (reportNumber != null &&
-                        reportNumber.isNotEmpty) ...[
+                    if (reportNumber != null && reportNumber.isNotEmpty) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.016,
+                          vertical: visibleHeight * 0.004,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.021,
+                          ),
                         ),
                         child: Text(
                           '#$reportNumber',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: size.width * 0.025,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                            letterSpacing: size.width * 0.003,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: size.width * 0.021),
                     ],
                     if (hasMedia) ...[
                       if (hasVoice)
-                        const Icon(Icons.mic_rounded,
-                            size: 16, color: Colors.white),
-                      if (hasVoice && hasImage) const SizedBox(width: 4),
+                        Icon(
+                          Icons.mic_rounded,
+                          size: size.width * 0.043,
+                          color: Colors.white,
+                        ),
+                      if (hasVoice && hasImage)
+                        SizedBox(width: size.width * 0.011),
                       if (hasImage)
-                        const Icon(Icons.image_rounded,
-                            size: 16, color: Colors.white),
+                        Icon(
+                          Icons.image_rounded,
+                          size: size.width * 0.043,
+                          color: Colors.white,
+                        ),
                     ] else if (reportNumber == null ||
                         reportNumber.isEmpty) ...[
-                      const Icon(Icons.more_horiz,
-                          size: 30, color: Colors.white),
+                      Icon(
+                        Icons.more_horiz,
+                        size: size.width * 0.080,
+                        color: Colors.white,
+                      ),
                     ],
-                    const Spacer(),
+                    Spacer(),
                     SizedBox(
-                      height: 28,
-                      width: 28,
+                      height: visibleHeight * 0.035,
+                      width: size.width * 0.075,
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              width: 2),
+                            color: Colors.white.withValues(alpha: 0.5),
+                            width: size.width * 0.005,
+                          ),
                           image: officerImage != null
                               ? DecorationImage(
-                              image: CachedNetworkImageProvider(
-                                  officerImage),
-                              fit: BoxFit.cover)
+                                  image: CachedNetworkImageProvider(
+                                    officerImage,
+                                  ),
+                                  fit: BoxFit.cover,
+                                )
                               : null,
                           color: Colors.white24,
                         ),
                         child: officerImage == null
-                            ? const Icon(Icons.security,
-                            size: 14, color: Colors.white)
+                            ? Icon(
+                                Icons.security,
+                                size: size.width * 0.037,
+                                color: Colors.white,
+                              )
                             : null,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.020),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 70,
-                      height: 70,
+                      width: size.width * 0.187,
+                      height: visibleHeight * 0.088,
                       alignment: Alignment.center,
                       child: SvgPicture.asset(
                         iconAsset,
                         fit: BoxFit.contain,
-                        width: 58,
-                        height: 58,
-                        placeholderBuilder: (context) => const Icon(
-                            Icons.warning_amber_rounded,
-                            color: Colors.white,
-                            size: 50),
+                        width: size.width * 0.155,
+                        height: visibleHeight * 0.073,
+                        placeholderBuilder: (context) => Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.white,
+                          size: size.width * 0.133,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: size.width * 0.043),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             hazardType,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: size.width * 0.043,
+                              fontWeight: FontWeight.bold,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: visibleHeight * 0.005),
                           Text(
                             description,
                             style: TextStyle(
-                                color:
-                                Colors.white.withValues(alpha: 0.9),
-                                fontSize: 13),
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: size.width * 0.033,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -662,13 +712,19 @@ class _WorkerResolvedHazardsScreenState
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: EdgeInsets.all(size.width * 0.015),
                       decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border:
-                          Border.all(color: Colors.white, width: 2)),
-                      child: const Icon(Icons.check,
-                          size: 16, color: Colors.white),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: size.width * 0.005,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.check,
+                        size: size.width * 0.043,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -681,18 +737,23 @@ class _WorkerResolvedHazardsScreenState
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.event_note,
-              size: 64,
-              color: isDark ? Colors.white12 : Colors.black12),
-          const SizedBox(height: 16),
+          Icon(
+            Icons.event_note,
+            size: size.width * 0.171,
+            color: isDark ? Colors.white12 : Colors.black12,
+          ),
+          SizedBox(height: visibleHeight * 0.020),
           Text(
             "No hazards found for this day",
-            style: TextStyle(
-                color: isDark ? Colors.white38 : Colors.black38),
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
           ),
         ],
       ),
@@ -711,11 +772,16 @@ class HeaderCurvePainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
+    final curveDepth = size.height * 0.180;
 
     final path = Path();
-    path.lineTo(0, size.height - 40);
+    path.lineTo(0, size.height - curveDepth);
     path.quadraticBezierTo(
-        size.width / 2, size.height, size.width, size.height - 40);
+      size.width / 2,
+      size.height,
+      size.width,
+      size.height - curveDepth,
+    );
     path.lineTo(size.width, 0);
     path.close();
     canvas.drawPath(path, paint);
@@ -738,8 +804,11 @@ class DashedLinePainter extends CustomPainter {
 
     double dashHeight = 5, dashSpace = 3, startY = 0;
     while (startY < size.height) {
-      canvas.drawLine(Offset(size.width / 2, startY),
-          Offset(size.width / 2, startY + dashHeight), paint);
+      canvas.drawLine(
+        Offset(size.width / 2, startY),
+        Offset(size.width / 2, startY + dashHeight),
+        paint,
+      );
       startY += dashHeight + dashSpace;
     }
   }
@@ -757,7 +826,8 @@ class TabbedCardGradientPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..shader = gradient.createShader(
-          Rect.fromLTWH(0, 0, size.width, size.height))
+        Rect.fromLTWH(0, 0, size.width, size.height),
+      )
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -768,14 +838,21 @@ class TabbedCardGradientPainter extends CustomPainter {
     path.moveTo(0, radius);
     path.quadraticBezierTo(0, 0, radius, 0);
     path.lineTo(tabWidth - 20, 0);
-    path.cubicTo(
-        tabWidth, 0, tabWidth, tabHeight, tabWidth + 20, tabHeight);
+    path.cubicTo(tabWidth, 0, tabWidth, tabHeight, tabWidth + 20, tabHeight);
     path.lineTo(size.width - radius, tabHeight);
     path.quadraticBezierTo(
-        size.width, tabHeight, size.width, tabHeight + radius);
+      size.width,
+      tabHeight,
+      size.width,
+      tabHeight + radius,
+    );
     path.lineTo(size.width, size.height - radius);
     path.quadraticBezierTo(
-        size.width, size.height, size.width - radius, size.height);
+      size.width,
+      size.height,
+      size.width - radius,
+      size.height,
+    );
     path.lineTo(radius, size.height);
     path.quadraticBezierTo(0, size.height, 0, size.height - radius);
     path.close();

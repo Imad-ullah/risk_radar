@@ -4,6 +4,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/workers/settings/worker_hazard_notifier.dart';
@@ -21,8 +22,7 @@ class WorkerNotificationScreen extends StatelessWidget {
     final normalized = text.toLowerCase();
     if (normalized.contains('slip') || normalized.contains('wet'))
       return 'assets/hazards/slip_falling.svg';
-    if (normalized.contains('stair'))
-      return 'assets/hazards/stairs_fall.svg';
+    if (normalized.contains('stair')) return 'assets/hazards/stairs_fall.svg';
     if (normalized.contains('fall') && !normalized.contains('slip'))
       return 'assets/hazards/falling_objects.svg';
     if (normalized.contains('electric') ||
@@ -55,18 +55,19 @@ class WorkerNotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     const Color brandTeal = Color(0xFF1B3D3D);
     final Color unreadColorLight = Colors.blue.shade50;
     final Color unreadColorDark = brandTeal.withValues(alpha: 0.1);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hazard Notifications'),
+        title: Text('Hazard Notifications'),
         backgroundColor: brandTeal,
         foregroundColor: Colors.white,
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            icon: Icon(Icons.more_vert, color: Colors.white),
             onSelected: (result) {
               if (result == 'mark_all') {
                 workerHazardNotifier.markAllAsRead();
@@ -75,24 +76,26 @@ class WorkerNotificationScreen extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'mark_all',
                 child: Row(
                   children: [
-                    Icon(Icons.mark_email_read,
-                        size: 20, color: Colors.black54),
-                    SizedBox(width: 8),
+                    Icon(
+                      Icons.mark_email_read,
+                      size: 20,
+                      color: Colors.black54,
+                    ),
+                    SizedBox(width: R.blockH * 2.133),
                     Text('Mark All as Read'),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear_all',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_sweep,
-                        size: 20, color: Colors.black54),
-                    SizedBox(width: 8),
+                    Icon(Icons.delete_sweep, size: 20, color: Colors.black54),
+                    SizedBox(width: R.blockH * 2.133),
                     Text('Clear All Notifications'),
                   ],
                 ),
@@ -112,17 +115,26 @@ class WorkerNotificationScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.notifications_off_outlined,
-                      size: 80, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No hazard notifications yet.',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 80,
+                    color: Colors.grey.shade400,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  SizedBox(height: R.blockV * 2),
+                  Text(
+                    'No hazard notifications yet.',
+                    style: TextStyle(
+                      fontSize: R.blockH * 4.5,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  SizedBox(height: R.blockV * 1),
+                  Text(
                     'You\'ll be notified when hazards are nearby.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: R.blockH * 3.5,
+                      color: Colors.grey,
+                    ),
                   ),
                 ],
               ),
@@ -131,7 +143,7 @@ class WorkerNotificationScreen extends StatelessWidget {
 
           return ListView.builder(
             itemCount: notifications.length,
-            padding: const EdgeInsets.only(top: 8, bottom: 20),
+            padding: EdgeInsets.only(top: R.blockV * 1, bottom: R.blockV * 2.5),
             itemBuilder: (context, index) {
               final notification = notifications[index];
 
@@ -153,8 +165,10 @@ class WorkerNotificationScreen extends StatelessWidget {
               return Card(
                 elevation: notification.isRead ? 0.5 : 2,
                 color: cardColor,
-                margin:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                margin: EdgeInsets.symmetric(
+                  horizontal: R.blockH * 2.5,
+                  vertical: R.blockV * 0.5,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                   side: !notification.isRead && !isDark
@@ -162,19 +176,22 @@ class WorkerNotificationScreen extends StatelessWidget {
                       : BorderSide.none,
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   leading: Container(
-                    width: 48,
-                    height: 48,
-                    padding: const EdgeInsets.all(10),
+                    width: R.blockH * 12.8,
+                    height: R.blockV * 6,
+                    padding: EdgeInsets.all(R.blockH * 2.5),
                     decoration: BoxDecoration(
                       color: severityColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: SvgPicture.asset(
                       _getHazardIconPath(
-                          '${notification.title} ${notification.body}'),
+                        '${notification.title} ${notification.body}',
+                      ),
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -187,15 +204,13 @@ class WorkerNotificationScreen extends StatelessWidget {
                     ),
                   ),
                   subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
+                    padding: EdgeInsets.only(top: R.blockV * 0.5),
                     child: Text(
                       '${notification.body}\n📍 ${notification.distance}m away\nSeverity: ${notification.severity.toUpperCase()}',
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: isDark
-                            ? Colors.grey.shade300
-                            : Colors.black87,
+                        color: isDark ? Colors.grey.shade300 : Colors.black87,
                         fontWeight: notification.isRead
                             ? FontWeight.normal
                             : FontWeight.w500,
@@ -205,10 +220,11 @@ class WorkerNotificationScreen extends StatelessWidget {
                   trailing: Text(
                     formattedTime,
                     style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade600),
+                      fontSize: R.blockH * 3,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
-                  onTap: () => _onNotificationTap(
-                      context, notification),
+                  onTap: () => _onNotificationTap(context, notification),
                 ),
               );
             },
@@ -218,18 +234,24 @@ class WorkerNotificationScreen extends StatelessWidget {
     );
   }
 
-
   // ══════════════════════════════════════════════════════════════════════════
   Future<void> _onNotificationTap(
-      BuildContext context, dynamic notification) async {
+    BuildContext context,
+    dynamic notification,
+  ) async {
     workerHazardNotifier.markAsRead(notification.hazardId);
 
     final freshHazard = await _fetchAndParseHazardData(
-        notification.hazardId, notification.sourceTable);
+      notification.hazardId,
+      notification.sourceTable,
+    );
     if (freshHazard != null) {
       if (context.mounted) {
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => HazardDetailsScreen(hazardData: freshHazard)));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => HazardDetailsScreen(hazardData: freshHazard),
+          ),
+        );
       }
       return;
     }
@@ -237,11 +259,16 @@ class WorkerNotificationScreen extends StatelessWidget {
     final cachedHazard = await _findInCache(notification.hazardId);
     if (cachedHazard != null) {
       final parsed = _parseHazardData(
-          cachedHazard, notification.sourceTable,
-          Supabase.instance.client.auth.currentUser?.id);
+        cachedHazard,
+        notification.sourceTable,
+        Supabase.instance.client.auth.currentUser?.id,
+      );
       if (context.mounted) {
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => HazardDetailsScreen(hazardData: parsed)));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => HazardDetailsScreen(hazardData: parsed),
+          ),
+        );
       }
       return;
     }
@@ -258,13 +285,15 @@ class WorkerNotificationScreen extends StatelessWidget {
 
   Future<Map<String, dynamic>?> _findInCache(String hazardId) async {
     final ongoing = await _hazardRepository.getOngoingHazards();
-    final match =
-        ongoing.where((h) => h['id']?.toString() == hazardId).toList();
+    final match = ongoing
+        .where((h) => h['id']?.toString() == hazardId)
+        .toList();
     if (match.isNotEmpty) return match.first;
 
     final myHazards = await _hazardRepository.getHazards();
-    final match2 =
-        myHazards.where((h) => h['id']?.toString() == hazardId).toList();
+    final match2 = myHazards
+        .where((h) => h['id']?.toString() == hazardId)
+        .toList();
     if (match2.isNotEmpty) return match2.first;
 
     return null;
@@ -272,8 +301,11 @@ class WorkerNotificationScreen extends StatelessWidget {
   // PARSE — applies to both cached and fresh Supabase data
   // ══════════════════════════════════════════════════════════════════════════
 
-  Map<String, dynamic> _parseHazardData(Map<String, dynamic> rawHazard,
-      String sourceTable, String? currentUserId) {
+  Map<String, dynamic> _parseHazardData(
+    Map<String, dynamic> rawHazard,
+    String sourceTable,
+    String? currentUserId,
+  ) {
     final reporter = rawHazard['workers'] ?? rawHazard['reporter'];
     final String reporterId =
         rawHazard['worker_id'] ?? (reporter != null ? reporter['id'] : '');
@@ -288,7 +320,7 @@ class WorkerNotificationScreen extends StatelessWidget {
       reporterImageUrl = reporter['profile_image_url'];
     } else if (rawHazard['reporter_first_name'] != null) {
       rawName =
-      '${rawHazard['reporter_first_name']} ${rawHazard['reporter_last_name']}';
+          '${rawHazard['reporter_first_name']} ${rawHazard['reporter_last_name']}';
       reporterImageUrl = rawHazard['reporter_image'];
     } else {
       rawName = rawHazard['reporter_name'] ?? 'Unknown User';
@@ -298,24 +330,27 @@ class WorkerNotificationScreen extends StatelessWidget {
     final reporterWorkType =
         reporter?['work_type'] ?? rawHazard['reporter_work_type'] ?? 'Worker';
 
-    final Map<String, dynamic> passedWorkerInfo = reporter ?? {
-      'id': reporterId,
-      'first_name':
-      rawHazard['reporter_first_name'] ?? rawName.split(' ').first,
-      'last_name': rawHazard['reporter_last_name'] ??
-          (rawName.split(' ').length > 1 ? rawName.split(' ').last : ''),
-      'work_type': reporterWorkType,
-      'profile_image_url': reporterImageUrl,
-    };
+    final Map<String, dynamic> passedWorkerInfo =
+        reporter ??
+        {
+          'id': reporterId,
+          'first_name':
+              rawHazard['reporter_first_name'] ?? rawName.split(' ').first,
+          'last_name':
+              rawHazard['reporter_last_name'] ??
+              (rawName.split(' ').length > 1 ? rawName.split(' ').last : ''),
+          'work_type': reporterWorkType,
+          'profile_image_url': reporterImageUrl,
+        };
 
-    final List officersList = rawHazard['all_assigned_officers'] ??
-        rawHazard['assign_hazards'] ??
-        [];
+    final List officersList =
+        rawHazard['all_assigned_officers'] ?? rawHazard['assign_hazards'] ?? [];
     String assignedName = '';
     if (officersList.isNotEmpty) {
       final firstAssignment = officersList.first;
-      final firstHse =
-          firstAssignment is Map ? firstAssignment['hse_worker'] : null;
+      final firstHse = firstAssignment is Map
+          ? firstAssignment['hse_worker']
+          : null;
       if (firstHse is Map) {
         assignedName =
             '${firstHse['first_name'] ?? ''} ${firstHse['last_name'] ?? ''}'
@@ -326,7 +361,7 @@ class WorkerNotificationScreen extends StatelessWidget {
       assignedName = '${w['first_name']} ${w['last_name']}';
     } else if (rawHazard['hse_first_name'] != null) {
       assignedName =
-      '${rawHazard['hse_first_name']} ${rawHazard['hse_last_name']}';
+          '${rawHazard['hse_first_name']} ${rawHazard['hse_last_name']}';
     } else {
       assignedName = rawHazard['assigned_to_name'] ?? 'Not Assigned';
     }
@@ -334,39 +369,43 @@ class WorkerNotificationScreen extends StatelessWidget {
       assignedName = rawHazard['assigned_to_name'] ?? 'Not Assigned';
     }
 
-    final bool hasFlatInspector = rawHazard['hse_first_name'] != null ||
+    final bool hasFlatInspector =
+        rawHazard['hse_first_name'] != null ||
         rawHazard['hse_last_name'] != null ||
         rawHazard['assigned_to_name'] != null;
     final List normalizedOfficersList = officersList.isNotEmpty
         ? officersList
         : (rawHazard['hse_worker'] != null
-            ? [rawHazard]
-            : (hasFlatInspector
-                ? [
-                    {
-                      'assigned_at': rawHazard['assigned_at'],
-                      'status': rawHazard['status'],
-                      'hse_worker': {
-                        'id': rawHazard['assigned_to'],
-                        'first_name': rawHazard['hse_first_name'] ??
-                            rawHazard['assigned_to_name'] ??
-                            'Site Inspector',
-                        'last_name': rawHazard['hse_last_name'] ?? '',
-                        'profile_image_url': rawHazard['hse_profile_image_url'],
-                        'designation': rawHazard['hse_designation'],
-                        'role': rawHazard['hse_role'] ?? 'hse_worker',
-                      },
-                    }
-                  ]
-                : []));
+              ? [rawHazard]
+              : (hasFlatInspector
+                    ? [
+                        {
+                          'assigned_at': rawHazard['assigned_at'],
+                          'status': rawHazard['status'],
+                          'hse_worker': {
+                            'id': rawHazard['assigned_to'],
+                            'first_name':
+                                rawHazard['hse_first_name'] ??
+                                rawHazard['assigned_to_name'] ??
+                                'Site Inspector',
+                            'last_name': rawHazard['hse_last_name'] ?? '',
+                            'profile_image_url':
+                                rawHazard['hse_profile_image_url'],
+                            'designation': rawHazard['hse_designation'],
+                            'role': rawHazard['hse_role'] ?? 'hse_worker',
+                          },
+                        },
+                      ]
+                    : []));
 
-    final images = (rawHazard['image_url'] != null &&
-        rawHazard['image_url'].toString().isNotEmpty)
+    final images =
+        (rawHazard['image_url'] != null &&
+            rawHazard['image_url'].toString().isNotEmpty)
         ? rawHazard['image_url']
-        .toString()
-        .split(',')
-        .map((e) => e.trim())
-        .toList()
+              .toString()
+              .split(',')
+              .map((e) => e.trim())
+              .toList()
         : <String>[];
 
     return {
@@ -395,7 +434,9 @@ class WorkerNotificationScreen extends StatelessWidget {
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>?> _fetchAndParseHazardData(
-      String hazardId, String sourceTable) async {
+    String hazardId,
+    String sourceTable,
+  ) async {
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser?.id;
 
@@ -456,25 +497,28 @@ class WorkerNotificationScreen extends StatelessWidget {
 
   String _capitalizeName(String name) {
     if (name.isEmpty) return name;
-    return name.split(' ').map((word) {
-      if (word.isEmpty) return '';
-      return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
-    }).join(' ');
+    return name
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return '';
+          return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+        })
+        .join(' ');
   }
 
   void _showClearDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear All Notifications?'),
-        content: const Text(
+        title: Text('Clear All Notifications?'),
+        content: Text(
           'This will permanently remove all notification history. '
-              'This action cannot be undone.',
+          'This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -482,7 +526,7 @@ class WorkerNotificationScreen extends StatelessWidget {
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear All'),
+            child: Text('Clear All'),
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -353,13 +354,14 @@ class _HseWorkerResolutionFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark
           ? Colors.grey.shade900
           : AppColors.backgroundLight,
       appBar: AppBar(
-        title: const Text('Resolve Hazard'),
+        title: Text('Resolve Hazard'),
         centerTitle: true,
         backgroundColor: AppColors.brandTeal,
         foregroundColor: Colors.white,
@@ -368,18 +370,18 @@ class _HseWorkerResolutionFormScreenState
         key: _formKey,
         autovalidateMode: _autovalidateMode,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(R.blockH * 5),
           children: <Widget>[
             _buildHazardSummary(isDark),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             _buildNotesField(isDark),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             _buildPhotoSection(isDark),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             _buildVoiceNoteSection(isDark),
-            const SizedBox(height: 28),
+            SizedBox(height: R.blockV * 3.5),
             SizedBox(
-              height: 54,
+              height: R.blockV * 6.75,
               child: ElevatedButton(
                 onPressed: _canSubmit ? _submitResolution : null,
                 style: ElevatedButton.styleFrom(
@@ -391,11 +393,11 @@ class _HseWorkerResolutionFormScreenState
                   ),
                 ),
                 child: _isSubmitting
-                    ? const RiskRadarLoader(color: Colors.white, size: 28)
-                    : const Text(
+                    ? RiskRadarLoader(color: Colors.white, size: 28)
+                    : Text(
                         'Submit Resolution',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: R.blockH * 4,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -414,7 +416,7 @@ class _HseWorkerResolutionFormScreenState
         widget.hazard.description ?? 'No description provided.';
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(R.blockH * 4.5),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade800 : Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -422,7 +424,7 @@ class _HseWorkerResolutionFormScreenState
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
-            offset: const Offset(0, 6),
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -432,17 +434,17 @@ class _HseWorkerResolutionFormScreenState
           Row(
             children: <Widget>[
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(R.blockH * 3),
                 decoration: BoxDecoration(
                   color: AppColors.accentGold.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.health_and_safety_rounded,
                   color: AppColors.accentGold,
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: R.blockH * 3.733),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,11 +453,11 @@ class _HseWorkerResolutionFormScreenState
                       hazardType,
                       style: TextStyle(
                         color: isDark ? Colors.white : AppColors.brandTeal,
-                        fontSize: 18,
+                        fontSize: R.blockH * 4.5,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: R.blockV * 0.5),
                     Text(
                       severity,
                       style: TextStyle(
@@ -470,7 +472,7 @@ class _HseWorkerResolutionFormScreenState
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: R.blockV * 1.75),
           Text(
             description,
             style: TextStyle(
@@ -522,13 +524,14 @@ class _HseWorkerResolutionFormScreenState
             _buildAddPhotoTile(isDark)
           else
             SizedBox(
-              height: 126,
+              height: R.blockV * 15.75,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount:
                     _selectedPhotos.length +
                     (_selectedPhotos.length < _maxResolutionPhotos ? 1 : 0),
-                separatorBuilder: (context, index) => const SizedBox(width: 10),
+                separatorBuilder: (context, index) =>
+                    SizedBox(width: R.blockH * 2.667),
                 itemBuilder: (BuildContext context, int index) {
                   if (index == _selectedPhotos.length) {
                     return _buildCompactAddPhotoTile(isDark);
@@ -548,7 +551,7 @@ class _HseWorkerResolutionFormScreenState
       onTap: _pickPhoto,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        height: 132,
+        height: R.blockV * 16.5,
         width: double.infinity,
         decoration: BoxDecoration(
           color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight,
@@ -558,12 +561,12 @@ class _HseWorkerResolutionFormScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.add_a_photo_rounded,
               color: AppColors.accentGold,
               size: 34,
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: R.blockV * 1.25),
             Text(
               'Capture resolution photo',
               style: TextStyle(
@@ -582,16 +585,13 @@ class _HseWorkerResolutionFormScreenState
       onTap: _pickPhoto,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        width: 108,
+        width: R.blockH * 28.8,
         decoration: BoxDecoration(
           color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.accentGold),
         ),
-        child: const Icon(
-          Icons.add_a_photo_rounded,
-          color: AppColors.accentGold,
-        ),
+        child: Icon(Icons.add_a_photo_rounded, color: AppColors.accentGold),
       ),
     );
   }
@@ -599,7 +599,7 @@ class _HseWorkerResolutionFormScreenState
   Widget _buildPhotoPreview(int index) {
     final XFile photo = _selectedPhotos[index];
     return SizedBox(
-      width: 108,
+      width: R.blockH * 28.8,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Stack(
@@ -611,7 +611,7 @@ class _HseWorkerResolutionFormScreenState
               right: 6,
               child: InkWell(
                 onTap: () => _removePhoto(index),
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   radius: 14,
                   backgroundColor: Colors.black54,
                   child: Icon(Icons.close, color: Colors.white, size: 16),
@@ -638,7 +638,7 @@ class _HseWorkerResolutionFormScreenState
               color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: R.blockV * 1.5),
           OutlinedButton.icon(
             onPressed: _isAudioPlaying ? null : _toggleRecording,
             icon: Icon(
@@ -657,7 +657,7 @@ class _HseWorkerResolutionFormScreenState
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: R.blockV * 1.5),
           VoiceNoteRecorder(
             key: _voiceRecorderKey,
             onRecordingStateChanged: _handleRecordingStateChanged,
@@ -675,7 +675,7 @@ class _HseWorkerResolutionFormScreenState
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(R.blockH * 4.5),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey.shade800 : Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -686,18 +686,18 @@ class _HseWorkerResolutionFormScreenState
           Row(
             children: <Widget>[
               Icon(icon, color: AppColors.brandTeal),
-              const SizedBox(width: 10),
+              SizedBox(width: R.blockH * 2.667),
               Text(
                 title,
                 style: TextStyle(
                   color: isDark ? Colors.white : AppColors.brandTeal,
-                  fontSize: 16,
+                  fontSize: R.blockH * 4,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: R.blockV * 1.75),
           child,
         ],
       ),
@@ -710,12 +710,12 @@ class _HseWorkerResolutionFormScreenState
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: EdgeInsets.only(top: R.blockV * 1),
       child: Text(
         message,
         style: TextStyle(
           color: Colors.red.shade700,
-          fontSize: 12,
+          fontSize: R.blockH * 3,
           fontWeight: FontWeight.w600,
         ),
       ),

@@ -24,10 +24,7 @@ class WorkerAppSettingsScreen extends StatelessWidget {
       SnackBar(
         content: Text(
           message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         backgroundColor: AppColors.brandTeal,
         behavior: SnackBarBehavior.floating,
@@ -40,10 +37,7 @@ class WorkerAppSettingsScreen extends StatelessWidget {
       SnackBar(
         content: Text(
           message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
@@ -54,107 +48,123 @@ class WorkerAppSettingsScreen extends StatelessWidget {
   Future<void> _handleSignOut(BuildContext context) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (BuildContext ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[
-                AppColors.brandTeal,
-                AppColors.brandTeal.withValues(alpha: 0.85),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+      builder: (BuildContext ctx) {
+        final mediaQuery = MediaQuery.of(ctx);
+        final size = mediaQuery.size;
+        final visibleHeight =
+            size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+        return Dialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: size.width * 0.085,
+            vertical: visibleHeight * 0.030,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Confirm Logout',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Are you sure you want to log out of RiskRadar?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
-              const SizedBox(height: 28),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    style: TextButton.styleFrom(foregroundColor: Colors.white),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.brandTeal,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 4,
-                    ),
-                    child: const Text(
-                      'Logout',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(size.width * 0.071),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: size.width * 0.0,
+          child: Container(
+            padding: EdgeInsets.all(size.width * 0.048),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  AppColors.brandTeal,
+                  AppColors.brandTeal.withValues(alpha: 0.85),
                 ],
               ),
-            ],
+              borderRadius: BorderRadius.circular(size.width * 0.071),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: size.width * 0.053,
+                  offset: Offset(size.width * 0.0, visibleHeight * 0.013),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  padding: EdgeInsets.all(size.width * 0.032),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.logout_rounded,
+                    color: Colors.white,
+                    size: size.width * 0.074,
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.018),
+                Text(
+                  'Confirm Logout',
+                  style: TextStyle(
+                    fontSize: size.width * 0.050,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.010),
+                Text(
+                  'Are you sure you want to log out of RiskRadar?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: size.width * 0.035,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.024),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: size.width * 0.040,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: size.width * 0.032),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.brandTeal,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.064,
+                          vertical: visibleHeight * 0.011,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.041,
+                          ),
+                        ),
+                        elevation: size.width * 0.011,
+                      ),
+                      child: Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontSize: size.width * 0.040,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     if (confirm == true && context.mounted) {
@@ -176,9 +186,7 @@ class WorkerAppSettingsScreen extends StatelessWidget {
   void _onChangeSiteTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const WorkerSitesScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const WorkerSitesScreen()),
     );
   }
 
@@ -195,6 +203,10 @@ class WorkerAppSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -202,7 +214,10 @@ class WorkerAppSettingsScreen extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.040,
+              vertical: visibleHeight * 0.010,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -212,7 +227,7 @@ class WorkerAppSettingsScreen extends StatelessWidget {
                   subtitle: 'View and update your personal details',
                   onTap: onProfileTap,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.warning_amber_outlined,
                   iconColor: Colors.red.shade200,
@@ -220,14 +235,14 @@ class WorkerAppSettingsScreen extends StatelessWidget {
                   subtitle: 'View or update emergency contacts and info',
                   onTap: () => _onEmergencyDetailsTap(context),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.location_on_outlined,
                   title: 'Change Current Site',
                   subtitle: 'Select or switch your active work site',
                   onTap: () => _onChangeSiteTap(context),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.color_lens_outlined,
                   title: isDark ? 'Dark Mode' : 'Light Mode',
@@ -241,7 +256,7 @@ class WorkerAppSettingsScreen extends StatelessWidget {
                   ),
                   onTap: () {},
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
@@ -251,7 +266,7 @@ class WorkerAppSettingsScreen extends StatelessWidget {
                     'Notification settings coming soon',
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.security_outlined,
                   title: 'Privacy & Security',
@@ -261,31 +276,28 @@ class WorkerAppSettingsScreen extends StatelessWidget {
                     'Privacy settings coming soon',
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.info_outline,
                   title: 'About App',
                   subtitle: 'Learn more about this application',
                   onTap: () => onAboutTap(context),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: visibleHeight * 0.026),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: <Color>[
-                        Colors.red.shade600,
-                        Colors.red.shade800,
-                      ],
+                      colors: <Color>[Colors.red.shade600, Colors.red.shade800],
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(size.width * 0.036),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.red.shade600.withValues(alpha: 0.32),
-                        blurRadius: 14,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 6),
+                        blurRadius: size.width * 0.037,
+                        spreadRadius: size.width * 0.003,
+                        offset: Offset(size.width * 0.0, visibleHeight * 0.008),
                       ),
                     ],
                   ),
@@ -294,23 +306,23 @@ class WorkerAppSettingsScreen extends StatelessWidget {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 56),
+                      minimumSize: Size(double.infinity, visibleHeight * 0.060),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(size.width * 0.036),
                       ),
                     ),
                     onPressed: () => _handleSignOut(context),
-                    icon: const Icon(Icons.logout, size: 22),
-                    label: const Text(
+                    icon: Icon(Icons.logout, size: size.width * 0.053),
+                    label: Text(
                       'Sign Out',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: size.width * 0.037,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: visibleHeight * 0.014),
               ],
             ),
           ),
@@ -341,6 +353,10 @@ class _CompactSettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final Color cardBase = isDark
@@ -349,9 +365,12 @@ class _CompactSettingsTile extends StatelessWidget {
 
     return InkWell(
       onTap: enableTileTap ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(size.width * 0.031),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: size.width * 0.040,
+          vertical: visibleHeight * 0.015,
+        ),
         decoration: BoxDecoration(
           color: cardBase,
           border: Border.all(
@@ -359,12 +378,12 @@ class _CompactSettingsTile extends StatelessWidget {
                 ? AppColors.surfaceTeal.withValues(alpha: 0.8)
                 : AppColors.brandTeal.withValues(alpha: 0.22),
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(size.width * 0.031),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              blurRadius: size.width * 0.027,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.005),
             ),
           ],
         ),
@@ -373,26 +392,26 @@ class _CompactSettingsTile extends StatelessWidget {
             Icon(
               icon,
               color: iconColor ?? Colors.white,
-              size: 26,
+              size: size.width * 0.064,
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: size.width * 0.035),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: size.width * 0.039,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: visibleHeight * 0.003),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: size.width * 0.029,
                       fontWeight: FontWeight.w500,
                       color: Colors.white.withValues(alpha: 0.74),
                     ),
@@ -403,10 +422,10 @@ class _CompactSettingsTile extends StatelessWidget {
             if (trailing != null)
               trailing!
             else
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 color: Colors.white70,
-                size: 24,
+                size: size.width * 0.060,
               ),
           ],
         ),
@@ -419,14 +438,14 @@ class ThemeToggle extends StatelessWidget {
   final bool isDark;
   final ValueChanged<bool> onChanged;
 
-  const ThemeToggle({
-    super.key,
-    required this.isDark,
-    required this.onChanged,
-  });
+  const ThemeToggle({super.key, required this.isDark, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final trackLight = Colors.grey.shade300;
     final trackDark = Colors.grey.shade800;
 
@@ -436,9 +455,9 @@ class ThemeToggle extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        width: 86,
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        width: size.width * 0.205,
+        height: visibleHeight * 0.041,
+        padding: EdgeInsets.symmetric(horizontal: size.width * 0.012),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isDark
@@ -447,12 +466,12 @@ class ThemeToggle extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(size.width * 0.064),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              blurRadius: size.width * 0.011,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.003),
             ),
           ],
         ),
@@ -462,10 +481,10 @@ class ThemeToggle extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.only(left: 10),
+                padding: EdgeInsets.only(left: size.width * 0.020),
                 child: Icon(
                   Icons.wb_sunny_rounded,
-                  size: 20,
+                  size: size.width * 0.046,
                   color: isDark ? Colors.white30 : Colors.orangeAccent.shade700,
                 ),
               ),
@@ -473,10 +492,10 @@ class ThemeToggle extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Padding(
-                padding: const EdgeInsets.only(right: 10),
+                padding: EdgeInsets.only(right: size.width * 0.020),
                 child: Icon(
                   Icons.nightlight_round,
-                  size: 20,
+                  size: size.width * 0.046,
                   color: isDark ? Colors.indigoAccent.shade100 : Colors.black26,
                 ),
               ),
@@ -486,8 +505,8 @@ class ThemeToggle extends StatelessWidget {
               curve: Curves.easeInOut,
               alignment: isDark ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
-                width: 34,
-                height: 34,
+                width: size.width * 0.078,
+                height: visibleHeight * 0.036,
                 decoration: BoxDecoration(
                   color: isDark
                       ? Theme.of(context).colorScheme.primary
@@ -496,15 +515,15 @@ class ThemeToggle extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                      blurRadius: size.width * 0.011,
+                      offset: Offset(size.width * 0.0, visibleHeight * 0.003),
                     ),
                   ],
                 ),
                 child: Center(
                   child: Icon(
                     isDark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
-                    size: 18,
+                    size: size.width * 0.041,
                     color: isDark ? Colors.white : Colors.orangeAccent.shade700,
                   ),
                 ),

@@ -201,6 +201,7 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   final Map<String, int> _selectionOrder = {};
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
+  bool _isCustomHazardDialogOpen = false;
 
   void _showMaxHazardsWarning() {
     ScaffoldMessenger.of(
@@ -241,186 +242,237 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   }
 
   // --- UPDATED: Gradient Dialog with Immediate Submit ---
-  void _addCustomHazard() {
-    showDialog(
+  Future<void> _addCustomHazard() async {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    setState(() => _isCustomHazardDialogOpen = true);
+    await showDialog(
       context: context,
       builder: (dialogContext) {
+        final dialogMediaQuery = MediaQuery.of(dialogContext);
+        final keyboardInset = dialogMediaQuery.viewInsets.bottom;
+        final keyboardOpen = keyboardInset > size.height * 0.001;
+        final availableDialogHeight = visibleHeight - keyboardInset;
         String customHazardName = "";
 
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          backgroundColor:
-              Colors.transparent, // Transparent to show gradient container
-          elevation: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              // RiskRadar Theme Gradient
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_brandTeal, _brandTeal.withValues(alpha: 0.8)],
+        return PopScope(
+          canPop: !keyboardOpen,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && keyboardOpen) {
+              FocusScope.of(dialogContext).unfocus();
+            }
+          },
+          child: GestureDetector(
+            onTap: () => FocusScope.of(dialogContext).unfocus(),
+            child: Dialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: size.width * 0.085,
+                vertical: visibleHeight * 0.018,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(size.width * 0.071),
+              ),
+              backgroundColor:
+                  Colors.transparent, // Transparent to show gradient container
+              elevation: 0,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: availableDialogHeight * 0.760,
                 ),
-              ],
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.add_circle_outline_rounded,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Add Custom Hazard',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ), // White text on gradient
-                ),
-                const SizedBox(height: 24),
-                // Input Field inside Dialog
-                TextField(
-                  autofocus: true,
-                  maxLength: _maxCustomHazardTitleLength,
-                  inputFormatters: const [SanitizingTextInputFormatter()],
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ), // Black text inside input
-                  cursorColor: _brandTeal,
-                  decoration: InputDecoration(
-                    hintText: "Enter hazard name",
-                    hintStyle: TextStyle(color: Colors.grey[500]),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white, // White input background
-                    counterStyle: const TextStyle(color: Colors.white70),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                  onChanged: (value) =>
-                      customHazardName = InputSanitizer.cleanText(
-                        value,
-                        maxLength: _maxCustomHazardTitleLength,
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(size.width * 0.071),
+                      // RiskRadar Theme Gradient
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [_brandTeal, _brandTeal.withValues(alpha: 0.8)],
                       ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: size.width * 0.038,
+                          offset: Offset(
+                            size.width * 0.0,
+                            visibleHeight * 0.012,
+                          ),
                         ),
-                        foregroundColor: Colors.white, // White text button
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        final validationError =
-                            InputSanitizer.validateShortText(
-                              customHazardName,
-                              maxLength: _maxCustomHazardTitleLength,
-                            );
-                        if (validationError ==
-                            InputSanitizer.invalidInputMessage) {
-                          _showInvalidInputWarning();
-                          return;
-                        }
-                        if (customHazardName.trim().isNotEmpty &&
-                            validationError == null) {
-                          if (_selected.length >= _maxSelectedHazards) {
-                            Navigator.pop(dialogContext);
-                            _showMaxHazardsWarning();
-                            return;
-                          }
-                          setState(() {
-                            final newHazard = {
-                              'icon': Icons.warning_amber_rounded,
-                              'label': customHazardName.trim(),
-                              'color': const Color(0xFF757575),
-                            };
-                            hazardTypes.add(newHazard);
-                            _selected.add(newHazard['label'] as String);
-                            _selectionOrder[newHazard['label'] as String] =
-                                _selected.length;
-                          });
+                    padding: EdgeInsets.all(size.width * 0.048),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(size.width * 0.030),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.add_circle_outline_rounded,
+                            color: Colors.white,
+                            size: size.width * 0.064,
+                          ),
+                        ),
+                        SizedBox(height: visibleHeight * 0.016),
+                        Text(
+                          'Add Custom Hazard',
+                          style: TextStyle(
+                            fontSize: size.width * 0.047,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ), // White text on gradient
+                        ),
+                        SizedBox(height: visibleHeight * 0.018),
+                        // Input Field inside Dialog
+                        TextField(
+                          autofocus: false,
+                          maxLength: _maxCustomHazardTitleLength,
+                          inputFormatters: const [
+                            SanitizingTextInputFormatter(),
+                          ],
+                          style: TextStyle(
+                            fontSize: size.width * 0.038,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ), // Black text inside input
+                          cursorColor: _brandTeal,
+                          decoration: InputDecoration(
+                            hintText: "Enter hazard name",
+                            hintStyle: TextStyle(color: Colors.grey[500]),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                size.width * 0.041,
+                              ),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white, // White input background
+                            counterStyle: TextStyle(color: Colors.white70),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: size.width * 0.038,
+                              vertical: visibleHeight * 0.012,
+                            ),
+                          ),
+                          onChanged: (value) =>
+                              customHazardName = InputSanitizer.cleanText(
+                                value,
+                                maxLength: _maxCustomHazardTitleLength,
+                              ),
+                        ),
+                        SizedBox(height: visibleHeight * 0.014),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: size.width * 0.044,
+                                  vertical: visibleHeight * 0.010,
+                                ),
+                                foregroundColor:
+                                    Colors.white, // White text button
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: size.width * 0.038,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: size.width * 0.024),
+                            ElevatedButton(
+                              onPressed: () {
+                                final validationError =
+                                    InputSanitizer.validateShortText(
+                                      customHazardName,
+                                      maxLength: _maxCustomHazardTitleLength,
+                                    );
+                                if (validationError ==
+                                    InputSanitizer.invalidInputMessage) {
+                                  _showInvalidInputWarning();
+                                  return;
+                                }
+                                if (customHazardName.trim().isNotEmpty &&
+                                    validationError == null) {
+                                  if (_selected.length >= _maxSelectedHazards) {
+                                    Navigator.pop(dialogContext);
+                                    _showMaxHazardsWarning();
+                                    return;
+                                  }
+                                  setState(() {
+                                    final newHazard = {
+                                      'icon': Icons.warning_amber_rounded,
+                                      'label': customHazardName.trim(),
+                                      'color': const Color(0xFF757575),
+                                    };
+                                    hazardTypes.add(newHazard);
+                                    _selected.add(newHazard['label'] as String);
+                                    _selectionOrder[newHazard['label']
+                                            as String] =
+                                        _selected.length;
+                                  });
 
-                          // 1. Close the Dialog
-                          Navigator.pop(dialogContext);
+                                  // 1. Close the Dialog
+                                  Navigator.pop(dialogContext);
 
-                          // 2. IMMEDIATELY Return to previous screen with Selection
-                          Navigator.pop(context, _selected.toList());
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white, // White button
-                        foregroundColor: _brandTeal, // Teal text
-                        elevation: 4,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                                  // 2. IMMEDIATELY Return to previous screen with Selection
+                                  Navigator.pop(context, _selected.toList());
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white, // White button
+                                foregroundColor: _brandTeal, // Teal text
+                                elevation: size.width * 0.010,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: size.width * 0.048,
+                                  vertical: visibleHeight * 0.011,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    size.width * 0.041,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                'Add',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: size.width * 0.038,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'Add',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         );
       },
     );
+    if (mounted) {
+      setState(() => _isCustomHazardDialogOpen = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
     final filteredHazards = hazardTypes
@@ -433,114 +485,154 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: false,
       // Use a Stack to overlay the curved top bar
       body: Stack(
         children: [
           // Main Content Grid
           Padding(
             // Top padding matches the height of the custom top bar
-            padding: const EdgeInsets.only(top: 170.0),
-            child: filteredHazards.isEmpty
-                ? _buildEmptyState(isDarkTheme)
-                : _buildHazardGrid(filteredHazards),
+            padding: EdgeInsets.only(top: visibleHeight * 0.213),
+            child: TickerMode(
+              enabled: !_isCustomHazardDialogOpen,
+              child: filteredHazards.isEmpty
+                  ? _buildEmptyState(isDarkTheme)
+                  : _buildHazardGrid(filteredHazards),
+            ),
           ),
 
           // Custom Curved Top Bar
           _buildCurvedTopBar(isDarkTheme),
         ],
       ),
-      floatingActionButton: _buildFloatingActionButtons(),
+      floatingActionButton: _isCustomHazardDialogOpen
+          ? null
+          : _buildFloatingActionButtons(),
     );
   }
 
   // --- Curved Top Bar with Round Search Box ---
   Widget _buildCurvedTopBar(bool isDarkTheme) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final headerRowHeight = visibleHeight * 0.052;
+    final searchHeight = visibleHeight * 0.054;
+    final headerGap = visibleHeight * 0.006;
     return Container(
-      height: 180,
-      decoration: const BoxDecoration(
+      height: visibleHeight * 0.225,
+      decoration: BoxDecoration(
         color: _brandTeal,
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+          bottomLeft: Radius.circular(size.width * 0.061),
+          bottomRight: Radius.circular(size.width * 0.061),
         ),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: EdgeInsets.fromLTRB(
+            size.width * 0.040,
+            visibleHeight * 0.010,
+            size.width * 0.040,
+            visibleHeight * 0.020,
+          ),
           child: Column(
             children: [
               // Header Row
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      'Select Hazard Types',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                        color: Colors.white,
+              SizedBox(
+                height: headerRowHeight,
+                child: Row(
+                  children: [
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        minWidth: size.width * 0.112,
+                        minHeight: headerRowHeight,
                       ),
-                      textAlign: TextAlign.center,
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: size.width * 0.056,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                  ),
-                  const SizedBox(width: 48), // Spacer to balance back button
-                ],
+                    Expanded(
+                      child: Text(
+                        'Select Hazard Types',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: size.width * 0.046,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    SizedBox(width: size.width * 0.112),
+                  ],
+                ),
               ),
-              const Spacer(),
+              SizedBox(height: headerGap),
 
               // --- Search Bar (Proper Pill Shape) ---
-              TextField(
-                controller: _searchController,
-                // Text style is black to contrast with white background
-                style: const TextStyle(color: Colors.black87, fontSize: 15),
-                decoration: InputDecoration(
-                  hintText: "Search hazards...",
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
-                    color: Colors.grey[600],
+              SizedBox(
+                height: searchHeight,
+                child: TextField(
+                  controller: _searchController,
+                  // Text style is black to contrast with white background
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: size.width * 0.036,
                   ),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            Icons.clear_rounded,
-                            color: Colors.grey[600],
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                              _searchQuery = "";
-                            });
-                          },
-                        )
-                      : null,
-                  // Background
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
+                  decoration: InputDecoration(
+                    hintText: "Search hazards...",
+                    hintStyle: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: size.width * 0.036,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: Colors.grey[600],
+                      size: size.width * 0.056,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: Colors.grey[600],
+                              size: size.width * 0.056,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = "";
+                              });
+                            },
+                          )
+                        : null,
+                    // Background
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.051,
+                      vertical: visibleHeight * 0.010,
+                    ),
 
-                  // Round Borders
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30), // Pill Shape
-                    borderSide: BorderSide.none, // No line
+                    // Round Borders
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(size.width * 0.077),
+                      borderSide: BorderSide.none, // No line
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(size.width * 0.077),
+                      borderSide: BorderSide.none, // No line
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30), // Pill Shape
-                    borderSide: BorderSide.none, // No line
-                  ),
+                  onChanged: (value) =>
+                      setState(() => _searchQuery = value.trim()),
                 ),
-                onChanged: (value) =>
-                    setState(() => _searchQuery = value.trim()),
               ),
             ],
           ),
@@ -550,36 +642,40 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   }
 
   Widget _buildEmptyState(bool isDarkTheme) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(size.width * 0.060),
             decoration: BoxDecoration(
               color: isDarkTheme ? Colors.grey[900] : Colors.grey[100],
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.search_off_rounded,
-              size: 56,
+              size: size.width * 0.143,
               color: isDarkTheme ? Colors.grey[700] : Colors.grey[400],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: visibleHeight * 0.025),
           Text(
             "No hazards found",
             style: TextStyle(
-              fontSize: 20,
+              fontSize: size.width * 0.050,
               fontWeight: FontWeight.w700,
               color: isDarkTheme ? Colors.white : Colors.black87,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: visibleHeight * 0.010),
           Text(
             "Try a different search term",
             style: TextStyle(
-              fontSize: 15,
+              fontSize: size.width * 0.038,
               color: isDarkTheme ? Colors.grey[400] : Colors.grey[500],
             ),
           ),
@@ -589,12 +685,21 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
   }
 
   Widget _buildHazardGrid(List<Map<String, dynamic>> filteredHazards) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      padding: EdgeInsets.fromLTRB(
+        size.width * 0.040,
+        visibleHeight * 0.020,
+        size.width * 0.040,
+        visibleHeight * 0.113,
+      ),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        crossAxisSpacing: size.width * 0.031,
+        mainAxisSpacing: visibleHeight * 0.015,
         childAspectRatio: 0.88,
       ),
       itemCount: filteredHazards.length,
@@ -603,36 +708,42 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
         final label = hazard['label'] as String;
         final isSelected = _selected.contains(label);
 
-        return HazardCard(
-          hazard: hazard,
-          isSelected: isSelected,
-          hazardColor: hazard['color'] as Color,
-          label: label,
-          selectionNumber: _selectionOrder[label],
-          onTap: () => _toggleSelection(label),
+        return RepaintBoundary(
+          child: HazardCard(
+            hazard: hazard,
+            isSelected: isSelected,
+            hazardColor: hazard['color'] as Color,
+            label: label,
+            selectionNumber: _selectionOrder[label],
+            onTap: () => _toggleSelection(label),
+          ),
         );
       },
     );
   }
 
   Widget _buildFloatingActionButtons() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: EdgeInsets.only(bottom: visibleHeight * 0.010),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 32.0),
+            padding: EdgeInsets.only(left: size.width * 0.080),
             child: FloatingActionButton(
               heroTag: 'addCustomHazard',
               onPressed: _addCustomHazard,
               backgroundColor: Colors.white,
               foregroundColor: _brandTeal,
-              elevation: 4,
+              elevation: size.width * 0.010,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(size.width * 0.041),
               ),
-              child: const Icon(Icons.add_rounded, size: 32),
+              child: Icon(Icons.add_rounded, size: size.width * 0.081),
             ),
           ),
           FloatingActionButton.extended(
@@ -640,18 +751,23 @@ class _SelectHazardTypeScreenState extends State<SelectHazardTypeScreen> {
             onPressed: _selected.isEmpty
                 ? null
                 : () => Navigator.pop(context, _selected.toList()),
-            icon: const Icon(Icons.check_circle_rounded, size: 22),
-            label: const Text(
+            icon: Icon(Icons.check_circle_rounded, size: size.width * 0.056),
+            label: Text(
               'Confirm',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: size.width * 0.040,
+              ),
             ),
             backgroundColor: _selected.isEmpty
                 ? Colors.grey.shade400
                 : _brandTeal,
             foregroundColor: Colors.white,
-            elevation: _selected.isEmpty ? 0 : 4,
+            elevation: _selected.isEmpty
+                ? size.width * 0.0
+                : size.width * 0.010,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(size.width * 0.041),
             ),
           ),
         ],
@@ -733,6 +849,10 @@ class _HazardCardState extends State<HazardCard>
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final iconData = widget.hazard['icon'];
     Widget iconWidget;
 
@@ -741,14 +861,14 @@ class _HazardCardState extends State<HazardCard>
         iconData,
         fit: BoxFit.contain,
         placeholderBuilder: (_) =>
-            const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     } else {
       iconWidget = SvgPicture.asset(
         HazardCard._fallbackPath,
         fit: BoxFit.contain,
         placeholderBuilder: (_) =>
-            const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
 
@@ -763,7 +883,7 @@ class _HazardCardState extends State<HazardCard>
               color: Colors.transparent,
               child: InkWell(
                 onTap: widget.onTap,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(size.width * 0.051),
                 splashColor: widget.hazardColor.withValues(alpha: 0.3),
                 highlightColor: widget.hazardColor.withValues(alpha: 0.2),
                 child: AnimatedContainer(
@@ -771,21 +891,30 @@ class _HazardCardState extends State<HazardCard>
                   curve: Curves.easeOut,
                   decoration: BoxDecoration(
                     color: widget.hazardColor,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(size.width * 0.051),
                     border: Border.all(
                       color: widget.isSelected
                           ? Colors.white
                           : widget.hazardColor,
-                      width: widget.isSelected ? 4 : 0,
+                      width: widget.isSelected ? size.width * 0.010 : 0,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: widget.hazardColor.withValues(
                           alpha: widget.isSelected ? 0.6 : 0.3,
                         ),
-                        blurRadius: widget.isSelected ? 16 : 8,
-                        offset: Offset(0, widget.isSelected ? 6 : 3),
-                        spreadRadius: widget.isSelected ? 2 : 0,
+                        blurRadius: widget.isSelected
+                            ? size.width * 0.041
+                            : size.width * 0.020,
+                        offset: Offset(
+                          size.width * 0.0,
+                          widget.isSelected
+                              ? visibleHeight * 0.008
+                              : visibleHeight * 0.004,
+                        ),
+                        spreadRadius: widget.isSelected
+                            ? size.width * 0.005
+                            : size.width * 0.0,
                       ),
                     ],
                   ),
@@ -793,9 +922,9 @@ class _HazardCardState extends State<HazardCard>
                     children: [
                       // Icon
                       Positioned.fill(
-                        bottom: 35,
+                        bottom: visibleHeight * 0.044,
                         child: Padding(
-                          padding: const EdgeInsets.all(12.0),
+                          padding: EdgeInsets.all(size.width * 0.030),
                           child: Center(
                             child: SizedBox(
                               width: double.infinity,
@@ -803,8 +932,8 @@ class _HazardCardState extends State<HazardCard>
                               child: FittedBox(
                                 fit: BoxFit.contain,
                                 child: SizedBox(
-                                  width: 100,
-                                  height: 100,
+                                  width: size.width * 0.267,
+                                  height: visibleHeight * 0.125,
                                   child: iconWidget,
                                 ),
                               ),
@@ -816,31 +945,34 @@ class _HazardCardState extends State<HazardCard>
                       // Selection badge
                       if (widget.isSelected && widget.selectionNumber != null)
                         Positioned(
-                          top: 8,
-                          right: 8,
+                          top: visibleHeight * 0.010,
+                          right: size.width * 0.020,
                           child: Container(
-                            width: 28,
-                            height: 28,
+                            width: size.width * 0.075,
+                            height: visibleHeight * 0.035,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: widget.hazardColor,
-                                width: 2.5,
+                                width: size.width * 0.006,
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
+                                  blurRadius: size.width * 0.015,
+                                  offset: Offset(
+                                    size.width * 0.0,
+                                    visibleHeight * 0.003,
+                                  ),
                                 ),
                               ],
                             ),
                             child: Text(
                               widget.selectionNumber.toString(),
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: size.width * 0.035,
                                 fontWeight: FontWeight.w900,
                                 color: widget.hazardColor,
                               ),
@@ -855,22 +987,22 @@ class _HazardCardState extends State<HazardCard>
                           width: double.infinity,
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.5),
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(20),
-                              bottomRight: Radius.circular(20),
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(size.width * 0.051),
+                              bottomRight: Radius.circular(size.width * 0.051),
                             ),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 6,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: size.width * 0.015,
+                            vertical: visibleHeight * 0.008,
                           ),
                           child: Text(
                             widget.label,
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: size.width * 0.033,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
-                              height: 1.1,
+                              height: visibleHeight * 0.0014,
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,

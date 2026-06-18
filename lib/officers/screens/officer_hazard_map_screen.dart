@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -239,7 +240,12 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
       builder: (context) {
         final color = _severityColor(hazard.severity);
         return Container(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+          padding: EdgeInsets.fromLTRB(
+            R.blockH * 4.5,
+            R.blockV * 1.75,
+            R.blockH * 4.5,
+            R.blockV * 3,
+          ),
           decoration: const BoxDecoration(
             color: Color(0xFF102A2A),
             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
@@ -252,40 +258,40 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
               children: [
                 Center(
                   child: Container(
-                    width: 46,
-                    height: 5,
+                    width: R.blockH * 12.267,
+                    height: R.blockV * 0.625,
                     decoration: BoxDecoration(
                       color: Colors.white24,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: R.blockV * 1.75),
                 Row(
                   children: [
                     Icon(Icons.warning_amber_rounded, color: color),
-                    const SizedBox(width: 10),
+                    SizedBox(width: R.blockH * 2.667),
                     Expanded(
                       child: Text(
                         hazard.type,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: R.blockH * 5,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: R.blockV * 1.25),
                 Text(
                   'Severity: ${hazard.severity.toUpperCase()}  •  Status: ${hazard.status.toUpperCase()}',
-                  style: const TextStyle(color: Colors.white70),
+                  style: TextStyle(color: Colors.white70),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: R.blockV * 0.75),
                 Text(
                   _distanceLabel(hazard),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: Colors.white),
                 ),
               ],
             ),
@@ -297,7 +303,10 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
 
   Future<void> _centerOnUser() async {
     if (_currentPosition == null || _mapController == null) return;
-    final target = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    final target = LatLng(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+    );
     await _mapController!.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: target, zoom: 15.5),
@@ -307,87 +316,90 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hazard Map'),
+        title: Text('Hazard Map'),
         backgroundColor: AppColors.brandTeal,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(_error!, textAlign: TextAlign.center),
-                ))
-              : Stack(
-                  children: [
-                    GoogleMap(
-                      initialCameraPosition: _initialCamera,
-                      onMapCreated: (controller) => _mapController = controller,
-                      mapType: _mapType,
-                      myLocationEnabled: _currentPosition != null,
-                      myLocationButtonEnabled: false,
-                      compassEnabled: true,
-                      buildingsEnabled: true,
-                      trafficEnabled: false,
-                      indoorViewEnabled: true,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      markers: _buildMarkers(),
-                      circles: _buildCircles(),
-                    ),
-                    Positioned(
-                      left: 14,
-                      right: 14,
-                      top: 14,
-                      child: Card(
-                        color: const Color(0xFF123636).withValues(alpha: 0.95),
-                        elevation: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 10,
+          ? Center(
+              child: Padding(
+                padding: EdgeInsets.all(R.blockH * 5),
+                child: Text(_error!, textAlign: TextAlign.center),
+              ),
+            )
+          : Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: _initialCamera,
+                  onMapCreated: (controller) => _mapController = controller,
+                  mapType: _mapType,
+                  myLocationEnabled: _currentPosition != null,
+                  myLocationButtonEnabled: false,
+                  compassEnabled: true,
+                  buildingsEnabled: true,
+                  trafficEnabled: false,
+                  indoorViewEnabled: true,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  markers: _buildMarkers(),
+                  circles: _buildCircles(),
+                ),
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  top: 14,
+                  child: Card(
+                    color: const Color(0xFF123636).withValues(alpha: 0.95),
+                    elevation: 3,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Active Hazards: ${_filteredHazards.length}/${_hazards.length}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          SizedBox(height: R.blockV * 1.25),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
-                              Text(
-                                'Active Hazards: ${_filteredHazards.length}/${_hazards.length}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
+                              _severityChip(
+                                label: 'High',
+                                keyName: 'high',
+                                color: Colors.red,
                               ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _severityChip(
-                                    label: 'High',
-                                    keyName: 'high',
-                                    color: Colors.red,
-                                  ),
-                                  _severityChip(
-                                    label: 'Moderate',
-                                    keyName: 'moderate',
-                                    color: Colors.orange,
-                                  ),
-                                  _severityChip(
-                                    label: 'Low',
-                                    keyName: 'low',
-                                    color: Colors.green,
-                                  ),
-                                ],
+                              _severityChip(
+                                label: 'Moderate',
+                                keyName: 'moderate',
+                                color: Colors.orange,
+                              ),
+                              _severityChip(
+                                label: 'Low',
+                                keyName: 'low',
+                                color: Colors.green,
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -401,21 +413,21 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
                     : MapType.hybrid;
               });
             },
-            child: const Icon(Icons.layers_rounded, color: Colors.white),
+            child: Icon(Icons.layers_rounded, color: Colors.white),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: R.blockV * 1.25),
           FloatingActionButton.small(
             heroTag: 'center_user',
             backgroundColor: const Color(0xFF123636),
             onPressed: _centerOnUser,
-            child: const Icon(Icons.my_location_rounded, color: Colors.white),
+            child: Icon(Icons.my_location_rounded, color: Colors.white),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: R.blockV * 1.25),
           FloatingActionButton(
             heroTag: 'refresh_map',
             backgroundColor: AppColors.brandTeal,
             onPressed: _loadData,
-            child: const Icon(Icons.refresh, color: Colors.white),
+            child: Icon(Icons.refresh, color: Colors.white),
           ),
         ],
       ),
@@ -433,7 +445,10 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
       borderRadius: BorderRadius.circular(22),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: R.blockH * 3,
+          vertical: R.blockV * 1,
+        ),
         decoration: BoxDecoration(
           color: selected ? color : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(22),
@@ -443,16 +458,16 @@ class _OfficerHazardMapScreenState extends State<OfficerHazardMapScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selected)
-              const Padding(
-                padding: EdgeInsets.only(right: 6),
+              Padding(
+                padding: EdgeInsets.only(right: R.blockH * 1.5),
                 child: Icon(Icons.check, size: 14, color: Colors.white),
               ),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
+                fontSize: R.blockH * 3,
               ),
             ),
           ],

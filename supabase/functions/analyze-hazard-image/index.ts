@@ -8,6 +8,27 @@ const corsHeaders = {
 
 const modelName = "gemini-2.5-flash";
 
+const hazardResponseSchema = {
+  type: "OBJECT",
+  properties: {
+    hazards: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          category: { type: "STRING" },
+          description: { type: "STRING" },
+          severity: { type: "STRING" },
+          action: { type: "STRING" },
+        },
+        required: ["category", "description", "severity", "action"],
+      },
+    },
+    summary: { type: "STRING" },
+  },
+  required: ["hazards", "summary"],
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -44,6 +65,7 @@ You are a Senior HSE Risk Assessor for the "RiskRadar" safety platform.
 Analyze the provided worksite image and identify safety violations strictly according to OSHA/ISO safety standards.
 
 Return ONLY valid JSON. No markdown, no conversational text.
+Do not include trailing commas anywhere in the JSON.
 
 Required JSON Schema:
 {
@@ -86,6 +108,7 @@ Guidelines:
           ],
           generationConfig: {
             responseMimeType: "application/json",
+            responseSchema: hazardResponseSchema,
             temperature: 0.2,
             topK: 32,
             topP: 1,
@@ -111,9 +134,7 @@ Guidelines:
       return jsonResponse({ error: "Gemini returned an empty response." }, 502);
     }
 
-    const result = JSON.parse(
-      text.replaceAll("```json", "").replaceAll("```", "").trim(),
-    );
+    const result = await parseAiJsonWithRepair(text, apiKey);
     validateResult(result);
 
     return jsonResponse(result, 200);
@@ -124,6 +145,90 @@ Guidelines:
     );
   }
 });
+
+async function parseAiJsonWithRepair(rawText: string, apiKey: string) {
+  try {
+    return parseAiJson(rawText);
+  } catch (firstError) {
+    const repairPrompt = `
+Repair the following malformed JSON into valid JSON only.
+Return exactly one JSON object matching this schema:
+{
+  "hazards": [
+    {
+      "category": "string",
+      "description": "string",
+      "severity": "Critical|High|Medium|Low",
+      "action": "string"
+    }
+  ],
+  "summary": "string"
+}
+
+Rules:
+- Preserve the meaning of the original text.
+- Do not add markdown.
+- Do not include trailing commas.
+- If a field is missing, use an empty string.
+
+Malformed JSON:
+${rawText}
+`;
+
+    const repairResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: repairPrompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: hazardResponseSchema,
+            temperature: 0,
+            maxOutputTokens: 2048,
+          },
+        }),
+      },
+    );
+
+    const repairJson = await repairResponse.json();
+    if (!repairResponse.ok) {
+      throw firstError;
+    }
+
+    const repairedText =
+      repairJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof repairedText !== "string" || repairedText.trim().length === 0) {
+      throw firstError;
+    }
+
+    try {
+      return parseAiJson(repairedText);
+    } catch {
+      throw firstError;
+    }
+  }
+}
+
+function parseAiJson(rawText: string) {
+  const cleaned = rawText
+    .replaceAll("```json", "")
+    .replaceAll("```", "")
+    .trim();
+
+  const jsonStart = cleaned.indexOf("{");
+  const jsonEnd = cleaned.lastIndexOf("}");
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    throw new Error("AI response did not contain a JSON object.");
+  }
+
+  const jsonText = cleaned
+    .slice(jsonStart, jsonEnd + 1)
+    .replace(/,\s*([}\]])/g, "$1");
+
+  return JSON.parse(jsonText);
+}
 
 function validateResult(result: unknown) {
   if (!result || typeof result !== "object") {

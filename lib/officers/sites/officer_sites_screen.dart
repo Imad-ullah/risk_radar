@@ -1,5 +1,6 @@
 // lib/officers/sites/officer_sites_screen.dart
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/officers/sites/site_personnel_screen.dart';
@@ -131,18 +132,23 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.28),
                   blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: EdgeInsets.fromLTRB(
+              R.blockH * 5,
+              R.blockV * 2,
+              R.blockH * 5,
+              R.blockV * 1.5,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(R.blockH * 2),
                       decoration: BoxDecoration(
                         color: AppColors.brandTeal.withValues(alpha: 0.22),
                         borderRadius: BorderRadius.circular(10),
@@ -154,18 +160,18 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         color: AppColors.accentGold,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: R.blockH * 3.2),
                     Text(
                       isEditing ? 'Edit Site' : 'Add New Site',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: textColor,
-                        fontSize: 20,
+                        fontSize: R.blockH * 5,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: R.blockV * 1.75),
                 Form(
                   key: formKey,
                   child: Column(
@@ -203,7 +209,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                                 maxLength: 80,
                               ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: R.blockV * 2),
                       TextFormField(
                         controller: descController,
                         maxLines: 3,
@@ -240,7 +246,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: R.blockV * 1),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -253,12 +259,12 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: R.blockH * 2.133),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.brandTeal,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
                         ),
@@ -415,7 +421,12 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 color: AppColors.surfaceTeal.withValues(alpha: 0.8),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: EdgeInsets.fromLTRB(
+              R.blockH * 5,
+              R.blockV * 2,
+              R.blockH * 5,
+              R.blockV * 1.5,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,27 +439,27 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           : Icons.delete_forever_rounded,
                       color: Colors.redAccent,
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: R.blockH * 3.2),
                     Expanded(
                       child: Text(
                         hasWorkers ? 'Warning: Site in Use' : 'Delete Site',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: textColor,
-                          fontSize: 20,
+                          fontSize: R.blockH * 5,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: R.blockV * 1.5),
                 Text(
                   hasWorkers
                       ? '"$name" is currently assigned to $totalWorkers worker(s) and may be linked to other records like resolved hazards.\n\nDeleting the site will automatically un-link it from all associated records. Are you sure you want to proceed?'
                       : 'Are you sure you want to delete "$name"? This action cannot be undone.',
                   style: TextStyle(color: textColor.withValues(alpha: 0.9)),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: R.blockV * 1),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -461,13 +472,13 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: R.blockH * 2.133),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
                         ),
@@ -475,7 +486,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text('Delete'),
+                      child: Text('Delete'),
                     ),
                   ],
                 ),
@@ -559,6 +570,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: RefreshIndicator(
@@ -567,12 +579,12 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
           future: _sitesFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
               return Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(R.blockH * 4),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -581,11 +593,11 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         size: 64,
                         color: Colors.red.shade400,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: R.blockV * 2),
                       Text(
                         'Error: ${snapshot.error}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
+                        style: TextStyle(fontSize: R.blockH * 4),
                       ),
                     ],
                   ),
@@ -601,7 +613,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(32),
+                      padding: EdgeInsets.all(R.blockH * 8),
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
@@ -614,31 +626,31 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         color: Theme.of(context).primaryColor,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
+                    SizedBox(height: R.blockV * 3),
+                    Text(
                       'No sites found',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: R.blockH * 5.5,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: R.blockV * 1),
                     Text(
                       'Create your first site to get started',
                       style: TextStyle(
                         color: Colors.grey.shade600,
-                        fontSize: 16,
+                        fontSize: R.blockH * 4,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: R.blockV * 4),
                     ElevatedButton.icon(
                       onPressed: () => _addOrEditSite(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Site'),
+                      icon: Icon(Icons.add),
+                      label: Text('Add Site'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 32,
                           vertical: 16,
                         ),
@@ -656,12 +668,19 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
               children: [
                 // Header Section
                 Container(
-                  margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                  padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-                  constraints: const BoxConstraints(
-                    minHeight: 56,
-                    maxHeight: 56,
+                  margin: EdgeInsets.fromLTRB(
+                    R.blockH * 5,
+                    R.blockV * 1.5,
+                    R.blockH * 5,
+                    R.blockV * 1,
                   ),
+                  padding: EdgeInsets.fromLTRB(
+                    R.blockH * 3.5,
+                    R.blockV * 1,
+                    R.blockH * 2,
+                    R.blockV * 1,
+                  ),
+                  constraints: BoxConstraints(minHeight: 56, maxHeight: 56),
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
@@ -691,7 +710,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         ),
                       ),
                       IconButton.filled(
-                        icon: const Icon(Icons.add, size: 20),
+                        icon: Icon(Icons.add, size: 20),
                         onPressed: () => _addOrEditSite(),
                         style: IconButton.styleFrom(
                           backgroundColor: AppColors.accentGold,
@@ -706,11 +725,11 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 Expanded(
                   child: ListView.builder(
                     // ADDED BOTTOM PADDING HERE TO CLEAR THE NAV BAR
-                    padding: const EdgeInsets.only(
-                      left: 12,
-                      right: 12,
-                      top: 12,
-                      bottom: 100,
+                    padding: EdgeInsets.only(
+                      left: R.blockH * 3,
+                      right: R.blockH * 3,
+                      top: R.blockV * 1.5,
+                      bottom: R.blockV * 12.5,
                     ),
                     itemCount: sites.length,
                     itemBuilder: (context, index) {
@@ -748,6 +767,7 @@ class _SiteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final description = site['description'];
     final workersData = site['workers'] as List? ?? [];
     final workerCount = workersData.isNotEmpty ? workersData[0]['count'] : 0;
@@ -778,7 +798,7 @@ class _SiteCard extends StatelessWidget {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: EdgeInsets.only(bottom: R.blockV * 2),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -793,7 +813,7 @@ class _SiteCard extends StatelessWidget {
             BoxShadow(
               color: colorPair[0].withValues(alpha: 0.4),
               blurRadius: 15,
-              offset: const Offset(0, 8),
+              offset: Offset(0, 8),
             ),
           ],
         ),
@@ -814,7 +834,7 @@ class _SiteCard extends StatelessWidget {
               );
             },
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(R.blockH * 5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -823,13 +843,13 @@ class _SiteCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 56,
-                        height: 56,
+                        width: R.blockH * 14.933,
+                        height: R.blockV * 7,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.domain_rounded,
                             size: 28,
@@ -837,26 +857,26 @@ class _SiteCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: R.blockH * 4.267),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               site['name'] ?? 'Unnamed Site',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
+                                fontSize: R.blockH * 5,
                                 color: Colors.white,
                               ),
                             ),
                             if (description != null && description.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.only(top: 6),
+                                padding: EdgeInsets.only(top: R.blockV * 0.75),
                                 child: Text(
                                   description,
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: R.blockH * 3.5,
                                     color: Colors.white.withValues(alpha: 0.9),
                                     height: 1.4,
                                   ),
@@ -870,7 +890,7 @@ class _SiteCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Divider
                   Divider(
@@ -878,7 +898,7 @@ class _SiteCard extends StatelessWidget {
                     height: 1,
                   ),
 
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Worker Stats
                   Row(
@@ -890,7 +910,7 @@ class _SiteCard extends StatelessWidget {
                           count: workerCount.toString(),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: R.blockH * 3.2),
                       Expanded(
                         child: _StatBox(
                           icon: Icons.health_and_safety_rounded,
@@ -898,7 +918,7 @@ class _SiteCard extends StatelessWidget {
                           count: hseWorkerCount.toString(),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: R.blockH * 3.2),
                       Expanded(
                         child: _StatBox(
                           icon: Icons.groups_rounded,
@@ -909,7 +929,7 @@ class _SiteCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Action Buttons
                   Row(
@@ -917,37 +937,38 @@ class _SiteCard extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: onEdit,
-                          icon: const Icon(Icons.edit_rounded, size: 18),
-                          label: const Text('Edit'),
+                          icon: Icon(Icons.edit_rounded, size: 18),
+                          label: Text('Edit'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white.withValues(
                               alpha: 0.25,
                             ),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: R.blockV * 1.5,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: R.blockH * 3.2),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: onDelete,
-                          icon: const Icon(
-                            Icons.delete_forever_rounded,
-                            size: 18,
-                          ),
-                          label: const Text('Delete'),
+                          icon: Icon(Icons.delete_forever_rounded, size: 18),
+                          label: Text('Delete'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white.withValues(
                               alpha: 0.25,
                             ),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: R.blockV * 1.5,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -979,8 +1000,12 @@ class _StatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: EdgeInsets.symmetric(
+        vertical: R.blockV * 1.5,
+        horizontal: R.blockH * 2,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
@@ -988,12 +1013,12 @@ class _StatBox extends StatelessWidget {
       child: Column(
         children: [
           Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(height: 4),
+          SizedBox(height: R.blockV * 0.5),
           Text(
             count,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: R.blockH * 4.5,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1001,7 +1026,7 @@ class _StatBox extends StatelessWidget {
             label,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 11,
+              fontSize: R.blockH * 2.75,
             ),
             textAlign: TextAlign.center,
           ),

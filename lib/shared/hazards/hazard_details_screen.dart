@@ -44,6 +44,8 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -51,7 +53,7 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           'Image ${_currentIndex + 1} of ${widget.imageUrls.length}',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: Colors.white, fontSize: size.width * 0.040),
         ),
         elevation: 0,
       ),
@@ -78,14 +80,17 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
                           ? loadingProgress.cumulativeBytesLoaded /
-                          (loadingProgress.expectedTotalBytes ?? 1)
+                                (loadingProgress.expectedTotalBytes ?? 1)
                           : null,
                       color: AppColors.accentGold,
                     ),
                   );
                 },
-                errorBuilder: (_, _, _) =>
-                const Icon(Icons.broken_image, size: 50, color: Colors.white),
+                errorBuilder: (_, _, _) => Icon(
+                  Icons.broken_image,
+                  size: size.width * 0.133,
+                  color: Colors.white,
+                ),
               ),
             ),
           );
@@ -275,15 +280,21 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final hazardData = widget.hazardData;
 
     final String title = hazardData['hazard_type'] ?? 'Hazard';
     final String description =
         hazardData['description'] ?? 'No description provided.';
-    final List<String> images =
-    _parseStringToList(hazardData['images'] ?? hazardData['image_url']);
-    final List<String> voiceUrls =
-    _parseStringToList(hazardData['voice_note_url']);
+    final List<String> images = _parseStringToList(
+      hazardData['images'] ?? hazardData['image_url'],
+    );
+    final List<String> voiceUrls = _parseStringToList(
+      hazardData['voice_note_url'],
+    );
 
     // Extract Reporter Name
     String getReporterName() {
@@ -309,10 +320,12 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
     }
 
     String? getReporterImageUrl() {
-      if (hazardData['workers'] != null && hazardData['workers']['profile_image_url'] != null) {
+      if (hazardData['workers'] != null &&
+          hazardData['workers']['profile_image_url'] != null) {
         return hazardData['workers']['profile_image_url'];
       }
-      if (hazardData['reporter'] != null && hazardData['reporter']['profile_image_url'] != null) {
+      if (hazardData['reporter'] != null &&
+          hazardData['reporter']['profile_image_url'] != null) {
         return hazardData['reporter']['profile_image_url'];
       }
       return null;
@@ -334,11 +347,14 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.brandTeal,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text("Hazard Details", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          "Hazard Details",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         elevation: 1,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(size.width * 0.040),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -350,36 +366,42 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
               severityColor: _getSeverityColor(severity),
               statusColor: _getStatusColor(status),
             ),
-            const SizedBox(height: 24),
-            const _SectionHeader(title: "Description"),
-            const SizedBox(height: 8),
-            Text(description,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6)),
-            const SizedBox(height: 24),
+            SizedBox(height: visibleHeight * 0.020),
             if (images.isNotEmpty) ...[
               const _SectionHeader(title: "Photos"),
-              const SizedBox(height: 12),
+              SizedBox(height: visibleHeight * 0.010),
               ImageSlideshow(imageUrls: images),
-              const SizedBox(height: 24),
+              SizedBox(height: visibleHeight * 0.020),
             ],
+            const _SectionHeader(title: "Description"),
+            SizedBox(height: visibleHeight * 0.007),
+            Text(
+              description,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(height: 1.25),
+            ),
+            SizedBox(height: visibleHeight * 0.020),
             if (voiceUrls.isNotEmpty) ...[
               const _SectionHeader(title: "Voice Notes"),
-              const SizedBox(height: 12),
+              SizedBox(height: visibleHeight * 0.010),
               _VoiceNoteList(
-                  voiceUrls: voiceUrls, playerManager: _voicePlayerManager),
-              const SizedBox(height: 24),
+                voiceUrls: voiceUrls,
+                playerManager: _voicePlayerManager,
+              ),
+              SizedBox(height: visibleHeight * 0.020),
             ],
             const _SectionHeader(title: "Details"),
-            const SizedBox(height: 12),
+            SizedBox(height: visibleHeight * 0.010),
             Card(
               elevation: 0,
               margin: EdgeInsets.zero,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(size.width * 0.032),
                 side: BorderSide(color: Theme.of(context).dividerColor),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.006),
                 child: Column(
                   children: [
                     _DetailItem(
@@ -389,12 +411,16 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
                       imageUrl: reporterImageUrl,
                     ),
                     _DetailItem(
-                        icon: Icons.today_outlined,
-                        title: "Reported On",
-                        value: createdAt),
+                      icon: Icons.today_outlined,
+                      title: "Reported On",
+                      value: createdAt,
+                    ),
                     if (latitude != null && longitude != null) ...[
-                      const Divider(height: 1, indent: 72, endIndent: 16), // ✅ Pushed the divider to align with text
-
+                      Divider(
+                        height: visibleHeight * 0.001,
+                        indent: size.width * 0.192,
+                        endIndent: size.width * 0.043,
+                      ), // ✅ Pushed the divider to align with text
                       // ✅ Replaced generic ListTile with _DetailItem to ensure the map icon aligns flawlessly
                       _DetailItem(
                         icon: Icons.location_on_outlined,
@@ -405,25 +431,28 @@ class _HazardDetailsScreenState extends State<HazardDetailsScreen> {
                             backgroundColor: AppColors.brandTeal,
                             foregroundColor: Colors.white,
                           ),
-                          icon: const Icon(Icons.map_rounded, size: 18),
-                          label: const Text("Open"),
+                          icon: Icon(
+                            Icons.map_rounded,
+                            size: size.width * 0.048,
+                          ),
+                          label: Text("Open"),
                           onPressed: () => _openMap(latitude, longitude),
                         ),
                       ),
-                    ]
+                    ],
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: visibleHeight * 0.020),
             const _SectionHeader(title: "Site Inspectors"),
-            const SizedBox(height: 12),
+            SizedBox(height: visibleHeight * 0.010),
             _AssignedWorkerList(
               assignHazardsList: hazardData['assign_hazards'],
               formatAssignedTimestamp: _formatToLocalTime,
               getStatusColor: _getStatusColor,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: visibleHeight * 0.020),
           ],
         ),
       ),
@@ -451,21 +480,27 @@ class _AssignedWorkerList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> tasks =
-    (assignHazardsList is List) ? assignHazardsList : [];
-    final validTasks =
-    tasks.where((task) => task['hse_worker'] != null).toList();
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final List<dynamic> tasks = (assignHazardsList is List)
+        ? assignHazardsList
+        : [];
+    final validTasks = tasks
+        .where((task) => task['hse_worker'] != null)
+        .toList();
 
     if (validTasks.isEmpty) {
       return Card(
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(size.width * 0.032),
           side: BorderSide(color: Theme.of(context).dividerColor),
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(16.0),
+        child: Padding(
+          padding: EdgeInsets.all(size.width * 0.040),
           child: Center(
             child: Text(
               "Not yet assigned to any inspector.",
@@ -481,7 +516,7 @@ class _AssignedWorkerList extends StatelessWidget {
         final worker = task['hse_worker'];
         final workerName = worker != null
             ? "${capitalize(worker['first_name'] ?? 'N/A')} ${capitalize(worker['last_name'] ?? '')}"
-            .trim()
+                  .trim()
             : 'Unassigned';
         final profileImage = worker?['profile_image_url'];
         final status = task['status']?.toString() ?? 'unknown';
@@ -490,39 +525,48 @@ class _AssignedWorkerList extends StatelessWidget {
         // ✅ Updated Card to perfectly mirror the internal alignment math of _DetailItem
         return Card(
           elevation: 0,
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: EdgeInsets.only(bottom: visibleHeight * 0.007),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(size.width * 0.032),
             side: BorderSide(color: Theme.of(context).dividerColor),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.006),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width * 0.040,
+                    vertical: visibleHeight * 0.012,
+                  ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center, // Vertically centered
+                    crossAxisAlignment:
+                        CrossAxisAlignment.center, // Vertically centered
                     children: [
                       CircleAvatar(
-                        radius: 20, // Exactly 40px wide
-                        backgroundColor:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                        backgroundImage: profileImage != null && profileImage.toString().isNotEmpty
+                        radius: size.width * 0.047,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        backgroundImage:
+                            profileImage != null &&
+                                profileImage.toString().isNotEmpty
                             ? NetworkImage(profileImage)
                             : null,
-                        child: profileImage == null || profileImage.toString().isEmpty
+                        child:
+                            profileImage == null ||
+                                profileImage.toString().isEmpty
                             ? Text(workerName.isNotEmpty ? workerName[0] : '?')
                             : null,
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: size.width * 0.035),
                       Expanded(
                         child: Text(
                           workerName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: size.width * 0.035,
                           ),
                         ),
                       ),
@@ -534,36 +578,53 @@ class _AssignedWorkerList extends StatelessWidget {
                   ),
                 ),
                 // Optional faint divider, pushing it to align with the text block
-                const Divider(height: 1, indent: 72, endIndent: 16),
+                Divider(
+                  height: visibleHeight * 0.001,
+                  indent: size.width * 0.192,
+                  endIndent: size.width * 0.043,
+                ),
 
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width * 0.040,
+                    vertical: visibleHeight * 0.012,
+                  ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center, // Vertically centered
+                    crossAxisAlignment:
+                        CrossAxisAlignment.center, // Vertically centered
                     children: [
                       SizedBox(
-                        width: 40, // Match the exact width of the Avatar above
-                        child: const Center(
-                          child: Icon(Icons.assignment_turned_in_outlined,
-                              color: AppColors.brandTeal, size: 24),
+                        width: size.width * 0.094,
+                        child: Center(
+                          child: Icon(
+                            Icons.assignment_turned_in_outlined,
+                            color: AppColors.brandTeal,
+                            size: size.width * 0.056,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: size.width * 0.035),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Assigned On",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 14)),
-                            const SizedBox(height: 2),
-                            Text(assignedAt,
-                                style: TextStyle(
-                                    color: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.color,
-                                    fontSize: 14)),
+                            Text(
+                              "Assigned On",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: size.width * 0.035,
+                              ),
+                            ),
+                            SizedBox(height: visibleHeight * 0.003),
+                            Text(
+                              assignedAt,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.color,
+                                fontSize: size.width * 0.035,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -598,51 +659,57 @@ class _HazardHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(size.width * 0.043),
+      ),
       color: severityColor.withValues(alpha: 0.15),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(size.width * 0.038),
         child: Row(
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: size.width * 0.128,
+              height: visibleHeight * 0.060,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(size.width * 0.043),
               ),
               child: Center(
                 child: SvgPicture.asset(
                   iconAsset,
-                  width: 36,
-                  height: 36,
+                  width: size.width * 0.082,
+                  height: visibleHeight * 0.038,
                   fit: BoxFit.contain,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: size.width * 0.034),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: visibleHeight * 0.007),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: size.width * 0.021,
+                    runSpacing: visibleHeight * 0.007,
                     children: [
                       _StatusChip(label: severity, color: severityColor),
                       _StatusChip(
-                          label: status.replaceAll('_', ' ').toUpperCase(),
-                          color: statusColor),
+                        label: status.replaceAll('_', ' ').toUpperCase(),
+                        color: statusColor,
+                      ),
                     ],
                   ),
                 ],
@@ -661,20 +728,23 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 20,
+          width: size.width * 0.011,
+          height: visibleHeight * 0.025,
           color: AppColors.accentGold,
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: size.width * 0.021),
         Text(
           title,
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -712,28 +782,34 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
   }
 
   Widget _buildDot(int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.symmetric(horizontal: 4.0),
-      height: 8.0,
-      width: _currentPage == index ? 24.0 : 8.0,
+      margin: EdgeInsets.symmetric(horizontal: size.width * 0.010),
+      height: visibleHeight * 0.010,
+      width: _currentPage == index ? size.width * 0.064 : size.width * 0.021,
       decoration: BoxDecoration(
         color: _currentPage == index
             ? AppColors.accentGold
             : Colors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(5.0),
+        borderRadius: BorderRadius.circular(size.width * 0.013),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
     if (widget.imageUrls.isEmpty) return const SizedBox.shrink();
 
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(size.width * 0.032),
         child: Stack(
           alignment: Alignment.bottomCenter,
           children: [
@@ -760,17 +836,20 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
                       imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
-                          color: Colors.grey.shade200,
-                          child:
-                          const Icon(Icons.broken_image, color: Colors.grey)),
+                        color: Colors.grey.shade200,
+                        child: Icon(Icons.broken_image, color: Colors.grey),
+                      ),
                       loadingBuilder: (_, child, progress) => progress == null
                           ? child
                           : Container(
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                              child: CircularProgressIndicator(
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppColors.brandTeal))),
+                                  color: AppColors.brandTeal,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 );
@@ -782,21 +861,23 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
                 left: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: EdgeInsets.all(size.width * 0.020),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
                         Colors.black.withValues(alpha: 0.6),
-                        Colors.transparent
+                        Colors.transparent,
                       ],
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
-                        widget.imageUrls.length, (index) => _buildDot(index)),
+                      widget.imageUrls.length,
+                      (index) => _buildDot(index),
+                    ),
                   ),
                 ),
               ),
@@ -820,51 +901,74 @@ class _DetailItem extends StatelessWidget {
     required this.title,
     required this.value,
     this.imageUrl,
-    this.trailing
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.040,
+        vertical: visibleHeight * 0.012,
+      ),
       child: Row(
         // Perfectly centers the text block vertically alongside the icon/avatar
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (imageUrl != null && imageUrl!.isNotEmpty)
             CircleAvatar(
-              radius: 20, // 40px wide total
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              radius: size.width * 0.047,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
               backgroundImage: NetworkImage(imageUrl!),
             )
           else
-          // Places icons in a strict 40px box so the text line starts exactly the same as the avatar
+            // Places icons in a strict 40px box so the text line starts exactly the same as the avatar
             SizedBox(
-              width: 40,
+              width: size.width * 0.094,
               child: Center(
-                child: Icon(icon, color: AppColors.brandTeal, size: 24),
+                child: Icon(
+                  icon,
+                  color: AppColors.brandTeal,
+                  size: size.width * 0.056,
+                ),
               ),
             ),
 
-          const SizedBox(width: 16),
+          SizedBox(width: size.width * 0.035),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // Prevents Column from shifting up/down
+              mainAxisSize:
+                  MainAxisSize.min, // Prevents Column from shifting up/down
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: TextStyle(
-                        color: Theme.of(context).textTheme.bodySmall?.color)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: size.width * 0.035,
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.003),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                ),
               ],
             ),
           ),
 
           if (trailing != null) ...[
-            const SizedBox(width: 16),
+            SizedBox(width: size.width * 0.035),
             trailing!,
-          ]
+          ],
         ],
       ),
     );
@@ -878,17 +982,27 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration:
-      BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      padding: EdgeInsets.symmetric(
+        horizontal: size.width * 0.025,
+        vertical: visibleHeight * 0.006,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(size.width * 0.053),
+      ),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 10,
-            letterSpacing: 0.8),
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: size.width * 0.023,
+          letterSpacing: size.width * 0.002,
+        ),
       ),
     );
   }
@@ -901,13 +1015,17 @@ class _VoiceNoteList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Column(
       children: List.generate(voiceUrls.length, (index) {
         return Card(
           elevation: 0,
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: EdgeInsets.only(bottom: visibleHeight * 0.007),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(size.width * 0.032),
             side: BorderSide(color: Theme.of(context).dividerColor),
           ),
           child: VoiceNotePlayer(
@@ -931,8 +1049,11 @@ class _PlayerData {
 class VoiceNotePlayer extends StatelessWidget {
   final String url;
   final VoicePlayerManager playerManager;
-  const VoiceNotePlayer(
-      {super.key, required this.url, required this.playerManager});
+  const VoiceNotePlayer({
+    super.key,
+    required this.url,
+    required this.playerManager,
+  });
 
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -942,6 +1063,10 @@ class VoiceNotePlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return StreamBuilder<String?>(
       stream: playerManager.playerStateStream
           .map((_) => playerManager.currentUrl)
@@ -951,81 +1076,95 @@ class VoiceNotePlayer extends StatelessWidget {
 
         return StreamBuilder<_PlayerData>(
           stream: Rx.combineLatest3(
-              playerManager.playerStateStream,
-              playerManager.durationStream,
-              playerManager.positionStream,
-                  (a, b, c) => _PlayerData(a, b, c)),
+            playerManager.playerStateStream,
+            playerManager.durationStream,
+            playerManager.positionStream,
+            (a, b, c) => _PlayerData(a, b, c),
+          ),
           builder: (context, snapshot) {
             final playerState = snapshot.data?.playerState;
             final playing = playerState?.playing ?? false;
             final duration = snapshot.data?.duration ?? Duration.zero;
-            final position =
-            isActive ? (snapshot.data?.position ?? Duration.zero) : Duration.zero;
+            final position = isActive
+                ? (snapshot.data?.position ?? Duration.zero)
+                : Duration.zero;
 
             return Padding(
-              padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 0),
+              padding: EdgeInsets.fromLTRB(
+                size.width * 0.020,
+                visibleHeight * 0.002,
+                size.width * 0.020,
+                visibleHeight * 0.0,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   IconButton(
-                    icon: Icon(isActive && playing
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_filled_rounded),
-                    iconSize: 36.0,
+                    icon: Icon(
+                      isActive && playing
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_filled_rounded,
+                    ),
+                    iconSize: size.width * 0.082,
                     color: AppColors.brandTeal,
                     onPressed: () => playerManager.play(url),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: size.width * 0.016),
                   Expanded(
-                    child: Transform.translate(
-                      offset: const Offset(0.0, 8.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            height: 20,
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 3.0,
-                                thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 6.0),
-                                overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 12.0),
-                                activeTrackColor: AppColors.accentGold,
-                                inactiveTrackColor:
-                                AppColors.brandTeal.withValues(alpha: 0.2),
-                                thumbColor: AppColors.accentGold,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: visibleHeight * 0.022,
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: visibleHeight * 0.003,
+                              thumbShape: RoundSliderThumbShape(
+                                enabledThumbRadius: size.width * 0.013,
                               ),
-                              child: Slider(
-                                value: position.inMilliseconds
-                                    .toDouble()
-                                    .clamp(0.0,
-                                    duration.inMilliseconds.toDouble()),
-                                max: duration.inMilliseconds.toDouble(),
-                                onChanged: (value) {
-                                  if (isActive) {
-                                    playerManager._audioPlayer
-                                        .seek(Duration(milliseconds: value.toInt()));
-                                  }
-                                },
+                              overlayShape: RoundSliderOverlayShape(
+                                overlayRadius: size.width * 0.026,
                               ),
+                              activeTrackColor: AppColors.accentGold,
+                              inactiveTrackColor: AppColors.brandTeal
+                                  .withValues(alpha: 0.2),
+                              thumbColor: AppColors.accentGold,
+                            ),
+                            child: Slider(
+                              value: position.inMilliseconds.toDouble().clamp(
+                                0.0,
+                                duration.inMilliseconds.toDouble(),
+                              ),
+                              max: duration.inMilliseconds.toDouble(),
+                              onChanged: (value) {
+                                if (isActive) {
+                                  playerManager._audioPlayer.seek(
+                                    Duration(milliseconds: value.toInt()),
+                                  );
+                                }
+                              },
                             ),
                           ),
-                          Padding(
-                            padding:
-                            const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(_formatDuration(position),
-                                    style: const TextStyle(fontSize: 12)),
-                                Text(_formatDuration(duration),
-                                    style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: size.width * 0.030,
                           ),
-                        ],
-                      ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _formatDuration(position),
+                                style: TextStyle(fontSize: size.width * 0.027),
+                              ),
+                              Text(
+                                _formatDuration(duration),
+                                style: TextStyle(fontSize: size.width * 0.027),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

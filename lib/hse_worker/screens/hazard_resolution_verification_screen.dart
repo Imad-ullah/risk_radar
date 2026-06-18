@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -113,7 +114,7 @@ class _HazardResolutionVerificationScreenState
             _isRecording
                 ? "Please stop recording first."
                 : "Please stop playback first.",
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.brandTeal,
               fontWeight: FontWeight.w700,
             ),
@@ -378,7 +379,7 @@ class _HazardResolutionVerificationScreenState
           backgroundColor: Colors.transparent,
           elevation: 0,
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(R.blockH * 6),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
@@ -393,7 +394,7 @@ class _HazardResolutionVerificationScreenState
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  offset: Offset(0, 10),
                 ),
               ],
             ),
@@ -401,39 +402,39 @@ class _HazardResolutionVerificationScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(R.blockH * 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(R.blockH * 4),
                     decoration: const BoxDecoration(
                       color: _successGreen,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.check_rounded,
                       color: Colors.white,
                       size: 48,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Text(
+                SizedBox(height: R.blockV * 3),
+                Text(
                   "All done!",
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: R.blockH * 6,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: R.blockV * 1),
                 Text(
                   "Hazard has been marked as safe and updated in the log.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: R.blockH * 3.5,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
@@ -451,6 +452,7 @@ class _HazardResolutionVerificationScreenState
   // --- UI Building ---
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final hazardType = widget.taskData['hazard_type'] ?? 'General Hazard';
     final description =
         widget.taskData['description'] ?? 'No description provided';
@@ -462,10 +464,10 @@ class _HazardResolutionVerificationScreenState
         elevation: 1,
         backgroundColor: AppColors.brandTeal,
         foregroundColor: Colors.white,
-        title: const Text(
+        title: Text(
           "Get Verified",
           style: TextStyle(
-            fontSize: 16,
+            fontSize: R.blockH * 4,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -475,7 +477,10 @@ class _HazardResolutionVerificationScreenState
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: EdgeInsets.symmetric(
+            horizontal: R.blockH * 6,
+            vertical: R.blockV * 2.5,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -483,7 +488,7 @@ class _HazardResolutionVerificationScreenState
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.verified_rounded,
                     size: 80,
                     color: AppColors.accentGold,
@@ -510,31 +515,31 @@ class _HazardResolutionVerificationScreenState
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: R.blockV * 2),
               Text(
                 "Complete steps to resolve",
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: R.blockH * 5.5,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : AppColors.brandTeal,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: R.blockV * 1),
               Text(
                 "Submit live photos & details to close this hazard\nand verify the site is safe.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: R.blockH * 3.5,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: R.blockV * 3),
 
               // --- Hazard Context Card ---
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(R.blockH * 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
@@ -545,26 +550,26 @@ class _HazardResolutionVerificationScreenState
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: EdgeInsets.all(R.blockH * 2.5),
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.grey.shade800
                             : AppColors.backgroundLight,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.warning_amber_rounded,
                         color: AppColors.accentGold,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: R.blockH * 4.267),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,18 +577,18 @@ class _HazardResolutionVerificationScreenState
                           Text(
                             hazardType,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: R.blockH * 4,
                               fontWeight: FontWeight.bold,
                               color: isDark
                                   ? Colors.white
                                   : AppColors.brandTeal,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: R.blockV * 0.5),
                           Text(
                             description,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: R.blockH * 3.25,
                               color: isDark
                                   ? Colors.grey.shade400
                                   : Colors.grey.shade600,
@@ -597,7 +602,7 @@ class _HazardResolutionVerificationScreenState
                   ],
                 ),
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: R.blockV * 3.75),
 
               // --- Step 1: Photo Verification (Multiple) ---
               _buildStepCard(
@@ -606,7 +611,7 @@ class _HazardResolutionVerificationScreenState
                 isComplete: _selectedImages.isNotEmpty,
                 content: _buildPhotoSection(isDark),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: R.blockV * 2),
 
               // --- Step 2: Work Completed Notes ---
               _buildStepCard(
@@ -614,7 +619,7 @@ class _HazardResolutionVerificationScreenState
                 icon: Icons.edit_document,
                 isComplete: _hasNotes,
                 content: Container(
-                  margin: const EdgeInsets.only(top: 16),
+                  margin: EdgeInsets.only(top: R.blockV * 2),
                   decoration: BoxDecoration(
                     color: isDark
                         ? Colors.grey.shade800
@@ -639,12 +644,12 @@ class _HazardResolutionVerificationScreenState
                             : Colors.grey.shade500,
                       ),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
+                      contentPadding: EdgeInsets.all(R.blockH * 4),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: R.blockV * 2),
 
               // --- Step 3: Voice Notes (Optional) ---
               _buildStepCard(
@@ -654,11 +659,11 @@ class _HazardResolutionVerificationScreenState
                 content: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
+                    SizedBox(height: R.blockV * 2),
                     GestureDetector(
                       onTap: _toggleRecording,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           vertical: 12,
                           horizontal: 16,
                         ),
@@ -688,7 +693,7 @@ class _HazardResolutionVerificationScreenState
                                         ? Colors.white
                                         : AppColors.brandTeal),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: R.blockH * 2.133),
                             Text(
                               _isRecording
                                   ? "Tap to Stop Recording"
@@ -706,7 +711,7 @@ class _HazardResolutionVerificationScreenState
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: R.blockV * 1),
                     VoiceNoteRecorder(
                       key: _voiceRecorderKey,
                       onRecordingStateChanged: _handleRecordingStateChanged,
@@ -715,12 +720,12 @@ class _HazardResolutionVerificationScreenState
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              SizedBox(height: R.blockV * 5),
 
               // --- Submit Button ---
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: R.blockV * 7,
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitVerification,
                   style: ElevatedButton.styleFrom(
@@ -732,25 +737,25 @@ class _HazardResolutionVerificationScreenState
                     shadowColor: AppColors.brandTeal.withValues(alpha: 0.4),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
+                      ? SizedBox(
+                          height: R.blockV * 3,
+                          width: R.blockH * 6.4,
                           child: CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 3,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           "Submit Details",
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: R.blockH * 4,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: R.blockV * 3.75),
             ],
           ),
         ),
@@ -764,9 +769,9 @@ class _HazardResolutionVerificationScreenState
       return GestureDetector(
         onTap: _pickImage,
         child: Container(
-          height: 140,
+          height: R.blockV * 17.5,
           width: double.infinity,
-          margin: const EdgeInsets.only(top: 16),
+          margin: EdgeInsets.only(top: R.blockV * 2),
           decoration: BoxDecoration(
             color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight,
             borderRadius: BorderRadius.circular(12),
@@ -779,7 +784,7 @@ class _HazardResolutionVerificationScreenState
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(R.blockH * 3),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   shape: BoxShape.circle,
@@ -796,7 +801,7 @@ class _HazardResolutionVerificationScreenState
                   size: 28,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: R.blockV * 1.5),
               Text(
                 "Tap to open camera",
                 style: TextStyle(
@@ -811,8 +816,8 @@ class _HazardResolutionVerificationScreenState
     }
 
     return Container(
-      height: 120,
-      margin: const EdgeInsets.only(top: 16),
+      height: R.blockV * 15,
+      margin: EdgeInsets.only(top: R.blockV * 2),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _selectedImages.length + 1,
@@ -821,8 +826,8 @@ class _HazardResolutionVerificationScreenState
             return GestureDetector(
               onTap: _pickImage,
               child: Container(
-                width: 100,
-                margin: const EdgeInsets.only(right: 8),
+                width: R.blockH * 26.667,
+                margin: EdgeInsets.only(right: R.blockH * 2),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.grey.shade800
@@ -840,11 +845,11 @@ class _HazardResolutionVerificationScreenState
                       color: isDark ? Colors.white : AppColors.brandTeal,
                       size: 24,
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: R.blockV * 1),
                     Text(
                       "Add More",
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: R.blockH * 3,
                         fontWeight: FontWeight.w500,
                         color: isDark ? Colors.white70 : AppColors.brandTeal,
                       ),
@@ -857,8 +862,8 @@ class _HazardResolutionVerificationScreenState
 
           final imageFile = _selectedImages[index];
           return Container(
-            width: 100,
-            margin: const EdgeInsets.only(right: 12),
+            width: R.blockH * 26.667,
+            margin: EdgeInsets.only(right: R.blockH * 3),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Stack(
@@ -871,16 +876,12 @@ class _HazardResolutionVerificationScreenState
                     child: GestureDetector(
                       onTap: () => _removeImage(index),
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: EdgeInsets.all(R.blockH * 1),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.6),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 14,
-                        ),
+                        child: Icon(Icons.close, color: Colors.white, size: 14),
                       ),
                     ),
                   ),
@@ -903,7 +904,7 @@ class _HazardResolutionVerificationScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(R.blockH * 4),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -914,7 +915,7 @@ class _HazardResolutionVerificationScreenState
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -928,19 +929,19 @@ class _HazardResolutionVerificationScreenState
                 color: isDark ? Colors.white : AppColors.brandTeal,
                 size: 22,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: R.blockH * 3.2),
               Expanded(
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: R.blockH * 4,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : AppColors.brandTeal,
                   ),
                 ),
               ),
               if (isComplete)
-                const Icon(Icons.check_circle, color: _successGreen, size: 24)
+                Icon(Icons.check_circle, color: _successGreen, size: 24)
               else
                 Icon(
                   Icons.radio_button_unchecked,

@@ -8,7 +8,10 @@ class SupabaseService {
   final String _bucket = 'profile-images';
 
   Future<String?> uploadProfileImage(
-      File imageFile, String firstName, String lastName) async {
+    File imageFile,
+    String firstName,
+    String lastName,
+  ) async {
     final user = _client.auth.currentUser;
 
     if (user == null) {
@@ -18,19 +21,24 @@ class SupabaseService {
 
     // Clean and format the filename
     final fileExt = path.extension(imageFile.path); // e.g. .jpg
-    final cleanedName = '${firstName.trim().toLowerCase()}_${lastName.trim().toLowerCase()}'
-        .replaceAll(RegExp(r'\s+'), '_')        // Replace spaces with _
-        .replaceAll(RegExp(r'[^a-z0-9_]'), ''); // Remove special chars
+    final cleanedName =
+        '${firstName.trim().toLowerCase()}_${lastName.trim().toLowerCase()}'
+            .replaceAll(RegExp(r'\s+'), '_') // Replace spaces with _
+            .replaceAll(RegExp(r'[^a-z0-9_]'), ''); // Remove special chars
 
-    final fileName = '$cleanedName$fileExt';                // imad_ullah.jpg
-    final filePath = '${user.id}/$fileName';                // UID/imad_ullah.jpg
+    final fileName = '$cleanedName$fileExt'; // imad_ullah.jpg
+    final filePath = '${user.id}/$fileName'; // UID/imad_ullah.jpg
 
     debugPrint("📁 Uploading to: $filePath");
 
     try {
       await _client.storage
           .from(_bucket)
-          .upload(filePath, imageFile, fileOptions: const FileOptions(upsert: true));
+          .upload(
+            filePath,
+            imageFile,
+            fileOptions: const FileOptions(upsert: true),
+          );
 
       final publicUrl = _client.storage.from(_bucket).getPublicUrl(filePath);
 

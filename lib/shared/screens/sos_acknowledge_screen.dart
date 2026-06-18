@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../services/sos_alarm_manager.dart';
@@ -60,6 +61,7 @@ class _SosAcknowledgeScreenState extends State<SosAcknowledgeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final title = _cleanText(widget.payload['title']).isNotEmpty
         ? _cleanText(widget.payload['title'])
         : 'Emergency SOS';
@@ -79,12 +81,15 @@ class _SosAcknowledgeScreenState extends State<SosAcknowledgeScreen> {
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: R.blockH * 7,
+                vertical: R.blockV * 3,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(22),
+                    padding: EdgeInsets.all(R.blockH * 5.5),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -96,38 +101,38 @@ class _SosAcknowledgeScreenState extends State<SosAcknowledgeScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.warning_rounded,
                       size: 68,
                       color: Color(0xFFD32F2F),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  SizedBox(height: R.blockV * 3.75),
                   Text(
                     title.toUpperCase(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 28,
+                      fontSize: R.blockH * 7,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  SizedBox(height: R.blockV * 2.25),
                   Text(
                     body,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.92),
-                      fontSize: 18,
+                      fontSize: R.blockH * 4.5,
                       height: 1.3,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (triggeredBy != null) ...[
-                    const SizedBox(height: 24),
+                    SizedBox(height: R.blockV * 3),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 18,
                         vertical: 14,
                       ),
@@ -144,17 +149,17 @@ class _SosAcknowledgeScreenState extends State<SosAcknowledgeScreen> {
                             'TRIGGERED BY',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.72),
-                              fontSize: 12,
+                              fontSize: R.blockH * 3,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: R.blockV * 0.75),
                           Text(
                             triggeredBy,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 18,
+                              fontSize: R.blockH * 4.5,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -162,21 +167,18 @@ class _SosAcknowledgeScreenState extends State<SosAcknowledgeScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
+                  SizedBox(height: R.blockV * 4),
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: R.blockV * 7,
                     child: ElevatedButton.icon(
                       onPressed: _acknowledging ? null : _acknowledge,
-                      icon: const Icon(
-                        Icons.check_circle,
-                        color: Color(0xFFB71C1C),
-                      ),
+                      icon: Icon(Icons.check_circle, color: Color(0xFFB71C1C)),
                       label: Text(
                         _acknowledging
                             ? 'ACKNOWLEDGING...'
                             : 'ACKNOWLEDGE ALERT',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Color(0xFFB71C1C),
                           fontWeight: FontWeight.bold,
                         ),

@@ -1,16 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum RealtimeConnectionStatus {
-  connecting,
-  connected,
-  disconnected,
-  error,
-}
+enum RealtimeConnectionStatus { connecting, connected, disconnected, error }
 
-final realtimeConnectionProvider = NotifierProvider<
-    RealtimeConnectionNotifier, RealtimeConnectionStatus>(
-  RealtimeConnectionNotifier.new,
-);
+final realtimeConnectionProvider =
+    NotifierProvider<RealtimeConnectionNotifier, RealtimeConnectionStatus>(
+      RealtimeConnectionNotifier.new,
+    );
 
 class RealtimeConnectionNotifier extends Notifier<RealtimeConnectionStatus> {
   @override

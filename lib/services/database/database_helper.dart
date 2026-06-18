@@ -145,20 +145,16 @@ class DatabaseHelper {
         if (id == null || id.isEmpty) continue;
 
         final payloadJson = row['payload_json']?.toString();
-        await txn.insert(
-          hazardsTable,
-          {
-            'id': id,
-            'source_table': row['source_table']?.toString() ?? hazardsTable,
-            'status': row['status']?.toString(),
-            'payload_json': payloadJson == null || payloadJson.isEmpty
-                ? jsonEncode(row)
-                : payloadJson,
-            'created_at': row['created_at']?.toString(),
-            'updated_at': row['updated_at']?.toString() ?? now,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert(hazardsTable, {
+          'id': id,
+          'source_table': row['source_table']?.toString() ?? hazardsTable,
+          'status': row['status']?.toString(),
+          'payload_json': payloadJson == null || payloadJson.isEmpty
+              ? jsonEncode(row)
+              : payloadJson,
+          'created_at': row['created_at']?.toString(),
+          'updated_at': row['updated_at']?.toString() ?? now,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
       await txn.execute('DROP TABLE IF EXISTS $legacyTable');
     });
@@ -201,25 +197,18 @@ class DatabaseHelper {
     String? createdAt,
   }) async {
     final db = await database;
-    await db.insert(
-      syncQueueTable,
-      {
-        'id': id,
-        'table_name': table,
-        'action': action,
-        'payload_json': jsonEncode(payload),
-        'created_at': createdAt ?? DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert(syncQueueTable, {
+      'id': id,
+      'table_name': table,
+      'action': action,
+      'payload_json': jsonEncode(payload),
+      'created_at': createdAt ?? DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getSyncActions() async {
     final db = await database;
-    final rows = await db.query(
-      syncQueueTable,
-      orderBy: 'created_at ASC',
-    );
+    final rows = await db.query(syncQueueTable, orderBy: 'created_at ASC');
 
     return rows.map(_decodeSyncAction).toList();
   }
@@ -241,15 +230,11 @@ class DatabaseHelper {
 
   Future<void> writeCacheEntry(String key, String value) async {
     final db = await database;
-    await db.insert(
-      cacheTable,
-      {
-        'cache_key': key,
-        'value': value,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert(cacheTable, {
+      'cache_key': key,
+      'value': value,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<String?> readCacheEntry(String key) async {
@@ -269,7 +254,8 @@ class DatabaseHelper {
     final db = await database;
     final rows = await db.query(cacheTable);
     return {
-      for (final row in rows) row['cache_key'] as String: row['value'] as String,
+      for (final row in rows)
+        row['cache_key'] as String: row['value'] as String,
     };
   }
 
@@ -297,18 +283,14 @@ class DatabaseHelper {
     required Map<String, dynamic> payload,
   }) async {
     final db = await database;
-    await db.insert(
-      hazardsTable,
-      {
-        'id': id,
-        'source_table': sourceTable,
-        'status': payload['status']?.toString(),
-        'payload_json': jsonEncode(payload),
-        'created_at': payload['created_at']?.toString(),
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert(hazardsTable, {
+      'id': id,
+      'source_table': sourceTable,
+      'status': payload['status']?.toString(),
+      'payload_json': jsonEncode(payload),
+      'created_at': payload['created_at']?.toString(),
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> replaceHazardsForSource({
@@ -329,18 +311,14 @@ class DatabaseHelper {
           continue;
         }
 
-        await txn.insert(
-          hazardsTable,
-          {
-            'id': id,
-            'source_table': sourceTable,
-            'status': row['status']?.toString(),
-            'payload_json': jsonEncode(row),
-            'created_at': row['created_at']?.toString(),
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert(hazardsTable, {
+          'id': id,
+          'source_table': sourceTable,
+          'status': row['status']?.toString(),
+          'payload_json': jsonEncode(row),
+          'created_at': row['created_at']?.toString(),
+          'updated_at': DateTime.now().toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
   }

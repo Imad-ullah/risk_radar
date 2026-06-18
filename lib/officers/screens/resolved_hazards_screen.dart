@@ -1,6 +1,7 @@
 // lib/officers/screens/resolved_hazards_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -141,12 +142,18 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
       final int pageStart = _currentPage * _pageSize;
       final int pageEnd = pageStart + _pageSize - 1;
       final currentUserId = supabase.auth.currentUser?.id;
-      final officerData = await supabase.from('officers').select('officer_uid').eq('id', currentUserId!).maybeSingle();
+      final officerData = await supabase
+          .from('officers')
+          .select('officer_uid')
+          .eq('id', currentUserId!)
+          .maybeSingle();
       final officerUid = officerData?['officer_uid'];
 
       final response = await supabase
           .from('resolved_hazards')
-          .select('*, workers(first_name, last_name, work_type, profile_image_url), sites(name)')
+          .select(
+            '*, workers(first_name, last_name, work_type, profile_image_url), sites(name)',
+          )
           .eq('officer_uid', officerUid ?? 0)
           .order('resolved_at', ascending: false)
           .range(pageStart, pageEnd);
@@ -157,7 +164,8 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
         String? imageUrl; // ✅ Create a variable to safely hold the image URL
 
         if (workerInfo != null) {
-          reporterName = '${workerInfo['first_name']} ${workerInfo['last_name']}';
+          reporterName =
+              '${workerInfo['first_name']} ${workerInfo['last_name']}';
           if (workerInfo['work_type'] != null) {
             reporterName += ' (${workerInfo['work_type']})';
           }
@@ -240,10 +248,14 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
   List<Color> _getGradientColors(String? severity) {
     switch (severity?.toLowerCase()) {
-      case 'low': return [_successPrimary, _successSecondary];
-      case 'moderate': return [_warningPrimary, _warningSecondary];
-      case 'high': return [_errorPrimary, _errorSecondary];
-      default: return [_successPrimary, _successSecondary];
+      case 'low':
+        return [_successPrimary, _successSecondary];
+      case 'moderate':
+        return [_warningPrimary, _warningSecondary];
+      case 'high':
+        return [_errorPrimary, _errorSecondary];
+      default:
+        return [_successPrimary, _successSecondary];
     }
   }
 
@@ -254,19 +266,30 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
     final normalized = type.toLowerCase().trim();
 
-    if (normalized.contains('slip') || normalized.contains('wet')) return 'assets/hazards/slip_falling.svg';
+    if (normalized.contains('slip') || normalized.contains('wet'))
+      return 'assets/hazards/slip_falling.svg';
     if (normalized.contains('stair')) return 'assets/hazards/stairs_fall.svg';
-    if (normalized.contains('fall') && !normalized.contains('slip')) return 'assets/hazards/falling_objects.svg';
-    if (normalized.contains('electric') || normalized.contains('shock')) return 'assets/hazards/electric_shock.svg';
+    if (normalized.contains('fall') && !normalized.contains('slip'))
+      return 'assets/hazards/falling_objects.svg';
+    if (normalized.contains('electric') || normalized.contains('shock'))
+      return 'assets/hazards/electric_shock.svg';
     if (normalized.contains('explosion')) return 'assets/hazards/explosion.svg';
-    if (normalized.contains('freeze') || normalized.contains('ice')) return 'assets/hazards/freeze.svg';
-    if (normalized.contains('high heat') || normalized.contains('heat')) return 'assets/hazards/high_heat.svg';
-    if (normalized.contains('temperature')) return 'assets/hazards/high_temperature.svg';
-    if (normalized.contains('lift') || normalized.contains('load')) return 'assets/hazards/load_lifting.svg';
-    if (normalized.contains('machine') || normalized.contains('crush')) return 'assets/hazards/machine_crush.svg';
-    if (normalized.contains('magnet')) return 'assets/hazards/magnetic_field.svg';
-    if (normalized.contains('radio') && normalized.contains('active')) return 'assets/hazards/radio_active.svg';
-    if (normalized.contains('radio') || normalized.contains('wave')) return 'assets/hazards/radio_waves.svg';
+    if (normalized.contains('freeze') || normalized.contains('ice'))
+      return 'assets/hazards/freeze.svg';
+    if (normalized.contains('high heat') || normalized.contains('heat'))
+      return 'assets/hazards/high_heat.svg';
+    if (normalized.contains('temperature'))
+      return 'assets/hazards/high_temperature.svg';
+    if (normalized.contains('lift') || normalized.contains('load'))
+      return 'assets/hazards/load_lifting.svg';
+    if (normalized.contains('machine') || normalized.contains('crush'))
+      return 'assets/hazards/machine_crush.svg';
+    if (normalized.contains('magnet'))
+      return 'assets/hazards/magnetic_field.svg';
+    if (normalized.contains('radio') && normalized.contains('active'))
+      return 'assets/hazards/radio_active.svg';
+    if (normalized.contains('radio') || normalized.contains('wave'))
+      return 'assets/hazards/radio_waves.svg';
     if (normalized.contains('fire')) return 'assets/hazards/fire_warning.svg';
 
     return 'assets/hazards/fire_warning.svg';
@@ -274,8 +297,11 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDark ? const Color(0xFF121212) : const Color(0xFFF9FAFB);
+    final backgroundColor = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF9FAFB);
     final timeTextColor = isDark ? Colors.white54 : Colors.black54;
     final dashedLineColor = isDark ? Colors.white24 : Colors.black12;
 
@@ -286,39 +312,51 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
         body: Stack(
           children: [
             _isLoading
-                ? const Center(child: CircularProgressIndicator(color: _headerTeal))
+                ? Center(child: CircularProgressIndicator(color: _headerTeal))
                 : _error != null
-                ? Padding(padding: const EdgeInsets.only(top: 220), child: Center(child: Text(_error!)))
+                ? Padding(
+                    padding: EdgeInsets.only(top: R.blockV * 27.5),
+                    child: Center(child: Text(_error!)),
+                  )
                 : _filteredHazards.isEmpty
                 ? Padding(
-              padding: const EdgeInsets.only(top: 220),
-              child: _buildEmptyState(isDark),
-            )
+                    padding: EdgeInsets.only(top: R.blockV * 27.5),
+                    child: _buildEmptyState(isDark),
+                  )
                 : RefreshIndicator(
-              onRefresh: _refreshResolvedHazards,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(20, 220, 20, 120),
-                itemCount: _filteredHazards.length +
-                    (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _filteredHazards.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: CircularProgressIndicator(color: _headerTeal),
+                    onRefresh: _refreshResolvedHazards,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        R.blockH * 5,
+                        R.blockV * 27.5,
+                        R.blockH * 5,
+                        R.blockV * 15,
                       ),
-                    );
-                  }
-                  return _buildTimelineItem(
-                      _filteredHazards[index],
-                      index,
-                      timeTextColor,
-                      dashedLineColor
-                  );
-                },
-              ),
-            ),
+                      itemCount:
+                          _filteredHazards.length + (_isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _filteredHazards.length) {
+                          return Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: R.blockV * 2,
+                            ),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: _headerTeal,
+                              ),
+                            ),
+                          );
+                        }
+                        return _buildTimelineItem(
+                          _filteredHazards[index],
+                          index,
+                          timeTextColor,
+                          dashedLineColor,
+                        );
+                      },
+                    ),
+                  ),
 
             Positioned(
               top: 0,
@@ -327,7 +365,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
               child: CustomPaint(
                 painter: HeaderCurvePainter(color: _headerTeal),
                 child: Container(
-                  padding: const EdgeInsets.only(bottom: 50),
+                  padding: EdgeInsets.only(bottom: R.blockV * 6.25),
                   child: SafeArea(
                     bottom: false,
                     child: Column(
@@ -336,7 +374,11 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                         Row(
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+                              icon: Icon(
+                                Icons.arrow_back_ios,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               onPressed: () => Navigator.pop(context),
                             ),
                             Expanded(
@@ -344,20 +386,22 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    DateFormat('MMMM yyyy').format(_selectedDate),
-                                    style: const TextStyle(
+                                    DateFormat(
+                                      'MMMM yyyy',
+                                    ).format(_selectedDate),
+                                    style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 22,
+                                      fontSize: R.blockH * 5.5,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(width: 48),
+                                  SizedBox(width: R.blockH * 12.8),
                                 ],
                               ),
                             ),
                             IconButton(
                               tooltip: 'Refresh',
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.refresh_rounded,
                                 color: Colors.white,
                               ),
@@ -365,9 +409,9 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 5),
+                        SizedBox(height: R.blockV * 0.625),
                         SizedBox(
-                          height: 90,
+                          height: R.blockV * 11.25,
                           child: RotatedBox(
                             quarterTurns: -1,
                             child: ListWheelScrollView.useDelegate(
@@ -378,7 +422,9 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                               physics: const FixedExtentScrollPhysics(),
                               onSelectedItemChanged: (index) {
                                 final today = DateTime.now();
-                                final date = today.subtract(Duration(days: 30 - index));
+                                final date = today.subtract(
+                                  Duration(days: 30 - index),
+                                );
                                 _filterHazardsByDate(date);
                               },
                               childDelegate: ListWheelChildBuilderDelegate(
@@ -410,15 +456,17 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
     final date = today.subtract(Duration(days: 30 - index));
     final isSelected =
         date.year == _selectedDate.year &&
-            date.month == _selectedDate.month &&
-            date.day == _selectedDate.day;
+        date.month == _selectedDate.month &&
+        date.day == _selectedDate.day;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: 58,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: R.blockH * 15.467,
+      margin: EdgeInsets.symmetric(horizontal: R.blockH * 1),
       decoration: BoxDecoration(
-        color: isSelected ? _selectedDateColor : Colors.white.withValues(alpha: 0.1),
+        color: isSelected
+            ? _selectedDateColor
+            : Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(30),
       ),
       child: Column(
@@ -428,16 +476,16 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
             DateFormat('d').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white,
-              fontSize: 20,
+              fontSize: R.blockH * 5,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: R.blockV * 0.5),
           Text(
             DateFormat('E').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white60,
-              fontSize: 12,
+              fontSize: R.blockH * 3,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -446,7 +494,12 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
     );
   }
 
-  Widget _buildTimelineItem(Map<String, dynamic> hazard, int index, Color timeColor, Color lineColor) {
+  Widget _buildTimelineItem(
+    Map<String, dynamic> hazard,
+    int index,
+    Color timeColor,
+    Color lineColor,
+  ) {
     final dateStr = hazard['resolved_at'] ?? hazard['created_at'];
     String timeDisplay = '--';
     if (dateStr != null) {
@@ -465,7 +518,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 55,
+            width: R.blockH * 14.667,
             child: Column(
               children: [
                 Text(
@@ -473,10 +526,10 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                   style: TextStyle(
                     color: timeColor,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: R.blockH * 3.25,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: R.blockV * 1),
                 Expanded(
                   child: CustomPaint(
                     painter: DashedLinePainter(color: lineColor),
@@ -487,7 +540,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 20.0),
+              padding: EdgeInsets.only(bottom: R.blockV * 2.5),
               child: _buildTabbedGradientCard(hazard, index),
             ),
           ),
@@ -512,11 +565,24 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
     final description = hazard['description'] ?? 'No description';
     final severity = hazard['severity'];
 
-    final images = (hazard['image_url'] != null && hazard['image_url'].toString().isNotEmpty)
-        ? hazard['image_url'].toString().split(',').map((e) => e.trim()).toList()
+    final images =
+        (hazard['image_url'] != null &&
+            hazard['image_url'].toString().isNotEmpty)
+        ? hazard['image_url']
+              .toString()
+              .split(',')
+              .map((e) => e.trim())
+              .toList()
         : <String>[];
-    final voiceUrls = (hazard['voice_note_url'] != null && hazard['voice_note_url'].toString().trim().isNotEmpty)
-        ? hazard['voice_note_url'].toString().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+    final voiceUrls =
+        (hazard['voice_note_url'] != null &&
+            hazard['voice_note_url'].toString().trim().isNotEmpty)
+        ? hazard['voice_note_url']
+              .toString()
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
         : <String>[];
 
     final bool hasImages = images.isNotEmpty;
@@ -540,9 +606,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ResolvedHazardDetailsScreen(
-                hazard: hazard,
-              ),
+              builder: (_) => ResolvedHazardDetailsScreen(hazard: hazard),
             ),
           );
         },
@@ -555,7 +619,12 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            padding: EdgeInsets.fromLTRB(
+              R.blockH * 4,
+              R.blockV * 1.5,
+              R.blockH * 4,
+              R.blockV * 2.5,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -564,16 +633,19 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                   children: [
                     // ✅ Report Number Tag
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: R.blockH * 2,
+                        vertical: R.blockV * 0.5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         '#$reportNumber',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: R.blockH * 3,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -581,32 +653,45 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
                     // ✅ Media Icons (Profile Image entirely removed from here)
                     if (hasVoiceNotes) ...[
-                      const SizedBox(width: 8),
-                      Icon(Icons.mic_rounded, size: 14, color: Colors.white.withValues(alpha: 0.9)),
+                      SizedBox(width: R.blockH * 2.133),
+                      Icon(
+                        Icons.mic_rounded,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                     ],
                     if (hasImages) ...[
-                      const SizedBox(width: 8),
-                      Icon(Icons.image_rounded, size: 14, color: Colors.white.withValues(alpha: 0.9)),
+                      SizedBox(width: R.blockH * 2.133),
+                      Icon(
+                        Icons.image_rounded,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: R.blockV * 2),
 
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 70, height: 70,
+                      width: R.blockH * 18.667,
+                      height: R.blockV * 8.75,
                       alignment: Alignment.center,
                       child: SvgPicture.asset(
                         iconAsset,
                         fit: BoxFit.contain,
-                        width: 58,
-                        height: 58,
-                        placeholderBuilder: (context) => const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 50),
+                        width: R.blockH * 15.467,
+                        height: R.blockV * 7.25,
+                        placeholderBuilder: (context) => Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.white,
+                          size: 50,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: R.blockH * 4.267),
 
                     Expanded(
                       child: Column(
@@ -614,27 +699,42 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                         children: [
                           Text(
                             hazardType,
-                            style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: R.blockH * 4.25,
+                              fontWeight: FontWeight.bold,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: R.blockV * 0.5),
                           Text(
                             description,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: R.blockH * 3.25,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: R.blockV * 0.75),
 
                           Row(
                             children: [
-                              Icon(Icons.location_on, size: 12, color: Colors.white.withValues(alpha: 0.7)),
-                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.location_on,
+                                size: 12,
+                                color: Colors.white.withValues(alpha: 0.7),
+                              ),
+                              SizedBox(width: R.blockH * 1.067),
                               Expanded(
                                 child: Text(
                                   'Site: $siteName',
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: R.blockH * 3,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -646,12 +746,12 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                     ),
 
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: EdgeInsets.all(R.blockH * 1.5),
                       decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2)
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
-                      child: const Icon(Icons.check, size: 16, color: Colors.white),
+                      child: Icon(Icons.check, size: 16, color: Colors.white),
                     ),
                   ],
                 ),
@@ -668,8 +768,12 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.event_note, size: 64, color: isDark ? Colors.white12 : Colors.black12),
-          const SizedBox(height: 16),
+          Icon(
+            Icons.event_note,
+            size: 64,
+            color: isDark ? Colors.white12 : Colors.black12,
+          ),
+          SizedBox(height: R.blockV * 2),
           Text(
             "No hazards found",
             style: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
@@ -695,8 +799,10 @@ class HeaderCurvePainter extends CustomPainter {
     final path = Path();
     path.lineTo(0, size.height - 40);
     path.quadraticBezierTo(
-        size.width / 2, size.height,
-        size.width, size.height - 40
+      size.width / 2,
+      size.height,
+      size.width,
+      size.height - 40,
     );
     path.lineTo(size.width, 0);
     path.close();
@@ -721,12 +827,18 @@ class DashedLinePainter extends CustomPainter {
 
     double dashHeight = 5, dashSpace = 3, startY = 0;
     while (startY < size.height) {
-      canvas.drawLine(Offset(size.width / 2, startY), Offset(size.width / 2, startY + dashHeight), paint);
+      canvas.drawLine(
+        Offset(size.width / 2, startY),
+        Offset(size.width / 2, startY + dashHeight),
+        paint,
+      );
       startY += dashHeight + dashSpace;
     }
   }
+
   @override
-  bool shouldRepaint(covariant DashedLinePainter oldDelegate) => color != oldDelegate.color;
+  bool shouldRepaint(covariant DashedLinePainter oldDelegate) =>
+      color != oldDelegate.color;
 }
 
 class TabbedCardGradientPainter extends CustomPainter {
@@ -736,7 +848,9 @@ class TabbedCardGradientPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..shader = gradient.createShader(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+      )
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -749,15 +863,26 @@ class TabbedCardGradientPainter extends CustomPainter {
     path.lineTo(tabWidth - 20, 0);
     path.cubicTo(tabWidth, 0, tabWidth, tabHeight, tabWidth + 20, tabHeight);
     path.lineTo(size.width - radius, tabHeight);
-    path.quadraticBezierTo(size.width, tabHeight, size.width, tabHeight + radius);
+    path.quadraticBezierTo(
+      size.width,
+      tabHeight,
+      size.width,
+      tabHeight + radius,
+    );
     path.lineTo(size.width, size.height - radius);
-    path.quadraticBezierTo(size.width, size.height, size.width - radius, size.height);
+    path.quadraticBezierTo(
+      size.width,
+      size.height,
+      size.width - radius,
+      size.height,
+    );
     path.lineTo(radius, size.height);
     path.quadraticBezierTo(0, size.height, 0, size.height - radius);
     path.close();
 
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

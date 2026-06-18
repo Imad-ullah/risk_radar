@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:riskradar/shared/widgets/error_retry_widget.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart';
 
@@ -50,13 +51,14 @@ class AsyncValueWidget<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return switch (value) {
       RiskRadarAsyncLoading<T>() => _LoadingState(message: loadingMessage),
       RiskRadarAsyncData<T>(value: final T result) => data(context, result),
       RiskRadarAsyncError<T>(error: final Object error) => ErrorRetryWidget(
-          message: error.toString(),
-          onRetry: onRetry,
-        ),
+        message: error.toString(),
+        onRetry: onRetry,
+      ),
     };
   }
 }
@@ -68,22 +70,23 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     if (message == null || message!.isEmpty) {
-      return const RiskRadarLoader();
+      return RiskRadarLoader();
     }
 
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const RiskRadarLoader(),
-          const SizedBox(height: 16),
+          RiskRadarLoader(),
+          SizedBox(height: R.blockV * 2),
           Text(
             message!,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 13,
+              fontSize: R.blockH * 3.25,
               fontWeight: FontWeight.w600,
             ),
           ),

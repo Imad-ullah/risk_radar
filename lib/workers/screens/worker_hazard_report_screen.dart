@@ -85,10 +85,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   bool _isSubmitting = false;
   bool _isLoadingLocation = false;
   AutovalidateMode _autovalidateMode = AutovalidateMode.onUserInteraction;
-  String? _hazardTypeError;
-  String? _severityError;
   String? _locationError;
-  String? _imageError;
   bool _hasSubmittedOnce = false;
   final supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
@@ -118,7 +115,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     _fetchWorkerDetails();
 
     if (widget.initialDescription != null) {
-      _descriptionController.text = widget.initialDescription!;
+      _descriptionController.text = _cleanReportDescription(
+        widget.initialDescription!,
+      );
     }
     if (widget.initialSeverity != null) {
       _severity = _normalizeSeverity(widget.initialSeverity!);
@@ -233,6 +232,13 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     return 'Low';
   }
 
+  String _cleanReportDescription(String value) {
+    return InputSanitizer.cleanText(
+      value.replaceAll(RegExp(r'[\[\]{}"]'), ''),
+      maxLength: _descriptionMaxLength,
+    );
+  }
+
   String? _validateDescription(String? value) {
     final String description = value?.trim() ?? '';
     if (description.isEmpty) {
@@ -255,14 +261,6 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
           : null;
     }
     return null;
-  }
-
-  bool get _isReportFormValid {
-    return _validateDescription(_descriptionController.text) == null &&
-        _selectedHazardTypes.isNotEmpty &&
-        _allowedSeverityLevels.contains(_severity) &&
-        _currentPosition != null &&
-        _selectedImages.isNotEmpty;
   }
 
   String? _validateHazardTypes() {
@@ -297,10 +295,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       setState(() {
         _autovalidateMode = AutovalidateMode.onUserInteraction;
         _hasSubmittedOnce = true;
-        _hazardTypeError = hazardTypeError;
-        _severityError = severityError;
         _locationError = locationError;
-        _imageError = imageError;
       });
     }
 
@@ -416,9 +411,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text(
-                'Could not save the hazard. Please try again.',
-              ),
+              content: Text('Could not save the hazard. Please try again.'),
               backgroundColor: Colors.red.shade700,
             ),
           );
@@ -517,9 +510,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Could not report the hazard. Please try again.',
-            ),
+            content: Text('Could not report the hazard. Please try again.'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -554,17 +545,22 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<void> _showNoSiteAssignedDialog() async {
+    final mediaQuery = MediaQuery.of(context);
+    final visibleHeight =
+        mediaQuery.size.height -
+        mediaQuery.padding.top -
+        mediaQuery.padding.bottom;
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('No Site Assigned'),
-          content: const SingleChildScrollView(
+          title: Text('No Site Assigned'),
+          content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
                 Text('You do not have any site assigned.'),
-                SizedBox(height: 8),
+                SizedBox(height: visibleHeight * 0.010),
                 Text(
                   'To report a hazard, you must be assigned to a site. Please contact your supervisor.',
                 ),
@@ -573,7 +569,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('OK'),
+              child: Text('OK'),
               onPressed: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop();
@@ -587,18 +583,21 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
   // ignore: unused_element
   void _showOfflineFilesDialog() {
+    final size = MediaQuery.of(context).size;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.051),
+        ),
+        title: Row(
           children: [
             Icon(Icons.wifi_off_rounded, color: Colors.orange),
-            SizedBox(width: 10),
+            SizedBox(width: size.width * 0.027),
             Text('No Internet'),
           ],
         ),
-        content: const Text(
+        content: Text(
           'You are offline. Images and voice notes require an internet connection to upload.\n\n'
           'Remove all images and voice notes to save a text-only report offline — '
           'it will sync automatically when you reconnect.',
@@ -606,7 +605,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text('OK'),
           ),
         ],
       ),
@@ -658,7 +657,6 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
       if (pickedFile != null && mounted) {
         setState(() {
           _selectedImages.add(pickedFile);
-          _imageError = null;
         });
       }
     } catch (e, s) {
@@ -739,7 +737,6 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     if (selectedTypes != null && selectedTypes is List<String> && mounted) {
       setState(() {
         _selectedHazardTypes = selectedTypes.take(_maxSelectedHazards).toList();
-        _hazardTypeError = _validateHazardTypes();
       });
       if (selectedTypes.length > _maxSelectedHazards) {
         _showSnack(_maxHazardsMessage, isError: true);
@@ -753,6 +750,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
 
     return PopScope<Object?>(
@@ -764,42 +765,26 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         child: Scaffold(
           backgroundColor: isLightTheme ? const Color(0xFFF5F5F5) : null,
           appBar: AppBar(
-            title: const Text("Report Hazard"),
+            title: Text("Report Hazard"),
             centerTitle: true,
             backgroundColor: const Color(0xFF1B3D3D),
             foregroundColor: Colors.white,
           ),
           bottomNavigationBar: _buildInputBarSection(),
-          body: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: _buildHazardTypeCard()),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildInlineError(
-                    _hazardTypeError ?? _validateHazardTypes(),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(child: _buildSeveritySection()),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(child: _buildLocationSection()),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildInlineError(
-                    _isLoadingLocation
-                        ? null
-                        : _locationError ?? _validateLocation(),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(child: _buildImagePreview()),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(child: _buildVoiceNotesSection()),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          body: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.only(bottom: visibleHeight * 0.018),
+            children: [
+              _buildHazardTypeCard(),
+              SizedBox(height: visibleHeight * 0.006),
+              _buildSeveritySection(),
+              SizedBox(height: visibleHeight * 0.008),
+              _buildLocationSection(),
+              SizedBox(height: visibleHeight * 0.006),
+              _buildImagePreview(),
+              SizedBox(height: visibleHeight * 0.006),
+              _buildVoiceNotesSection(),
+              SizedBox(height: visibleHeight * 0.018),
             ],
           ),
         ),
@@ -822,22 +807,23 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   Widget _buildInputBarSection() {
     final theme = Theme.of(context);
     final isLightTheme = theme.brightness == Brightness.light;
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
 
-    final canSubmit =
-        !_isSubmitting &&
-        !_isRecording &&
-        !_isAudioPlaying &&
-        _isReportFormValid;
+    final canPressSubmit = !_isSubmitting && !_isRecording && !_isAudioPlaying;
 
     final isInputDisabled = _isRecording || _isAudioPlaying;
-    const double inputBarHeight = 56;
+    final inputBarHeight = visibleHeight * 0.060;
+    final inputBarMaxHeight = visibleHeight * 0.082;
 
     return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 8,
-        left: 8,
-        right: 8,
-        top: 8,
+        bottom: mediaQuery.viewInsets.bottom + (visibleHeight * 0.006),
+        left: size.width * 0.020,
+        right: size.width * 0.020,
+        top: visibleHeight * 0.006,
       ),
       color: isLightTheme
           ? const Color(0xFFF5F5F5)
@@ -847,9 +833,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         children: [
           Expanded(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 minHeight: inputBarHeight,
-                maxHeight: 140,
+                maxHeight: inputBarMaxHeight,
               ),
               child: Container(
                 decoration: BoxDecoration(
@@ -864,22 +850,35 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                   ),
                 ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                        padding: EdgeInsets.fromLTRB(
+                          size.width * 0.036,
+                          visibleHeight * 0.0,
+                          size.width * 0.020,
+                          visibleHeight * 0.020,
+                        ),
                         child: TextFormField(
                           controller: _descriptionController,
                           enabled: !isInputDisabled,
                           minLines: 1,
-                          maxLines: 5,
+                          maxLines: 2,
                           maxLength: _descriptionMaxLength,
                           inputFormatters: const [
                             SanitizingTextInputFormatter(),
                           ],
                           validator: _validateDescription,
                           textAlignVertical: TextAlignVertical.center,
+                          style: TextStyle(
+                            fontSize: size.width * 0.036,
+                            height: visibleHeight * 0.0017,
+                            color: isLightTheme
+                                ? AppColors.brandTeal
+                                : Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
                           decoration: InputDecoration(
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
@@ -892,8 +891,14 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                             counterText: '',
-                            errorMaxLines: 2,
+                            errorStyle: TextStyle(
+                              fontSize: size.width * 0.0,
+                              height: visibleHeight * 0.0,
+                            ),
+                            errorMaxLines: 1,
                             hintStyle: TextStyle(
+                              fontSize: size.width * 0.036,
+                              height: visibleHeight * 0.0017,
                               color: isLightTheme
                                   ? AppColors.brandTeal.withValues(alpha: 0.56)
                                   : Colors.white.withValues(alpha: 0.66),
@@ -908,21 +913,32 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                       ),
                     ),
                     IconButton(
+                      padding: EdgeInsets.only(top: visibleHeight * 0.010),
+                      constraints: BoxConstraints(
+                        minWidth: size.width * 0.096,
+                        minHeight: inputBarHeight,
+                      ),
                       icon: Icon(
                         Icons.camera_alt,
                         color: isInputDisabled
                             ? theme.disabledColor
                             : theme.colorScheme.onSurface,
+                        size: size.width * 0.056,
                       ),
                       onPressed: isInputDisabled ? null : _pickImage,
                     ),
                     IconButton(
+                      padding: EdgeInsets.only(top: visibleHeight * 0.010),
+                      constraints: BoxConstraints(
+                        minWidth: size.width * 0.096,
+                        minHeight: inputBarHeight,
+                      ),
                       icon: Icon(
                         _isRecording ? Icons.stop_circle_outlined : Icons.mic,
                         color: _isAudioPlaying
                             ? theme.disabledColor
                             : theme.colorScheme.onSurface,
-                        size: 26,
+                        size: size.width * 0.056,
                       ),
                       onPressed: _isAudioPlaying ? null : _toggleRecording,
                     ),
@@ -931,14 +947,14 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: size.width * 0.018),
           SizedBox(
             height: inputBarHeight,
-            width: 56,
+            width: size.width * 0.130,
             child: ElevatedButton(
-              onPressed: canSubmit ? _submitHazard : null,
+              onPressed: canPressSubmit ? _submitHazard : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: canSubmit
+                backgroundColor: canPressSubmit
                     ? AppColors.accentGold
                     : theme.disabledColor,
                 shape: RoundedRectangleBorder(
@@ -947,17 +963,17 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                 padding: EdgeInsets.zero,
               ),
               child: _isSubmitting
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
+                  ? SizedBox(
+                      width: size.width * 0.056,
+                      height: visibleHeight * 0.026,
                       child: CircularProgressIndicator(
-                        strokeWidth: 3,
+                        strokeWidth: size.width * 0.007,
                         color: Colors.white,
                       ),
                     )
                   : Icon(
                       Icons.send,
-                      color: canSubmit
+                      color: canPressSubmit
                           ? AppColors.brandTeal
                           : theme.colorScheme.onSurface.withValues(alpha: 0.54),
                     ),
@@ -969,8 +985,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   }
 
   Widget _buildVoiceNotesSection() {
+    final size = MediaQuery.of(context).size;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: EdgeInsets.symmetric(horizontal: size.width * 0.040),
       child: VoiceNoteRecorder(
         key: _voiceRecorderKey,
         onRecordingStateChanged: _handleRecordingStateChanged,
@@ -1024,33 +1041,50 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   }
 
   Widget _buildSelectedHazardIcon() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final String? iconAsset = _selectedHazardIconAsset();
     if (iconAsset == null) {
-      return const Icon(
+      return Icon(
         Icons.warning_amber_rounded,
         color: Colors.white,
-        size: 32,
+        size: size.width * 0.070,
       );
     }
 
-    return SvgPicture.asset(iconAsset, width: 32, height: 32);
+    return SvgPicture.asset(
+      iconAsset,
+      width: size.width * 0.074,
+      height: visibleHeight * 0.034,
+    );
   }
 
   Widget _buildHazardTypeCard() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: EdgeInsets.fromLTRB(
+        size.width * 0.040,
+        visibleHeight * 0.012,
+        size.width * 0.040,
+        visibleHeight * 0.006,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.orange.shade400, Colors.deepOrange.shade600],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(size.width * 0.045),
         boxShadow: [
           BoxShadow(
             color: Colors.orange.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: size.width * 0.026,
+            offset: Offset(size.width * 0.0, visibleHeight * 0.005),
           ),
         ],
       ),
@@ -1058,40 +1092,40 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: _selectHazardType,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size.width * 0.038),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(size.width * 0.036),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(size.width * 0.024),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(size.width * 0.030),
                   ),
                   child: _buildSelectedHazardIcon(),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: size.width * 0.034),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "Hazard Type",
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 12,
+                          fontSize: size.width * 0.028,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: visibleHeight * 0.003),
                       Text(
                         _selectedHazardTypes.isEmpty
                             ? "Tap to select hazard types"
                             : _selectedHazardTypes.join(', '),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: size.width * 0.036,
                           fontWeight: FontWeight.bold,
                         ),
                         maxLines: 2,
@@ -1100,10 +1134,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios,
                   color: Colors.white,
-                  size: 18,
+                  size: size.width * 0.040,
                 ),
               ],
             ),
@@ -1114,32 +1148,42 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   }
 
   Widget _buildSeveritySection() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: size.width * 0.040),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Severity Level",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: size.width * 0.036,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: visibleHeight * 0.008),
           Row(
             children: [
               _buildSeverityChip('Low', Colors.green),
-              const SizedBox(width: 8),
+              SizedBox(width: size.width * 0.018),
               _buildSeverityChip('Moderate', Colors.orange),
-              const SizedBox(width: 8),
+              SizedBox(width: size.width * 0.018),
               _buildSeverityChip('High', Colors.red),
             ],
           ),
-          _buildInlineError(_severityError ?? _validateSeverity()),
         ],
       ),
     );
   }
 
   Widget _buildSeverityChip(String level, Color color) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isSelected = _severity == level;
     final isLightTheme = Theme.of(context).brightness == Brightness.light;
 
@@ -1158,18 +1202,15 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
 
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() {
-          _severity = level;
-          _severityError = _validateSeverity();
-        }),
-        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _severity = level),
+        borderRadius: BorderRadius.circular(size.width * 0.030),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.010),
           decoration: BoxDecoration(
             color: isSelected
                 ? color
                 : (isLightTheme ? Colors.white : color.withValues(alpha: 0.1)),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(size.width * 0.030),
             border: isSelected
                 ? null
                 : Border.all(color: color.withValues(alpha: 0.3)),
@@ -1177,8 +1218,8 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                 ? [
                     BoxShadow(
                       color: Colors.grey.withValues(alpha: 0.1),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
+                      blurRadius: size.width * 0.013,
+                      offset: Offset(size.width * 0.0, visibleHeight * 0.003),
                     ),
                   ]
                 : [],
@@ -1188,13 +1229,13 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
               Icon(
                 getIconForLevel(),
                 color: isSelected ? Colors.white : color,
-                size: 20,
+                size: size.width * 0.046,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: visibleHeight * 0.003),
               Text(
                 level,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: size.width * 0.030,
                   fontWeight: FontWeight.bold,
                   color: isSelected ? Colors.white : color,
                 ),
@@ -1207,8 +1248,12 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   }
 
   Widget _buildLocationSection() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: size.width * 0.040),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -1218,36 +1263,36 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size.width * 0.045),
           boxShadow: [
             BoxShadow(
               color: (_currentPosition != null ? Colors.green : Colors.red)
                   .withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              blurRadius: size.width * 0.020,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.004),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(size.width * 0.028),
           child: _isLoadingLocation
-              ? const Row(
+              ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(
-                      width: 24,
-                      height: 24,
+                      width: size.width * 0.056,
+                      height: visibleHeight * 0.026,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
+                        strokeWidth: size.width * 0.005,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    SizedBox(width: size.width * 0.026),
                     Text(
                       "Getting your location...",
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: size.width * 0.036,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1257,35 +1302,35 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
               ? Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(size.width * 0.018),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(size.width * 0.024),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.location_on,
                         color: Colors.white,
-                        size: 28,
+                        size: size.width * 0.054,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: size.width * 0.028),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             "Location Captured",
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: size.width * 0.032,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: visibleHeight * 0.003),
                           Text(
                             "${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}",
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: size.width * 0.025,
                               color: Colors.white.withValues(alpha: 0.9),
                             ),
                           ),
@@ -1294,7 +1339,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                     ),
                     IconButton(
                       onPressed: _getCurrentLocation,
-                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      icon: Icon(Icons.refresh, color: Colors.white),
                       tooltip: "Refresh location",
                     ),
                   ],
@@ -1302,24 +1347,24 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
               : Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(size.width * 0.018),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(size.width * 0.024),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.location_off,
                         color: Colors.white,
-                        size: 28,
+                        size: size.width * 0.054,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    const Expanded(
+                    SizedBox(width: size.width * 0.028),
+                    Expanded(
                       child: Text(
                         "Location Required",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: size.width * 0.032,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1329,12 +1374,12 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.red.shade700,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.034,
+                          vertical: visibleHeight * 0.006,
                         ),
                       ),
-                      child: const Text("Get Location"),
+                      child: Text("Get Location"),
                     ),
                   ],
                 ),
@@ -1344,87 +1389,129 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
   }
 
   Widget _buildImagePreview() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final horizontalPadding = size.width * 0.040;
+    final thumbnailGap = size.width * 0.014;
+    final previewWidth = size.width - (horizontalPadding * 2);
+    final thumbnailWidth = (previewWidth - (thumbnailGap * 2)) / 3;
+    final hasMoreThanThreeImages = _selectedImages.length > 3;
     if (_selectedImages.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: _buildInlineError(_imageError ?? _validateImages()),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Text(
+          _photoRequiredMessage,
+          style: TextStyle(
+            color: Colors.red.shade400,
+            fontSize: size.width * 0.030,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 160,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            itemCount: _selectedImages.length,
-            itemBuilder: (context, index) {
-              final XFile imageFile = _selectedImages[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: SizedBox(
-                  width: 120,
-                  height: 160,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.file(File(imageFile.path), fit: BoxFit.cover),
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: IconButton(
-                            icon: const CircleAvatar(
-                              radius: 14,
-                              backgroundColor: Colors.black54,
-                              child: Icon(
-                                Icons.close,
-                                color: Colors.white,
-                                size: 16,
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: SizedBox(
+            width: previewWidth,
+            height: visibleHeight * 0.132,
+            child: Stack(
+              children: [
+                ClipRect(
+                  child: SizedBox(
+                    width: previewWidth,
+                    child: ListView.builder(
+                      clipBehavior: Clip.hardEdge,
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.zero,
+                      itemCount: _selectedImages.length,
+                      itemBuilder: (context, index) {
+                        final XFile imageFile = _selectedImages[index];
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            right: index == _selectedImages.length - 1
+                                ? size.width * 0.0
+                                : thumbnailGap,
+                          ),
+                          child: SizedBox(
+                            width: thumbnailWidth,
+                            height: visibleHeight * 0.132,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                size.width * 0.026,
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.file(
+                                    File(imageFile.path),
+                                    fit: BoxFit.cover,
+                                  ),
+                                  Positioned(
+                                    top: visibleHeight * 0.006,
+                                    right: size.width * 0.012,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedImages.removeAt(index);
+                                        });
+                                      },
+                                      child: Container(
+                                        width: size.width * 0.055,
+                                        height: size.width * 0.055,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.62,
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: size.width * 0.034,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _selectedImages.removeAt(index);
-                                _imageError = _validateImages();
-                              });
-                            },
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ),
-              );
-            },
+                if (hasMoreThanThreeImages)
+                  Positioned(
+                    right: size.width * 0.012,
+                    top: visibleHeight * 0.041,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: size.width * 0.070,
+                        height: size.width * 0.070,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.white,
+                          size: size.width * 0.052,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: _buildInlineError(_imageError),
-        ),
       ],
-    );
-  }
-
-  Widget _buildInlineError(String? message) {
-    if (message == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        message,
-        style: TextStyle(
-          color: Colors.red.shade700,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

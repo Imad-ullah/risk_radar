@@ -57,8 +57,9 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
       return;
     }
 
-    final Map<String, Object?>? cachedProfile =
-        _authRepository.getWorkerProfile()?.cast<String, Object?>();
+    final Map<String, Object?>? cachedProfile = _authRepository
+        .getWorkerProfile()
+        ?.cast<String, Object?>();
     if (cachedProfile != null) {
       _applyProfile(cachedProfile);
       if (mounted) setState(() => _loading = false);
@@ -66,14 +67,21 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
 
     try {
       final Map<String, Object?>? worker =
-          (await _supabase.from('workers').select().eq('id', userId).maybeSingle())
+          (await _supabase
+                  .from('workers')
+                  .select()
+                  .eq('id', userId)
+                  .maybeSingle())
               ?.cast<String, Object?>();
       if (worker != null) {
         _applyProfile(worker);
         await _authRepository.saveWorkerProfile(worker);
       }
     } on SocketException catch (e) {
-      LoggerService.warning('Worker profile offline - using cached profile.', e);
+      LoggerService.warning(
+        'Worker profile offline - using cached profile.',
+        e,
+      );
     } catch (e, s) {
       LoggerService.error('Error loading worker profile', e, s);
       if (mounted && cachedProfile == null) {
@@ -171,7 +179,8 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
       await _authRepository.saveWorkerProfile(updatedProfile);
 
       final SyncResult syncResult = await SyncService.instance.run();
-      final bool savedOffline = syncResult.reason != null ||
+      final bool savedOffline =
+          syncResult.reason != null ||
           syncResult.hasFailures ||
           syncResult.pending > 0;
 
@@ -194,30 +203,24 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
   void _showSuccessSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.brandTeal,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.brandTeal),
     );
   }
 
   void _showErrorSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade700,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: RiskRadarLoader());
+      return Scaffold(body: RiskRadarLoader());
     }
     if (_profileData == null) {
-      return const Scaffold(body: Center(child: Text('Profile not found')));
+      return Scaffold(body: Center(child: Text('Profile not found')));
     }
 
     return Scaffold(
@@ -228,15 +231,20 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
   }
 
   Widget _buildContent(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final String? imageUrl = _profileText('profile_image_url');
-    final String fullName = '${_profileText('first_name') ?? ''} '
-            '${_profileText('last_name') ?? ''}'
-        .trim();
+    final String fullName =
+        '${_profileText('first_name') ?? ''} '
+                '${_profileText('last_name') ?? ''}'
+            .trim();
     final ImageProvider<Object>? avatarImage = _pendingProfileImage != null
         ? FileImage(_pendingProfileImage!)
         : imageUrl != null && imageUrl.isNotEmpty
-            ? NetworkImage(imageUrl)
-            : null;
+        ? NetworkImage(imageUrl)
+        : null;
 
     return Stack(
       children: <Widget>[
@@ -244,20 +252,23 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
           top: 0,
           left: 0,
           right: 0,
-          height: 280,
+          height: visibleHeight * 0.310,
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.brandTeal,
               borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
+                bottomLeft: Radius.circular(size.width * 0.077),
+                bottomRight: Radius.circular(size.width * 0.077),
               ),
             ),
           ),
         ),
         Positioned.fill(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.only(top: 60, bottom: 40),
+            padding: EdgeInsets.only(
+              top: visibleHeight * 0.078,
+              bottom: visibleHeight * 0.040,
+            ),
             child: Column(
               children: <Widget>[
                 Center(
@@ -279,100 +290,102 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
+                          padding: EdgeInsets.all(size.width * 0.010),
+                          decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
                           child: Hero(
                             tag: imageUrl ?? 'profile_pic',
                             child: CircleAvatar(
-                              radius: 60,
+                              radius: size.width * 0.145,
                               backgroundColor: Colors.grey.shade300,
                               backgroundImage: avatarImage,
                               child: _updatingPhoto
-                                  ? const RiskRadarLoader(
+                                  ? RiskRadarLoader(
                                       color: AppColors.brandTeal,
-                                      size: 36,
+                                      size: size.width * 0.096,
                                     )
                                   : avatarImage == null
-                                      ? const Icon(
-                                          Icons.person,
-                                          size: 60,
-                                          color: Colors.grey,
-                                        )
-                                      : null,
+                                  ? Icon(
+                                      Icons.person,
+                                      size: size.width * 0.145,
+                                      color: Colors.grey,
+                                    )
+                                  : null,
                             ),
                           ),
                         ),
                       ),
                       GestureDetector(
-                        onTap: _updatingPhoto ? null : _pickAndQueueProfileImage,
+                        onTap: _updatingPhoto
+                            ? null
+                            : _pickAndQueueProfileImage,
                         child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
+                          padding: EdgeInsets.all(size.width * 0.018),
+                          decoration: BoxDecoration(
                             color: AppColors.accentGold,
                             shape: BoxShape.circle,
                             boxShadow: <BoxShadow>[
                               BoxShadow(color: Colors.black26, blurRadius: 4),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.camera_alt,
                             color: Colors.white,
-                            size: 20,
+                            size: size.width * 0.049,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 15),
+                SizedBox(height: visibleHeight * 0.012),
                 Text(
                   fullName.isEmpty ? 'Worker Profile' : fullName,
-                  style: const TextStyle(
-                    fontSize: 22,
+                  style: TextStyle(
+                    fontSize: size.width * 0.052,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                     letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: visibleHeight * 0.004),
                 Text(
                   (_profileText('work_type') ?? '').toUpperCase(),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 12,
+                    fontSize: size.width * 0.028,
                     letterSpacing: 1,
                   ),
                 ),
-                const SizedBox(height: 30),
+                SizedBox(height: visibleHeight * 0.026),
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(25),
+                  margin: EdgeInsets.symmetric(horizontal: size.width * 0.050),
+                  padding: EdgeInsets.all(size.width * 0.052),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(size.width * 0.053),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        blurRadius: size.width * 0.053,
+                        offset: Offset(size.width * 0.0, visibleHeight * 0.013),
                       ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      const Text(
+                      Text(
                         'WORKER DETAILS',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: size.width * 0.038,
                           color: AppColors.brandTeal,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: visibleHeight * 0.018),
                       _buildReadOnlyField(
                         'First Name',
                         _profileText('first_name') ?? '',
@@ -398,12 +411,12 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                         _profileText('officer_uid') ?? '',
                         Icons.admin_panel_settings_outlined,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: visibleHeight * 0.006),
                       Text(
                         'Workers can update their profile photo only. Contact your officer for detail changes.',
                         style: TextStyle(
                           color: Colors.grey.shade600,
-                          fontSize: 12,
+                          fontSize: size.width * 0.028,
                           height: 1.4,
                         ),
                       ),
@@ -416,10 +429,10 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
         ),
         Positioned(
           top: 0,
-          left: 20,
+          left: size.width * 0.053,
           child: SafeArea(
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              icon: Icon(Icons.arrow_back_ios, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -436,41 +449,50 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
   }
 
   Widget _buildReadOnlyField(String label, String value, IconData icon) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.only(bottom: visibleHeight * 0.018),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
+            style: TextStyle(
+              fontSize: size.width * 0.031,
               color: Colors.grey,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: visibleHeight * 0.006),
           TextFormField(
             initialValue: value,
             readOnly: true,
             style: TextStyle(
               color: Colors.grey.shade700,
               fontWeight: FontWeight.w500,
+              fontSize: size.width * 0.036,
             ),
             decoration: InputDecoration(
-              prefixIcon: Icon(icon, color: AppColors.accentGold),
+              prefixIcon: Icon(
+                icon,
+                color: AppColors.accentGold,
+                size: size.width * 0.056,
+              ),
               filled: true,
               fillColor: Colors.grey.shade50,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 16,
-                horizontal: 20,
+              contentPadding: EdgeInsets.symmetric(
+                vertical: visibleHeight * 0.014,
+                horizontal: size.width * 0.050,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(size.width * 0.077),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(size.width * 0.077),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
             ),

@@ -21,8 +21,9 @@ class RealtimeConnectionIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     _keepRealtimeProviderAlive(ref);
-    final RealtimeConnectionStatus status =
-        ref.watch(realtimeConnectionProvider);
+    final RealtimeConnectionStatus status = ref.watch(
+      realtimeConnectionProvider,
+    );
     final Color color = _colorForStatus(status);
     final String label = _labelForStatus(status);
 

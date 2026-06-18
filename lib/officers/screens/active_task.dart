@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -134,7 +135,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
       final aTime = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
       final bTime = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1970);
       // ✅ Logic updated to handle 'newest' as default
-      return _sortBy == 'oldest' ? aTime.compareTo(bTime) : bTime.compareTo(aTime);
+      return _sortBy == 'oldest'
+          ? aTime.compareTo(bTime)
+          : bTime.compareTo(aTime);
     });
 
     if (mounted) {
@@ -168,10 +171,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
 
     setState(() => _isLoadingMore = true);
     _currentPage++;
-    await _fetchHazards(
-      showBlockingLoader: false,
-      resetPagination: false,
-    );
+    await _fetchHazards(showBlockingLoader: false, resetPagination: false);
   }
 
   Future<void> _fetchHazards({
@@ -253,7 +253,12 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
             sites:current_site_id(id, name)
           ''')
           .eq('officer_uid', officerUid)
-          .inFilter('status', ['assigned', 'Assigned', 'in_progress', 'In_progress'])
+          .inFilter('status', [
+            'assigned',
+            'Assigned',
+            'in_progress',
+            'In_progress',
+          ])
           .order('created_at', ascending: false)
           .range(pageStart, pageEnd); // Catches all variations
 
@@ -297,9 +302,9 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               'id': task['id'],
               'status': task['status'],
               'assigned_at': task['assigned_at'],
-              'hse_worker': task['hse_worker']
+              'hse_worker': task['hse_worker'],
             };
-          }).toList()
+          }).toList(),
         };
         combinedHazards.add(hazardMap);
       });
@@ -312,7 +317,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         await _hazardRepository.saveOfficerActiveHazards(updatedHazards);
         setState(() {
           allHazards = updatedHazards;
-          _hasMoreHazards = hazardsResponse.length == _pageSize ||
+          _hasMoreHazards =
+              hazardsResponse.length == _pageSize ||
               assignedTasksResponse.length == _pageSize;
           _isLoadingMore = false;
         });
@@ -404,7 +410,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       isScrollControlled: true,
@@ -420,223 +426,256 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               initialChildSize: 0.62,
               minChildSize: 0.45,
               maxChildSize: 0.78,
-              builder: (BuildContext context, ScrollController scrollController) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: panelBg,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                    border: Border.all(
-                      color: AppColors.surfaceTeal.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Handle bar
-                        Center(
-                          child: Container(
-                            width: 40,
-                            height: 4,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            decoration: BoxDecoration(
-                              color: Colors.white24,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
+              builder:
+                  (BuildContext context, ScrollController scrollController) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: panelBg,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
                         ),
-
-                        // Header with clear button
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        border: Border.all(
+                          color: AppColors.surfaceTeal.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          R.blockH * 5,
+                          R.blockV * 2,
+                          R.blockH * 5,
+                          R.blockV * 2.5,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Filters",
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: primaryText,
+                            // Handle bar
+                            Center(
+                              child: Container(
+                                width: R.blockH * 10.667,
+                                height: R.blockV * 0.5,
+                                margin: EdgeInsets.only(bottom: R.blockV * 2.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white24,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
                             ),
-                            // ✅ CHANGED: Check against 'newest'
-                            if (tempSiteId != null || tempSeverity != null || tempSortBy != 'newest')
-                              TextButton.icon(
-                                icon: const Icon(Icons.clear_all, size: 18),
-                                label: const Text("Clear All"),
-                                onPressed: () {
-                                  setSheetState(() {
-                                    tempSiteId = null;
-                                    tempSeverity = null;
-                                    // ✅ CHANGED: Reset to 'newest'
-                                    tempSortBy = 'newest';
-                                  });
-                                },
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.accentGold,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
 
-                        Expanded(
-                          child: ListView(
-                            controller: scrollController,
-                            children: [
-                              // Severity Filter Section
-                              _buildFilterSection(
-                                context: context,
-                                title: "Severity",
-                                icon: Icons.warning_amber_rounded,
-                                titleColor: primaryText,
-                                child: Wrap(
-                                  spacing: 8.0,
-                                  runSpacing: 8.0,
-                                  children: [
-                                    _buildFilterChip(
-                                      context: context,
-                                      label: "All",
-                                      isSelected: tempSeverity == null,
-                                      onTap: () => setSheetState(() => tempSeverity = null),
-                                    ),
-                                    _buildFilterChip(
-                                      context: context,
-                                      label: "High",
-                                      isSelected: tempSeverity == "high",
-                                      onTap: () => setSheetState(() => tempSeverity = "high"),
-                                      color: const Color(0xFFEF4444),
-                                    ),
-                                    _buildFilterChip(
-                                      context: context,
-                                      label: "Moderate",
-                                      isSelected: tempSeverity == "moderate",
-                                      onTap: () => setSheetState(() => tempSeverity = "moderate"),
-                                      color: const Color(0xFFF59E0B),
-                                    ),
-                                    _buildFilterChip(
-                                      context: context,
-                                      label: "Low",
-                                      isSelected: tempSeverity == "low",
-                                      onTap: () => setSheetState(() => tempSeverity = "low"),
-                                      color: const Color(0xFF10B981),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // Site Filter Section
-                              _buildFilterSection(
-                                context: context,
-                                title: "Site",
-                                icon: Icons.location_on_outlined,
-                                titleColor: primaryText,
-                                child: Wrap(
-                                  spacing: 8.0,
-                                  runSpacing: 8.0,
-                                  children: [
-                                    _buildFilterChip(
-                                      context: context,
-                                      label: "All Sites",
-                                      isSelected: tempSiteId == null,
-                                      onTap: () => setSheetState(() => tempSiteId = null),
-                                    ),
-                                    ..._availableSites.map((site) {
-                                      final siteId = site['id']?.toString();
-                                      return _buildFilterChip(
-                                        context: context,
-                                        label: site['name'] ?? 'Unknown Site',
-                                        isSelected: tempSiteId == siteId,
-                                        onTap: () => setSheetState(() => tempSiteId = siteId),
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // Sort Section
-                              _buildFilterSection(
-                                context: context,
-                                title: "Sort By",
-                                icon: Icons.sort_rounded,
-                                titleColor: primaryText,
-                                child: Column(
-                                  children: [
-                                    _buildRadioTile(
-                                      context: context,
-                                      title: "Newest First",
-                                      subtitle: "Most recent hazards",
-                                      value: 'newest',
-                                      groupValue: tempSortBy,
-                                      onChanged: (value) => setSheetState(() => tempSortBy = value!),
-                                      titleColor: primaryText,
-                                      subtitleColor: secondaryText,
-                                    ),
-                                    _buildRadioTile(
-                                      context: context,
-                                      title: "Oldest First",
-                                      subtitle: "Earliest hazards",
-                                      value: 'oldest',
-                                      groupValue: tempSortBy,
-                                      onChanged: (value) => setSheetState(() => tempSortBy = value!),
-                                      titleColor: primaryText,
-                                      subtitleColor: secondaryText,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Apply Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: AppColors.accentGold,
-                              foregroundColor: AppColors.brandTeal,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _selectedSiteId = tempSiteId;
-                                _selectedSeverity = tempSeverity;
-                                _sortBy = tempSortBy;
-                              });
-                              _applyFiltersAndSort();
-                              Navigator.pop(context);
-                            },
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            // Header with clear button
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Icon(Icons.filter_alt_rounded, size: 18),
-                                SizedBox(width: 8),
                                 Text(
-                                  "Apply Filters",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  "Filters",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: primaryText,
+                                      ),
                                 ),
+                                // ✅ CHANGED: Check against 'newest'
+                                if (tempSiteId != null ||
+                                    tempSeverity != null ||
+                                    tempSortBy != 'newest')
+                                  TextButton.icon(
+                                    icon: Icon(Icons.clear_all, size: 18),
+                                    label: Text("Clear All"),
+                                    onPressed: () {
+                                      setSheetState(() {
+                                        tempSiteId = null;
+                                        tempSeverity = null;
+                                        // ✅ CHANGED: Reset to 'newest'
+                                        tempSortBy = 'newest';
+                                      });
+                                    },
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.accentGold,
+                                    ),
+                                  ),
                               ],
                             ),
-                          ),
+                            SizedBox(height: R.blockV * 2.5),
+
+                            Expanded(
+                              child: ListView(
+                                controller: scrollController,
+                                children: [
+                                  // Severity Filter Section
+                                  _buildFilterSection(
+                                    context: context,
+                                    title: "Severity",
+                                    icon: Icons.warning_amber_rounded,
+                                    titleColor: primaryText,
+                                    child: Wrap(
+                                      spacing: 8.0,
+                                      runSpacing: 8.0,
+                                      children: [
+                                        _buildFilterChip(
+                                          context: context,
+                                          label: "All",
+                                          isSelected: tempSeverity == null,
+                                          onTap: () => setSheetState(
+                                            () => tempSeverity = null,
+                                          ),
+                                        ),
+                                        _buildFilterChip(
+                                          context: context,
+                                          label: "High",
+                                          isSelected: tempSeverity == "high",
+                                          onTap: () => setSheetState(
+                                            () => tempSeverity = "high",
+                                          ),
+                                          color: const Color(0xFFEF4444),
+                                        ),
+                                        _buildFilterChip(
+                                          context: context,
+                                          label: "Moderate",
+                                          isSelected:
+                                              tempSeverity == "moderate",
+                                          onTap: () => setSheetState(
+                                            () => tempSeverity = "moderate",
+                                          ),
+                                          color: const Color(0xFFF59E0B),
+                                        ),
+                                        _buildFilterChip(
+                                          context: context,
+                                          label: "Low",
+                                          isSelected: tempSeverity == "low",
+                                          onTap: () => setSheetState(
+                                            () => tempSeverity = "low",
+                                          ),
+                                          color: const Color(0xFF10B981),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  SizedBox(height: R.blockV * 3),
+
+                                  // Site Filter Section
+                                  _buildFilterSection(
+                                    context: context,
+                                    title: "Site",
+                                    icon: Icons.location_on_outlined,
+                                    titleColor: primaryText,
+                                    child: Wrap(
+                                      spacing: 8.0,
+                                      runSpacing: 8.0,
+                                      children: [
+                                        _buildFilterChip(
+                                          context: context,
+                                          label: "All Sites",
+                                          isSelected: tempSiteId == null,
+                                          onTap: () => setSheetState(
+                                            () => tempSiteId = null,
+                                          ),
+                                        ),
+                                        ..._availableSites.map((site) {
+                                          final siteId = site['id']?.toString();
+                                          return _buildFilterChip(
+                                            context: context,
+                                            label:
+                                                site['name'] ?? 'Unknown Site',
+                                            isSelected: tempSiteId == siteId,
+                                            onTap: () => setSheetState(
+                                              () => tempSiteId = siteId,
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ),
+
+                                  SizedBox(height: R.blockV * 3),
+
+                                  // Sort Section
+                                  _buildFilterSection(
+                                    context: context,
+                                    title: "Sort By",
+                                    icon: Icons.sort_rounded,
+                                    titleColor: primaryText,
+                                    child: Column(
+                                      children: [
+                                        _buildRadioTile(
+                                          context: context,
+                                          title: "Newest First",
+                                          subtitle: "Most recent hazards",
+                                          value: 'newest',
+                                          groupValue: tempSortBy,
+                                          onChanged: (value) => setSheetState(
+                                            () => tempSortBy = value!,
+                                          ),
+                                          titleColor: primaryText,
+                                          subtitleColor: secondaryText,
+                                        ),
+                                        _buildRadioTile(
+                                          context: context,
+                                          title: "Oldest First",
+                                          subtitle: "Earliest hazards",
+                                          value: 'oldest',
+                                          groupValue: tempSortBy,
+                                          onChanged: (value) => setSheetState(
+                                            () => tempSortBy = value!,
+                                          ),
+                                          titleColor: primaryText,
+                                          subtitleColor: secondaryText,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            SizedBox(height: R.blockV * 2),
+
+                            // Apply Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: R.blockV * 2,
+                                  ),
+                                  backgroundColor: AppColors.accentGold,
+                                  foregroundColor: AppColors.brandTeal,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedSiteId = tempSiteId;
+                                    _selectedSeverity = tempSeverity;
+                                    _sortBy = tempSortBy;
+                                  });
+                                  _applyFiltersAndSort();
+                                  Navigator.pop(context);
+                                },
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.filter_alt_rounded, size: 18),
+                                    SizedBox(width: R.blockH * 2.133),
+                                    Text(
+                                      "Apply Filters",
+                                      style: TextStyle(
+                                        fontSize: R.blockH * 4,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                      ),
+                    );
+                  },
             );
           },
         );
@@ -657,7 +696,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
         Row(
           children: [
             Icon(icon, size: 20, color: AppColors.accentGold),
-            const SizedBox(width: 8),
+            SizedBox(width: R.blockH * 2.133),
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -667,7 +706,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: R.blockV * 1.5),
         child,
       ],
     );
@@ -689,27 +728,24 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: R.blockH * 4,
+          vertical: R.blockV * 1.25,
+        ),
         decoration: BoxDecoration(
-          color: isSelected
-              ? chipColor
-              : unselectedBg,
+          color: isSelected ? chipColor : unselectedBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? chipColor
-                : unselectedBorder,
+            color: isSelected ? chipColor : unselectedBorder,
             width: 2,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : unselectedText,
+            color: isSelected ? Colors.white : unselectedText,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            fontSize: 14,
+            fontSize: R.blockH * 3.5,
           ),
         ),
       ),
@@ -732,17 +768,18 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
       onTap: () => onChanged(value),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        margin: const EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: R.blockH * 3,
+          vertical: R.blockV * 1.5,
+        ),
+        margin: EdgeInsets.only(bottom: R.blockV * 1),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.brandTeal.withValues(alpha: 0.35)
               : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? AppColors.accentGold
-                : Colors.white24,
+            color: isSelected ? AppColors.accentGold : Colors.white24,
             width: 2,
           ),
         ),
@@ -770,16 +807,14 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: isSelected
-                          ? AppColors.accentGold
-                          : titleColor,
+                      fontSize: R.blockH * 3.75,
+                      color: isSelected ? AppColors.accentGold : titleColor,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: R.blockH * 3.25,
                       color: subtitleColor,
                     ),
                   ),
@@ -798,9 +833,19 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     final hazardText = count == 1 ? "Hazard" : "Hazards";
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-      constraints: const BoxConstraints(minHeight: 56, maxHeight: 56),
+      margin: EdgeInsets.fromLTRB(
+        R.blockH * 5,
+        R.blockV * 1.5,
+        R.blockH * 5,
+        R.blockV * 1,
+      ),
+      padding: EdgeInsets.fromLTRB(
+        R.blockH * 3.5,
+        R.blockV * 1,
+        R.blockH * 2,
+        R.blockV * 1,
+      ),
+      constraints: BoxConstraints(minHeight: 56, maxHeight: 56),
       decoration: BoxDecoration(
         color: isDark
             ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
@@ -825,7 +870,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                       size: 16,
                       color: AppColors.accentGold,
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: R.blockH * 1.6),
                   ],
                   Text(
                     "$count $hazardText",
@@ -843,13 +888,13 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               onPressed: _clearFilters,
               style: TextButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.error,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.symmetric(horizontal: R.blockH * 3),
               ),
-              child: const Text("Clear"),
+              child: Text("Clear"),
             ),
-          const SizedBox(width: 8),
+          SizedBox(width: R.blockH * 2.133),
           IconButton.filled(
-            icon: const Icon(Icons.sort_rounded, size: 20),
+            icon: Icon(Icons.sort_rounded, size: 20),
             onPressed: _showFilterSheet,
             style: IconButton.styleFrom(
               backgroundColor: AppColors.accentGold,
@@ -863,118 +908,130 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          _buildSubHeader(),
-          Expanded(
-            child: allHazards.isEmpty
-                ? RefreshIndicator(
-              onRefresh: () => _fetchHazards(
-                showBlockingLoader: false,
-                resetPagination: true,
-              ),
-              child: Stack(
-                children: [
-                  ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                  ),
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "No active hazards",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.grey.shade600,
+              children: [
+                _buildSubHeader(),
+                Expanded(
+                  child: allHazards.isEmpty
+                      ? RefreshIndicator(
+                          onRefresh: () => _fetchHazards(
+                            showBlockingLoader: false,
+                            resetPagination: true,
+                          ),
+                          child: Stack(
+                            children: [
+                              ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                              ),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      size: 64,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    SizedBox(height: R.blockV * 2),
+                                    Text(
+                                      "No active hazards",
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : filteredHazards.isEmpty
+                      ? RefreshIndicator(
+                          onRefresh: () => _fetchHazards(
+                            showBlockingLoader: false,
+                            resetPagination: true,
+                          ),
+                          child: Stack(
+                            children: [
+                              ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                              ),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.filter_alt_off,
+                                      size: 64,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    SizedBox(height: R.blockV * 2),
+                                    Text(
+                                      "No hazards match filters",
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                    ),
+                                    SizedBox(height: R.blockV * 1),
+                                    TextButton(
+                                      onPressed: _clearFilters,
+                                      child: Text("Clear Filters"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => _fetchHazards(
+                            showBlockingLoader: false,
+                            resetPagination: true,
+                          ),
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.fromLTRB(
+                              R.blockH * 3,
+                              R.blockV * 1.5,
+                              R.blockH * 3,
+                              R.blockV * 15,
+                            ),
+                            itemCount:
+                                filteredHazards.length +
+                                (_isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == filteredHazards.length) {
+                                return Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: R.blockV * 2,
+                                  ),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.brandTeal,
+                                    ),
+                                  ),
+                                );
+                              }
+                              final hazard = filteredHazards[index];
+                              return _HazardCard(hazard: hazard, index: index);
+                            },
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )
-                : filteredHazards.isEmpty
-                ? RefreshIndicator(
-              onRefresh: () => _fetchHazards(
-                showBlockingLoader: false,
-                resetPagination: true,
-              ),
-              child: Stack(
-                children: [
-                  ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                  ),
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.filter_alt_off,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "No hazards match filters",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: _clearFilters,
-                          child: const Text("Clear Filters"),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )
-                : RefreshIndicator(
-              onRefresh: () => _fetchHazards(
-                showBlockingLoader: false,
-                resetPagination: true,
-              ),
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                itemCount: filteredHazards.length +
-                    (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == filteredHazards.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.brandTeal,
-                        ),
-                      ),
-                    );
-                  }
-                  final hazard = filteredHazards[index];
-                  return _HazardCard(
-                    hazard: hazard,
-                    index: index,
-                  );
-                },
-              ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1064,7 +1121,8 @@ class _HazardCard extends StatelessWidget {
     if (t.contains('explosion') || t.contains('explosive')) {
       return 'assets/hazards/explosion.svg';
     }
-    if (t.contains('freeze') || t.contains('ice')) return 'assets/hazards/freeze.svg';
+    if (t.contains('freeze') || t.contains('ice'))
+      return 'assets/hazards/freeze.svg';
     if (t.contains('lift') || t.contains('load')) {
       return 'assets/hazards/load_lifting.svg';
     }
@@ -1077,12 +1135,12 @@ class _HazardCard extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, color: Colors.white.withAlpha(230), size: 16),
-        const SizedBox(width: 8),
+        SizedBox(width: R.blockH * 2.133),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: R.blockH * 3.5,
               color: Colors.white,
               fontWeight: FontWeight.w500,
             ),
@@ -1095,33 +1153,37 @@ class _HazardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final reporter = hazard['reporter'];
     final reporterName = reporter != null
         ? "${capitalize(reporter['first_name'] ?? '')} ${capitalize(reporter['last_name'] ?? '')}"
-        .trim()
+              .trim()
         : 'N/A';
     final siteName = hazard['sites']?['name']?.toString() ?? 'N/A';
 
     final List<dynamic> assignedTasks = hazard['assign_hazards'] ?? [];
-    final validTasks =
-    assignedTasks.where((task) => task['hse_worker'] != null).toList();
+    final validTasks = assignedTasks
+        .where((task) => task['hse_worker'] != null)
+        .toList();
 
-    final images = (hazard['image_url'] != null &&
-        hazard['image_url'].toString().isNotEmpty)
+    final images =
+        (hazard['image_url'] != null &&
+            hazard['image_url'].toString().isNotEmpty)
         ? hazard['image_url']
-        .toString()
-        .split(',')
-        .map((e) => e.trim())
-        .toList()
+              .toString()
+              .split(',')
+              .map((e) => e.trim())
+              .toList()
         : <String>[];
-    final voiceUrls = (hazard['voice_note_url'] != null &&
-        hazard['voice_note_url'].toString().trim().isNotEmpty)
+    final voiceUrls =
+        (hazard['voice_note_url'] != null &&
+            hazard['voice_note_url'].toString().trim().isNotEmpty)
         ? hazard['voice_note_url']
-        .toString()
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
+              .toString()
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
         : <String>[];
     final String title = hazard['hazard_type'] ?? 'No Type';
     final String severity = hazard['severity'] ?? 'Unknown';
@@ -1143,7 +1205,7 @@ class _HazardCard extends StatelessWidget {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: EdgeInsets.only(bottom: R.blockV * 2),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [primaryColor.withValues(alpha: 0.95), secondaryColor],
@@ -1155,7 +1217,7 @@ class _HazardCard extends StatelessWidget {
             BoxShadow(
               color: primaryColor.withValues(alpha: 0.4),
               blurRadius: 15,
-              offset: const Offset(0, 8),
+              offset: Offset(0, 8),
             ),
           ],
         ),
@@ -1172,7 +1234,7 @@ class _HazardCard extends StatelessWidget {
               );
             },
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(R.blockH * 5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1180,8 +1242,8 @@ class _HazardCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 56,
-                        height: 56,
+                        width: R.blockH * 14.933,
+                        height: R.blockV * 7,
                         decoration: BoxDecoration(
                           color: Colors.white.withAlpha(64),
                           borderRadius: BorderRadius.circular(16),
@@ -1189,13 +1251,13 @@ class _HazardCard extends StatelessWidget {
                         child: Center(
                           child: SvgPicture.asset(
                             _hazardSvgAsset(title),
-                            width: 32,
-                            height: 32,
+                            width: R.blockH * 8.533,
+                            height: R.blockV * 4,
                             fit: BoxFit.contain,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: R.blockH * 4.267),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1206,25 +1268,29 @@ class _HazardCard extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 20,
+                                      fontSize: R.blockH * 5,
                                       color: Colors.white,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: R.blockH * 2.133),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 5),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: severityColor.withValues(alpha: 0.85),
+                                    color: severityColor.withValues(
+                                      alpha: 0.85,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     severity.toUpperCase(),
-                                    style: const TextStyle(
-                                      fontSize: 12,
+                                    style: TextStyle(
+                                      fontSize: R.blockH * 3,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                       letterSpacing: 0.5,
@@ -1235,78 +1301,97 @@ class _HazardCard extends StatelessWidget {
                             ),
                             if (hasImages || hasVoiceNotes)
                               Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
+                                padding: EdgeInsets.only(top: R.blockV * 1),
                                 child: Row(
                                   children: [
                                     if (hasImages)
-                                      Icon(Icons.photo_library_rounded,
-                                          size: 16,
-                                          color: Colors.white.withAlpha(204)),
-                                    if (hasImages) const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.photo_library_rounded,
+                                        size: 16,
+                                        color: Colors.white.withAlpha(204),
+                                      ),
                                     if (hasImages)
-                                      Text(images.length.toString(),
-                                          style: TextStyle(
-                                              color: Colors.white.withAlpha(204),
-                                              fontSize: 12)),
+                                      SizedBox(width: R.blockH * 1.067),
+                                    if (hasImages)
+                                      Text(
+                                        images.length.toString(),
+                                        style: TextStyle(
+                                          color: Colors.white.withAlpha(204),
+                                          fontSize: R.blockH * 3,
+                                        ),
+                                      ),
                                     if (hasImages && hasVoiceNotes)
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: R.blockH * 3.2),
                                     if (hasVoiceNotes)
-                                      Icon(Icons.mic_rounded,
-                                          size: 16,
-                                          color: Colors.white.withAlpha(204)),
+                                      Icon(
+                                        Icons.mic_rounded,
+                                        size: 16,
+                                        color: Colors.white.withAlpha(204),
+                                      ),
                                   ],
                                 ),
                               ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(color: Colors.white.withAlpha(77), height: 1),
+                    padding: EdgeInsets.symmetric(vertical: R.blockV * 1.5),
+                    child: Divider(
+                      color: Colors.white.withAlpha(77),
+                      height: 1,
+                    ),
                   ),
                   _buildDetailRow(
-                      icon: Icons.person_pin_circle_outlined,
-                      text: "By: $reporterName"),
-                  const SizedBox(height: 8),
+                    icon: Icons.person_pin_circle_outlined,
+                    text: "By: $reporterName",
+                  ),
+                  SizedBox(height: R.blockV * 1),
                   _buildDetailRow(
-                      icon: Icons.location_on_outlined, text: "Site: $siteName"),
-                  const SizedBox(height: 8),
+                    icon: Icons.location_on_outlined,
+                    text: "Site: $siteName",
+                  ),
+                  SizedBox(height: R.blockV * 1),
                   _buildDetailRow(
-                      icon: Icons.schedule_rounded, text: timestamp),
+                    icon: Icons.schedule_rounded,
+                    text: timestamp,
+                  ),
                   if (validTasks.isEmpty) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: R.blockV * 1),
                     _buildDetailRow(
                       icon: Icons.person_off_outlined,
                       text: "Not yet assigned",
                     ),
                   ] else ...[
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(color: Colors.white.withAlpha(77), height: 1),
+                      padding: EdgeInsets.symmetric(vertical: R.blockV * 1.5),
+                      child: Divider(
+                        color: Colors.white.withAlpha(77),
+                        height: 1,
+                      ),
                     ),
                     Text(
                       "SITE INSPECTOR${validTasks.length > 1 ? 'S' : ''}",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: R.blockH * 3,
                         color: Colors.white.withAlpha(204),
                         letterSpacing: 0.8,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: R.blockV * 1.25),
                     ...validTasks.map((task) {
                       final worker = task['hse_worker'];
                       final workerName = worker != null
                           ? "${capitalize(worker['first_name'] ?? 'N/A')} ${capitalize(worker['last_name'] ?? '')}"
-                          .trim()
+                                .trim()
                           : 'Unassigned';
                       final profileImage = worker?['profile_image_url'];
                       final status = task['status']?.toString() ?? 'unknown';
 
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
+                        padding: EdgeInsets.only(bottom: R.blockV * 1),
                         child: Row(
                           children: [
                             CircleAvatar(
@@ -1317,37 +1402,42 @@ class _HazardCard extends StatelessWidget {
                                   : null,
                               child: profileImage == null
                                   ? Text(
-                                workerName.isNotEmpty ? workerName[0] : '?',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14),
-                              )
+                                      workerName.isNotEmpty
+                                          ? workerName[0]
+                                          : '?',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: R.blockH * 3.5,
+                                      ),
+                                    )
                                   : null,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: R.blockH * 3.2),
                             Expanded(
                               child: Text(
                                 workerName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w500,
-                                  fontSize: 15,
+                                  fontSize: R.blockH * 3.75,
                                   color: Colors.white,
                                 ),
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withAlpha(64),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
                                 status.replaceAll('_', ' ').toUpperCase(),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 11,
+                                  fontSize: R.blockH * 2.75,
                                   color: Colors.white,
                                 ),
                               ),
@@ -1356,7 +1446,7 @@ class _HazardCard extends StatelessWidget {
                         ),
                       );
                     }),
-                  ]
+                  ],
                 ],
               ),
             ),
@@ -1366,4 +1456,3 @@ class _HazardCard extends StatelessWidget {
     );
   }
 }
-

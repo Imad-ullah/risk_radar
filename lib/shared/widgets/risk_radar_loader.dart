@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PUBLIC WIDGET — Use this everywhere in the app
@@ -9,14 +10,11 @@ class RiskRadarLoader extends StatelessWidget {
   final Color? color;
   final double size;
 
-  const RiskRadarLoader({
-    super.key,
-    this.color,
-    this.size = 48.0,
-  });
+  RiskRadarLoader({super.key, this.color, this.size = 48.0});
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final effectiveColor = color ?? const Color(0xFF1B3D3D);
     return Center(
       child: _RadarSweepLoader(size: size, color: effectiveColor),
@@ -31,26 +29,24 @@ class RiskRadarLoader extends StatelessWidget {
 class RiskRadarLoadingScreen extends StatelessWidget {
   final String message;
 
-  const RiskRadarLoadingScreen({
-    super.key,
-    this.message = 'Loading...',
-  });
+  const RiskRadarLoadingScreen({super.key, this.message = 'Loading...'});
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const RiskRadarLoader(size: 72),
-            const SizedBox(height: 28),
+            RiskRadarLoader(size: 72),
+            SizedBox(height: R.blockV * 3.5),
             Text(
               message,
               style: TextStyle(
                 color: Colors.grey.shade600,
-                fontSize: 14,
+                fontSize: R.blockH * 3.5,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.3,
               ),
@@ -61,6 +57,7 @@ class RiskRadarLoadingScreen extends StatelessWidget {
     );
   }
 }
+
 // ══════════════════════════════════════════════════════════════════════════════
 // INTERNAL ANIMATED WIDGET
 // ══════════════════════════════════════════════════════════════════════════════
@@ -68,10 +65,7 @@ class _RadarSweepLoader extends StatefulWidget {
   final double size;
   final Color color;
 
-  const _RadarSweepLoader({
-    required this.size,
-    required this.color,
-  });
+  const _RadarSweepLoader({required this.size, required this.color});
 
   @override
   State<_RadarSweepLoader> createState() => _RadarSweepLoaderState();
@@ -98,6 +92,7 @@ class _RadarSweepLoaderState extends State<_RadarSweepLoader>
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return SizedBox(
       width: widget.size,
       height: widget.size,
@@ -126,10 +121,7 @@ class _RadarSweepPainter extends CustomPainter {
   // Gold accent for the sweep beam
   static const Color _gold = Color(0xFFE6A050);
 
-  _RadarSweepPainter({
-    required this.color,
-    required this.animationValue,
-  });
+  _RadarSweepPainter({required this.color, required this.animationValue});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -222,7 +214,8 @@ class _RadarSweepPainter extends CustomPainter {
       final segmentFraction = i / segments;
       final opacity = segmentFraction * 0.25; // Fades from 0 → 0.25
 
-      final startAngle = sweepAngle - trailSweep + (segmentFraction * trailSweep);
+      final startAngle =
+          sweepAngle - trailSweep + (segmentFraction * trailSweep);
       final segmentSweep = trailSweep / segments;
 
       final trailPaint = Paint()

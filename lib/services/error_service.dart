@@ -22,11 +22,13 @@ class ErrorService {
       return;
     }
 
-    unawaited(_sendToSupabase(
-      message: errorMessage,
-      stackTrace: stackTrace,
-      fatal: fatal,
-    ));
+    unawaited(
+      _sendToSupabase(
+        message: errorMessage,
+        stackTrace: stackTrace,
+        fatal: fatal,
+      ),
+    );
   }
 
   static void reportFlutterError(FlutterErrorDetails details) {

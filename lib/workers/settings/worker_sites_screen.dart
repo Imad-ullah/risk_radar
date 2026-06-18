@@ -47,8 +47,9 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
             .eq('officer_uid', officerUid);
 
         setState(() {
-          _sites =
-          List<Map<String, dynamic>>.from(sitesResponse as List? ?? []);
+          _sites = List<Map<String, dynamic>>.from(
+            sitesResponse as List? ?? [],
+          );
         });
       }
     } catch (e) {
@@ -77,91 +78,127 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        backgroundColor: Colors.transparent, // Transparent for gradient
-        elevation: 0,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.brandTeal,
-                AppColors.brandTeal.withValues(alpha: 0.85),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              )
-            ],
+      builder: (ctx) {
+        final mediaQuery = MediaQuery.of(ctx);
+        final size = mediaQuery.size;
+        final visibleHeight =
+            size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+        return Dialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: size.width * 0.085,
+            vertical: visibleHeight * 0.030,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.swap_horiz_rounded,
-                    color: Colors.white, size: 36),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Change Site?',
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Are you sure you want to switch your active location to this site?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: Colors.white.withValues(alpha: 0.85)),
-              ),
-              const SizedBox(height: 28),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Cancel',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.brandTeal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      elevation: 4,
-                    ),
-                    child: const Text('Confirm',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(size.width * 0.071),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: size.width * 0.0,
+          child: Container(
+            padding: EdgeInsets.all(size.width * 0.048),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.brandTeal,
+                  AppColors.brandTeal.withValues(alpha: 0.85),
                 ],
               ),
-            ],
+              borderRadius: BorderRadius.circular(size.width * 0.071),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: size.width * 0.053,
+                  offset: Offset(size.width * 0.0, visibleHeight * 0.013),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(size.width * 0.032),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.swap_horiz_rounded,
+                    color: Colors.white,
+                    size: size.width * 0.080,
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.018),
+                Text(
+                  'Change Site?',
+                  style: TextStyle(
+                    fontSize: size.width * 0.050,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.010),
+                Text(
+                  'Are you sure you want to switch your active location to this site?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: size.width * 0.035,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+                SizedBox(height: visibleHeight * 0.024),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.050,
+                          vertical: visibleHeight * 0.010,
+                        ),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: size.width * 0.038,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: size.width * 0.028),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.brandTeal,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.060,
+                          vertical: visibleHeight * 0.010,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.041,
+                          ),
+                        ),
+                        elevation: size.width * 0.011,
+                      ),
+                      child: Text(
+                        'Confirm',
+                        style: TextStyle(
+                          fontSize: size.width * 0.038,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     if (confirm != true) return;
@@ -171,9 +208,10 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      await supabase.from('workers').update({
-        'current_site_id': _selectedSite,
-      }).eq('id', userId);
+      await supabase
+          .from('workers')
+          .update({'current_site_id': _selectedSite})
+          .eq('id', userId);
 
       setState(() {
         _currentSite = _selectedSite!;
@@ -204,15 +242,21 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     // Detect Dark Mode
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? const Color(0xFF121212)
+        : AppColors.backgroundLight;
     final textColor = isDark ? Colors.grey[400] : Colors.grey[600];
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Sites'),
+        title: Text('Sites'),
         backgroundColor: AppColors.brandTeal,
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -224,14 +268,17 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
             children: [
               // 1. Subtitle Text
               Padding(
-                padding:
-                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+                padding: EdgeInsets.symmetric(
+                  vertical: visibleHeight * 0.012,
+                  horizontal: size.width * 0.040,
+                ),
                 child: Text(
                   "Tap a site to switch your active location",
                   style: TextStyle(
-                      color: textColor, // Updates based on theme
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500),
+                    color: textColor, // Updates based on theme
+                    fontSize: size.width * 0.033,
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -239,32 +286,37 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
               // 2. List of Sites (New Dark Card Style)
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? Center(child: CircularProgressIndicator())
                     : _sites.isEmpty
                     ? _buildEmptyState()
                     : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
-                  itemCount: _sites.length,
-                  separatorBuilder: (_, _) =>
-                  const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final site = _sites[index];
-                    final siteId = site['id'] ?? "";
-                    final siteName = site['name'] ?? "Unnamed Site";
-                    final siteDesc = site['description'];
+                        padding: EdgeInsets.fromLTRB(
+                          size.width * 0.040,
+                          visibleHeight * 0.0,
+                          size.width * 0.040,
+                          visibleHeight * 0.095,
+                        ),
+                        itemCount: _sites.length,
+                        separatorBuilder: (_, _) =>
+                            SizedBox(height: visibleHeight * 0.012),
+                        itemBuilder: (context, index) {
+                          final site = _sites[index];
+                          final siteId = site['id'] ?? "";
+                          final siteName = site['name'] ?? "Unnamed Site";
+                          final siteDesc = site['description'];
 
-                    final isCurrent = siteId == _currentSite;
-                    final isSelectedTemp = siteId == _selectedSite;
+                          final isCurrent = siteId == _currentSite;
+                          final isSelectedTemp = siteId == _selectedSite;
 
-                    return _buildDarkSiteCard(
-                      siteName: siteName,
-                      siteDesc: siteDesc,
-                      isCurrent: isCurrent,
-                      isSelectedTemp: isSelectedTemp,
-                      onTap: () => _onSiteTap(siteId),
-                    );
-                  },
-                ),
+                          return _buildDarkSiteCard(
+                            siteName: siteName,
+                            siteDesc: siteDesc,
+                            isCurrent: isCurrent,
+                            isSelectedTemp: isSelectedTemp,
+                            onTap: () => _onSiteTap(siteId),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -272,24 +324,27 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
           // 3. Floating Confirm Button (Bottom Center)
           if (_selectedSite != null && _selectedSite != _currentSite)
             Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
+              left: size.width * 0.043,
+              right: size.width * 0.043,
+              bottom: visibleHeight * 0.030,
               child: ElevatedButton(
                 onPressed: _confirmSiteChange,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandTeal,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.014),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(size.width * 0.041),
                   ),
-                  elevation: 8,
+                  elevation: size.width * 0.021,
                   shadowColor: AppColors.brandTeal.withValues(alpha: 0.4),
                 ),
-                child: const Text(
+                child: Text(
                   'Confirm Change',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: size.width * 0.038,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -308,6 +363,10 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
     required bool isSelectedTemp,
     required VoidCallback onTap,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     // Label for the button
     String buttonText = "Select";
     if (isCurrent) buttonText = "Active";
@@ -317,19 +376,21 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(size.width * 0.038),
         decoration: BoxDecoration(
           // Always Dark Brand Teal Background
           color: AppColors.brandTeal,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(size.width * 0.052),
           border: isSelectedTemp
               ? Border.all(color: AppColors.accentGold, width: 2)
               : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2), // Darker shadow for dark mode
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(
+                alpha: 0.2,
+              ), // Darker shadow for dark mode
+              blurRadius: size.width * 0.040,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.010),
             ),
           ],
         ),
@@ -341,8 +402,12 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Icon
-                Icon(Icons.business_rounded, color: Colors.white.withValues(alpha: 0.9), size: 28),
-                const SizedBox(width: 12),
+                Icon(
+                  Icons.business_rounded,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: size.width * 0.064,
+                ),
+                SizedBox(width: size.width * 0.028),
                 // Text
                 Expanded(
                   child: Column(
@@ -350,20 +415,22 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
                     children: [
                       Text(
                         siteName,
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: TextStyle(
+                          fontSize: size.width * 0.040,
                           fontWeight: FontWeight.bold,
                           color: Colors.white, // White text
                         ),
                       ),
                       if (siteDesc != null && siteDesc.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
+                          padding: EdgeInsets.only(top: visibleHeight * 0.004),
                           child: Text(
                             siteDesc,
                             style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withValues(alpha: 0.7), // Grey/White text
+                              fontSize: size.width * 0.030,
+                              color: Colors.white.withValues(
+                                alpha: 0.7,
+                              ), // Grey/White text
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -375,26 +442,26 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: visibleHeight * 0.016),
 
             // Bottom: Gold Action Button (Visual only, whole card taps)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.010),
               decoration: BoxDecoration(
                 color: AppColors.accentGold, // Gold/Orange Button
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(size.width * 0.041),
               ),
               alignment: Alignment.center,
               child: Text(
                 buttonText,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: size.width * 0.035,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -402,22 +469,30 @@ class _WorkerSitesScreenState extends State<WorkerSitesScreen> {
   }
 
   Widget _buildEmptyState() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.domain_disabled_rounded,
-              size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
+          Icon(
+            Icons.domain_disabled_rounded,
+            size: size.width * 0.150,
+            color: Colors.grey.shade400,
+          ),
+          SizedBox(height: visibleHeight * 0.014),
           Text(
             'No sites assigned.',
             style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600),
+              fontSize: size.width * 0.040,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: visibleHeight * 0.006),
+          Text(
             'Please contact your officer.',
             style: TextStyle(color: Colors.grey),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -93,24 +94,20 @@ class _ManageWorkersScreenState extends State<ManageWorkersScreen>
       ]);
 
       List<Map<String, dynamic>> workersResponse =
-      List<Map<String, dynamic>>.from(responses[0]);
+          List<Map<String, dynamic>>.from(responses[0]);
       List<Map<String, dynamic>> hseWorkersResponse =
-      List<Map<String, dynamic>>.from(responses[1]);
+          List<Map<String, dynamic>>.from(responses[1]);
 
       // Sort alphabetically by full name
       workersResponse.sort((a, b) {
-        final nameA =
-        "${a['first_name'] ?? ''} ${a['last_name'] ?? ''}".trim();
-        final nameB =
-        "${b['first_name'] ?? ''} ${b['last_name'] ?? ''}".trim();
+        final nameA = "${a['first_name'] ?? ''} ${a['last_name'] ?? ''}".trim();
+        final nameB = "${b['first_name'] ?? ''} ${b['last_name'] ?? ''}".trim();
         return nameA.toLowerCase().compareTo(nameB.toLowerCase());
       });
 
       hseWorkersResponse.sort((a, b) {
-        final nameA =
-        "${a['first_name'] ?? ''} ${a['last_name'] ?? ''}".trim();
-        final nameB =
-        "${b['first_name'] ?? ''} ${b['last_name'] ?? ''}".trim();
+        final nameA = "${a['first_name'] ?? ''} ${a['last_name'] ?? ''}".trim();
+        final nameB = "${b['first_name'] ?? ''} ${b['last_name'] ?? ''}".trim();
         return nameA.toLowerCase().compareTo(nameB.toLowerCase());
       });
 
@@ -147,17 +144,20 @@ class _ManageWorkersScreenState extends State<ManageWorkersScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: const Text('Are you sure you want to delete this worker?'),
+        title: Text('Confirm Delete'),
+        content: Text('Are you sure you want to delete this worker?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white),
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text('Delete'),
           ),
         ],
       ),
@@ -214,40 +214,52 @@ class _ManageWorkersScreenState extends State<ManageWorkersScreen>
   }
 
   Widget _buildWorkerList(
-      String title, List<Map<String, dynamic>> list, GlobalKey key, String tableName) {
+    String title,
+    List<Map<String, dynamic>> list,
+    GlobalKey key,
+    String tableName,
+  ) {
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: R.blockH * 4.5,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: R.blockV * 1),
         if (list.isEmpty)
-          const Text("No workers registered yet.")
+          Text("No workers registered yet.")
         else
           ...list.map((worker) {
             final firstName = worker['first_name'] ?? '';
             final lastName = worker['last_name'] ?? '';
             final name =
-            "${capitalizeName(firstName)} ${capitalizeName(lastName)}".trim();
+                "${capitalizeName(firstName)} ${capitalizeName(lastName)}"
+                    .trim();
 
             final subtitle = tableName == 'workers'
                 ? (worker['work_type'] ?? 'Unknown')
                 : (worker['designation'] ?? 'Unknown');
 
             return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: EdgeInsets.symmetric(
+                horizontal: R.blockH * 3,
+                vertical: R.blockV * 0.75,
+              ),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundImage: worker['profile_image_url'] != null
                       ? CachedNetworkImageProvider(worker['profile_image_url'])
                       : null,
                   child: worker['profile_image_url'] == null
-                      ? const Icon(Icons.person)
+                      ? Icon(Icons.person)
                       : null,
                 ),
                 title: Text(name),
@@ -265,54 +277,62 @@ class _ManageWorkersScreenState extends State<ManageWorkersScreen>
                   );
                 },
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: Icon(Icons.delete, color: Colors.red),
                   onPressed: () => _deleteWorker(tableName, worker['id']),
                 ),
               ),
             );
           }),
-        const SizedBox(height: 20),
+        SizedBox(height: R.blockV * 2.5),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     super.build(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Workers'),
+        title: Text('Manage Workers'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _loadWorkers,
             tooltip: 'Refresh',
           ),
         ],
       ),
       body: loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-        onRefresh: _loadWorkers,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          controller: _scrollController,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildWorkerList(
-                  "Workers", cache.workers, _workersKey, 'workers'),
-              _buildWorkerList("HSE Workers", cache.hseWorkers,
-                  _hseWorkersKey, 'hse_workers'),
-            ],
-          ),
-        ),
-      ),
+              onRefresh: _loadWorkers,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                controller: _scrollController,
+                padding: EdgeInsets.all(R.blockH * 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildWorkerList(
+                      "Workers",
+                      cache.workers,
+                      _workersKey,
+                      'workers',
+                    ),
+                    _buildWorkerList(
+                      "HSE Workers",
+                      cache.hseWorkers,
+                      _hseWorkersKey,
+                      'hse_workers',
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
   @override
   bool get wantKeepAlive => true;
 }
-

@@ -4,11 +4,9 @@ import 'officer_repository.dart';
 import 'sqlite_cache_store.dart';
 
 class AuthRepository {
-  AuthRepository({
-    LocalStorageService? storage,
-    SqliteCacheStore? cacheStore,
-  })  : _storage = storage ?? LocalStorageService.instance,
-        _cacheStore = cacheStore ?? SqliteCacheStore.instance;
+  AuthRepository({LocalStorageService? storage, SqliteCacheStore? cacheStore})
+    : _storage = storage ?? LocalStorageService.instance,
+      _cacheStore = cacheStore ?? SqliteCacheStore.instance;
 
   static const _workerProfileKey = 'rr_worker_profile';
   static const _hseProfileKey = 'rr_hse_profile';

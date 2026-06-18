@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -307,6 +308,7 @@ class _HSEWorkerEditProfileScreenState
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -335,7 +337,7 @@ class _HSEWorkerEditProfileScreenState
           top: 0,
           left: 0,
           right: 0,
-          height: 280,
+          height: R.blockV * 35,
           child: Container(
             decoration: const BoxDecoration(
               color: tealColor,
@@ -350,7 +352,7 @@ class _HSEWorkerEditProfileScreenState
         // Scrollable Content
         Positioned.fill(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.only(top: 60, bottom: 40),
+            padding: EdgeInsets.only(top: R.blockV * 7.5, bottom: R.blockV * 5),
             child: Column(
               children: [
                 Center(
@@ -372,7 +374,7 @@ class _HSEWorkerEditProfileScreenState
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: EdgeInsets.all(R.blockH * 1),
                           decoration: const BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
@@ -391,7 +393,7 @@ class _HSEWorkerEditProfileScreenState
                                       color: tealColor,
                                     )
                                   : (imageUrl == null || imageUrl.isEmpty)
-                                  ? const Icon(
+                                  ? Icon(
                                       Icons.person,
                                       size: 60,
                                       color: Colors.grey,
@@ -406,7 +408,7 @@ class _HSEWorkerEditProfileScreenState
                         GestureDetector(
                           onTap: _pickAndUploadImage,
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: EdgeInsets.all(R.blockH * 2),
                             decoration: const BoxDecoration(
                               color: goldColor,
                               shape: BoxShape.circle,
@@ -414,7 +416,7 @@ class _HSEWorkerEditProfileScreenState
                                 BoxShadow(color: Colors.black26, blurRadius: 4),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.camera_alt,
                               color: Colors.white,
                               size: 20,
@@ -425,25 +427,25 @@ class _HSEWorkerEditProfileScreenState
                   ),
                 ),
 
-                const SizedBox(height: 15),
+                SizedBox(height: R.blockV * 1.875),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       fullName.isEmpty ? "User Profile" : fullName,
-                      style: const TextStyle(
-                        fontSize: 22,
+                      style: TextStyle(
+                        fontSize: R.blockH * 5.5,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: R.blockH * 2.667),
                     GestureDetector(
                       onTap: () => setState(() => _editing = !_editing),
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: EdgeInsets.all(R.blockH * 1.5),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
@@ -457,21 +459,21 @@ class _HSEWorkerEditProfileScreenState
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: R.blockV * 0.625),
                 Text(
                   _designationController.text.toUpperCase(),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 12,
+                    fontSize: R.blockH * 3,
                     letterSpacing: 1,
                   ),
                 ),
 
-                const SizedBox(height: 30),
+                SizedBox(height: R.blockV * 3.75),
 
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(25),
+                  margin: EdgeInsets.symmetric(horizontal: R.blockH * 5),
+                  padding: EdgeInsets.all(R.blockH * 6.25),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -479,22 +481,22 @@ class _HSEWorkerEditProfileScreenState
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        offset: Offset(0, 10),
                       ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "USER DETAILS",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: R.blockH * 4,
                           color: tealColor,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: R.blockV * 2.5),
                       _buildStyledTextField(
                         "First Name",
                         _firstNameController,
@@ -529,11 +531,11 @@ class _HSEWorkerEditProfileScreenState
                         Icons.admin_panel_settings_outlined,
                         readOnly: true,
                       ),
-                      const SizedBox(height: 30),
+                      SizedBox(height: R.blockV * 3.75),
                       if (_editing)
                         SizedBox(
                           width: double.infinity,
-                          height: 55,
+                          height: R.blockV * 6.875,
                           child: ElevatedButton(
                             onPressed: _hasChanges && !_updating
                                 ? _updateProfile
@@ -550,12 +552,12 @@ class _HSEWorkerEditProfileScreenState
                                 ? const CircularProgressIndicator(
                                     color: Colors.white,
                                   )
-                                : const Text(
+                                : Text(
                                     "SAVE DETAILS",
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: R.blockH * 4,
                                     ),
                                   ),
                           ),
@@ -574,7 +576,7 @@ class _HSEWorkerEditProfileScreenState
           left: 20,
           child: SafeArea(
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              icon: Icon(Icons.arrow_back_ios, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -596,19 +598,19 @@ class _HSEWorkerEditProfileScreenState
     final bool isKeyboardReadOnly = onTap != null || !_editing || readOnly;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.only(bottom: R.blockV * 2.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
+            style: TextStyle(
+              fontSize: R.blockH * 3.25,
               color: Colors.grey,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: R.blockV * 1),
           TextField(
             controller: controller,
             inputFormatters: const [SanitizingTextInputFormatter()],
@@ -629,7 +631,7 @@ class _HSEWorkerEditProfileScreenState
               fillColor: (!_editing || readOnly)
                   ? Colors.grey.shade50
                   : Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
+              contentPadding: EdgeInsets.symmetric(
                 vertical: 16,
                 horizontal: 20,
               ),

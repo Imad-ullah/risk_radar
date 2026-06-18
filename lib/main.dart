@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -198,13 +199,14 @@ class _ErrorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         backgroundColor: Colors.red.shade50,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(R.blockH * 6),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -213,19 +215,19 @@ class _ErrorApp extends StatelessWidget {
                   size: 100,
                   color: Colors.red.shade700,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: R.blockV * 3),
                 Text(
                   'Failed to Initialize App',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: R.blockH * 6,
                     fontWeight: FontWeight.bold,
                     color: Colors.red.shade700,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: R.blockV * 2),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(R.blockH * 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -241,35 +243,32 @@ class _ErrorApp extends StatelessWidget {
                           color: Colors.red.shade700,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: R.blockV * 1),
                       Text(
                         error,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: TextStyle(
+                          fontSize: R.blockH * 3.5,
                           color: Colors.black87,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: R.blockV * 3),
                 ElevatedButton.icon(
                   onPressed: () => main(),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  icon: Icon(Icons.refresh),
+                  label: Text('Retry'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade700,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: R.blockV * 2),
                 Text(
                   'Common Fixes:',
                   style: TextStyle(
@@ -277,7 +276,7 @@ class _ErrorApp extends StatelessWidget {
                     color: Colors.grey.shade700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: R.blockV * 1),
                 _buildFixItem('1. Check if .env file exists in root directory'),
                 _buildFixItem('2. Verify all API keys in .env are correct'),
                 _buildFixItem('3. Run "flutter clean" and "flutter pub get"'),
@@ -292,7 +291,7 @@ class _ErrorApp extends StatelessWidget {
 
   Widget _buildFixItem(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: R.blockV * 0.5),
       child: Row(
         children: [
           Icon(
@@ -300,11 +299,14 @@ class _ErrorApp extends StatelessWidget {
             size: 16,
             color: Colors.grey.shade600,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: R.blockH * 2.133),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: R.blockH * 3,
+                color: Colors.grey.shade600,
+              ),
             ),
           ),
         ],
@@ -401,6 +403,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return ScreenUtilInit(
       designSize: const Size(360, 690),
       minTextAdapt: true,
@@ -441,14 +444,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: EdgeInsets.symmetric(
+            horizontal: R.blockH * 6,
+            vertical: R.blockV * 1.75,
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.brandTeal,
-        contentTextStyle: const TextStyle(
+        contentTextStyle: TextStyle(
           color: Colors.white,
-          fontSize: 14,
+          fontSize: R.blockH * 3.5,
           fontWeight: FontWeight.w600,
           height: 1.25,
         ),
@@ -457,7 +463,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         behavior: SnackBarBehavior.floating,
         elevation: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        insetPadding: EdgeInsets.fromLTRB(
+          R.blockH * 4,
+          R.blockV * 0,
+          R.blockH * 4,
+          R.blockV * 2.5,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

@@ -39,20 +39,11 @@ class LocalStorageService {
     'rr_officer_emergency_details',
   };
 
-  static const _legacyKeys = {
-    _roleKey,
-    _userIdKey,
-    ..._sqliteCacheKeys,
-  };
-  static const _secureKeys = {
-    _roleKey,
-    _userIdKey,
-  };
+  static const _legacyKeys = {_roleKey, _userIdKey, ..._sqliteCacheKeys};
+  static const _secureKeys = {_roleKey, _userIdKey};
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      resetOnError: true,
-    ),
+    aOptions: AndroidOptions(resetOnError: true),
   );
   final SqliteCacheStore _cacheStore = SqliteCacheStore.instance;
   final Map<String, String> _memory = {};
@@ -84,9 +75,7 @@ class LocalStorageService {
       _containsKey(_roleKey) && _containsKey(_userIdKey);
 
   Future<void> clearAll() async {
-    await Future.wait([
-      for (final key in _legacyKeys) _delete(key),
-    ]);
+    await Future.wait([for (final key in _legacyKeys) _delete(key)]);
     await DatabaseHelper.instance.clearSyncQueue();
     await DatabaseHelper.instance.clearHazards();
     await _cacheStore.clear();

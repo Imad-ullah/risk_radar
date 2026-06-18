@@ -205,6 +205,10 @@ class HazardRepository {
     }
   }
 
+  Future<void> replaceOngoingHazards(List<Map<String, dynamic>> rows) async {
+    await _replaceAllRows(rows, sourceTable: 'ongoing_hazards');
+  }
+
   Future<List<Map<String, dynamic>>> getOngoingHazards() {
     return _getOrMigrate(
       sourceTable: 'ongoing_hazards',

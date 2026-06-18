@@ -28,6 +28,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -582,8 +583,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 100,
-              height: 100,
+              width: R.blockH * 26.667,
+              height: R.blockV * 12.5,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
@@ -591,37 +592,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(4),
+              padding: EdgeInsets.all(R.blockH * 1),
               child: ClipOval(
                 child: Image.asset(
                   'assets/logo.png',
                   fit: BoxFit.cover,
                   errorBuilder: (c, o, s) => Container(
                     color: const Color(0xFF1B3D3D),
-                    child: const Icon(
-                      Icons.security,
-                      size: 50,
-                      color: Colors.white,
-                    ),
+                    child: Icon(Icons.security, size: 50, color: Colors.white),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: R.blockV * 4),
             const CircularProgressIndicator(
               color: Color(0xFF1B3D3D),
               strokeWidth: 3,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             Text(
               'Loading RiskRadar...',
               style: TextStyle(
                 color: Colors.grey.shade600,
-                fontSize: 14,
+                fontSize: R.blockH * 3.5,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -637,6 +634,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     switch (_bootState) {
       case _BootState.loading:
         return _buildLoadingScreen();

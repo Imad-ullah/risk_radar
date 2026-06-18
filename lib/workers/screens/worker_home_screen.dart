@@ -7,8 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:riskradar/services/providers/hazard_provider.dart';
 import 'package:riskradar/services/providers/notification_count_provider.dart';
+import 'package:riskradar/services/repositories/hazard_repository.dart';
 
 // --- Imports ---
 import 'worker_hazard_report_screen.dart';
@@ -45,6 +45,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   final SupabaseClient supabase = Supabase.instance.client;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final AuthRepository _authRepository = AuthRepository();
+  final HazardRepository _hazardRepository = HazardRepository();
 
   late AnimationController _animationController;
   late Animation<double> _curveAnimation;
@@ -68,6 +69,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   String _currentSiteName = "No site assigned";
   List<String> _safetyOfficersList = [];
   List<String> _contractorsList = [];
+  int _activeHazardCount = 0;
 
   // ── SOS / location IDs ────────────────────────────────────────────────────
   String? _currentWorkerId;
@@ -125,6 +127,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
+    if (index == 0) {
+      unawaited(_loadActiveHazardCountFromCache());
+    }
     _curveAnimation =
         Tween<double>(
           begin: _curveAnimation.value,
@@ -178,6 +183,8 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
       _applyContext(cachedContext);
     }
 
+    await _loadActiveHazardCountFromCache();
+
     // If we had anything from cache, stop the loading spinner immediately.
     // The user sees real data in < 1 frame.
     if (cachedProfile != null) {
@@ -211,6 +218,61 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
         (ctx['contractors'] as List<dynamic>?)?.cast<String>() ?? [];
     _safetyOfficersList =
         (ctx['safety_officers'] as List<dynamic>?)?.cast<String>() ?? [];
+  }
+
+  bool _isActiveHazardRow(Map<String, dynamic> row) {
+    final status = row['status']?.toString().trim().toLowerCase() ?? '';
+    return status != 'resolved' && status != 'resolved by other';
+  }
+
+  Future<void> _loadActiveHazardCountFromCache() async {
+    final cachedRows = await _hazardRepository.getOngoingHazards();
+    final count = cachedRows.where(_isActiveHazardRow).length;
+    if (!mounted) return;
+    setState(() => _activeHazardCount = count);
+  }
+
+  Future<void> _refreshActiveHazardCountFromSupabase() async {
+    final officerUid = _linkedOfficerUid;
+    final siteId = _currentSiteId;
+    if (officerUid == null ||
+        officerUid.isEmpty ||
+        siteId == null ||
+        siteId.isEmpty) {
+      await _loadActiveHazardCountFromCache();
+      return;
+    }
+
+    final results = await Future.wait([
+      supabase
+          .from('hazards')
+          .select('*, workers!hazards_worker_id_fkey (*)')
+          .eq('officer_uid', officerUid)
+          .eq('current_site_id', siteId)
+          .eq('status', 'reported')
+          .order('created_at', ascending: false),
+      supabase
+          .from('worker_active_hazards_view')
+          .select()
+          .eq('officer_uid', officerUid)
+          .eq('current_site_id', siteId)
+          .inFilter('status', [
+            'assigned',
+            'Assigned',
+            'in_progress',
+            'In Progress',
+          ])
+          .order('created_at', ascending: false),
+    ]);
+
+    final rows = <Map<String, dynamic>>[
+      ...(results[0] as List<dynamic>).cast<Map<String, dynamic>>(),
+      ...(results[1] as List<dynamic>).cast<Map<String, dynamic>>(),
+    ];
+
+    await _hazardRepository.replaceOngoingHazards(rows);
+    if (!mounted) return;
+    setState(() => _activeHazardCount = rows.where(_isActiveHazardRow).length);
   }
 
   // ── Silent Supabase refresh — never blocks the UI ─────────────────────────
@@ -382,6 +444,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildWorkerDrawer() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Drawer(
       backgroundColor: _brandTeal,
       child: Column(
@@ -392,13 +458,18 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    size.width * 0.060,
+                    visibleHeight * 0.075,
+                    size.width * 0.060,
+                    visibleHeight * 0.025,
+                  ),
                   color: const Color(0xFF142E2E),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CircleAvatar(
-                        radius: 38,
+                        radius: size.width * 0.097,
                         backgroundColor: Colors.purple.shade200,
                         backgroundImage: _profileImageUrl.isNotEmpty
                             ? CachedNetworkImageProvider(_profileImageUrl)
@@ -406,36 +477,41 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                         child: _profileImageUrl.isEmpty
                             ? Text(
                                 _firstNameInitial,
-                                style: const TextStyle(
-                                  fontSize: 28,
+                                style: TextStyle(
+                                  fontSize: size.width * 0.070,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black,
                                 ),
                               )
                             : null,
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: visibleHeight * 0.015),
                       Text(
                         _fullName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: size.width * 0.045,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: visibleHeight * 0.003),
                       Text(
                         _workType,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 13,
+                          fontSize: size.width * 0.033,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    size.width * 0.060,
+                    visibleHeight * 0.025,
+                    size.width * 0.060,
+                    visibleHeight * 0.025,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -443,25 +519,25 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                         "CURRENT SITE CONTEXT",
                         style: TextStyle(
                           color: _accentGold,
-                          fontSize: 10,
+                          fontSize: size.width * 0.025,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: visibleHeight * 0.025),
                       _buildContextGroup(
                         icon: Icons.business_center,
                         label: "Contractor",
                         names: _contractorsList,
                         emptyMsg: "No contractor linked",
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: visibleHeight * 0.020),
                       _drawerInfoTile(
                         Icons.location_city,
                         "Site Name",
                         _currentSiteName,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: visibleHeight * 0.020),
                       _buildContextGroup(
                         icon: Icons.security,
                         label: "Safety Inspector",
@@ -471,7 +547,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                     ],
                   ),
                 ),
-                const Divider(color: Colors.white10),
+                Divider(color: Colors.white10),
                 _drawerTile(
                   Icons.account_circle_outlined,
                   "Profile Details",
@@ -491,11 +567,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.all(24.0),
+          Padding(
+            padding: EdgeInsets.all(size.width * 0.060),
             child: Text(
               "RiskRadar v1.1.0",
-              style: TextStyle(color: Colors.white24, fontSize: 11),
+              style: TextStyle(
+                color: Colors.white24,
+                fontSize: size.width * 0.028,
+              ),
             ),
           ),
         ],
@@ -509,11 +588,15 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
     required List<String> names,
     required String emptyMsg,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: _accentGold),
-        const SizedBox(width: 15),
+        Icon(icon, size: size.width * 0.051, color: _accentGold),
+        SizedBox(width: size.width * 0.040),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,16 +604,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: size.width * 0.023,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: visibleHeight * 0.003),
               if (names.isEmpty)
                 Text(
                   emptyMsg,
-                  style: const TextStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: size.width * 0.035,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -538,11 +621,11 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
               else
                 ...names.map(
                   (name) => Padding(
-                    padding: const EdgeInsets.only(bottom: 2.0),
+                    padding: EdgeInsets.only(bottom: visibleHeight * 0.003),
                     child: Text(
                       name,
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: TextStyle(
+                        fontSize: size.width * 0.035,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
@@ -557,12 +640,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   }
 
   Widget _drawerTile(IconData icon, String title, VoidCallback onTap) {
+    final size = MediaQuery.of(context).size;
     return ListTile(
-      leading: Icon(icon, color: Colors.white70, size: 22),
+      leading: Icon(icon, color: Colors.white70, size: size.width * 0.056),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 14,
+        style: TextStyle(
+          fontSize: size.width * 0.035,
           fontWeight: FontWeight.w500,
           color: Colors.white,
         ),
@@ -572,24 +656,25 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   }
 
   Widget _drawerInfoTile(IconData icon, String label, String value) {
+    final size = MediaQuery.of(context).size;
     return Row(
       children: [
-        Icon(icon, size: 20, color: _accentGold),
-        const SizedBox(width: 15),
+        Icon(icon, size: size.width * 0.051, color: _accentGold),
+        SizedBox(width: size.width * 0.040),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: size.width * 0.023,
                 color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
+                fontSize: size.width * 0.035,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -606,84 +691,80 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
 
   Widget _dashboardBody() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Consumer(
-      builder: (context, ref, child) {
-        final activeHazardCount = ref
-            .watch(hazardProvider)
-            .when(
-              data: (hazards) => hazards.length,
-              error: (error, stackTrace) => 0,
-              loading: () => 0,
-            );
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            final userId = supabase.auth.currentUser?.id;
-            await Future.wait([
-              if (userId != null) _refreshFromSupabase(userId),
-              ref.read(hazardProvider.notifier).refresh(bypassCache: true),
-            ]);
-          },
-          color: _brandTeal,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    return RefreshIndicator(
+      onRefresh: () async {
+        final userId = supabase.auth.currentUser?.id;
+        if (userId != null) {
+          await _refreshFromSupabase(userId);
+        }
+        await _refreshActiveHazardCountFromSupabase();
+      },
+      color: _brandTeal,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.all(size.width * 0.060),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Stay safe and",
+              style: TextStyle(
+                fontSize: size.width * 0.055,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+            ),
+            Text(
+              "remain Vigilant",
+              style: TextStyle(
+                fontSize: size.width * 0.065,
+                fontWeight: FontWeight.bold,
+                color: _accentGold,
+              ),
+            ),
+            SizedBox(height: visibleHeight * 0.031),
+            Row(
               children: [
-                Text(
-                  "Stay safe and",
-                  style: TextStyle(
-                    fontSize: 22,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                Expanded(
+                  child: _buildDashboardCard(
+                    size: size,
+                    visibleHeight: visibleHeight,
+                    title: "AI Scanner",
+                    subtitle: "Detect hazards instantly",
+                    icon: Icons.auto_awesome,
+                    buttonText: "Scan Now",
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HazardScreen()),
+                    ),
                   ),
                 ),
-                const Text(
-                  "remain Vigilant",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: _accentGold,
+                SizedBox(width: size.width * 0.043),
+                Expanded(
+                  child: _buildDashboardCard(
+                    size: size,
+                    visibleHeight: visibleHeight,
+                    title: "Hazards",
+                    subtitle: "$_activeHazardCount active risks",
+                    icon: Icons.warning_rounded,
+                    buttonText: "View",
+                    onTap: () => _onItemTapped(1),
                   ),
-                ),
-                const SizedBox(height: 25),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildDashboardCard(
-                        title: "AI Scanner",
-                        subtitle: "Detect hazards instantly",
-                        icon: Icons.auto_awesome,
-                        buttonText: "Scan Now",
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HazardScreen(),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildDashboardCard(
-                        title: "Hazards",
-                        subtitle: "$activeHazardCount active risks",
-                        icon: Icons.warning_rounded,
-                        buttonText: "View",
-                        onTap: () => _onItemTapped(1),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildDashboardCard({
+    required Size size,
+    required double visibleHeight,
     required String title,
     required String subtitle,
     required IconData icon,
@@ -691,53 +772,56 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
     required VoidCallback onTap,
   }) {
     return Container(
-      height: 180,
-      padding: const EdgeInsets.all(20),
+      height: visibleHeight * 0.225,
+      padding: EdgeInsets.all(size.width * 0.050),
       decoration: BoxDecoration(
         color: _brandTeal,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(size.width * 0.071),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: Colors.white70, size: 28),
+          Icon(icon, color: Colors.white70, size: size.width * 0.071),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: size.width * 0.045,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: visibleHeight * 0.005),
               Text(
                 subtitle,
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: size.width * 0.028,
+                ),
               ),
             ],
           ),
           SizedBox(
             width: double.infinity,
-            height: 36,
+            height: visibleHeight * 0.045,
             child: ElevatedButton(
               onPressed: onTap,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accentGold,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(size.width * 0.031),
                 ),
                 padding: EdgeInsets.zero,
                 elevation: 0,
               ),
               child: Text(
                 buttonText,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: size.width * 0.030,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -754,7 +838,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Scaffold(body: RiskRadarLoader(size: 50));
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    if (loading) {
+      return Scaffold(body: RiskRadarLoader(size: size.width * 0.128));
+    }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDark
@@ -792,16 +882,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
         centerTitle: true,
         title: Text(
           _screenTitles[_selectedIndex],
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         leading: _selectedIndex == 0
             ? GestureDetector(
                 onTap: () => _scaffoldKey.currentState?.openDrawer(),
                 child: Container(
-                  margin: const EdgeInsets.all(10),
+                  margin: EdgeInsets.all(size.width * 0.025),
                   decoration: BoxDecoration(
                     color: Colors.purple.shade200,
                     shape: BoxShape.circle,
@@ -809,16 +896,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                   alignment: Alignment.center,
                   child: Text(
                     _firstNameInitial,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: size.width * 0.040,
                     ),
                   ),
                 ),
               )
             : IconButton(
-                icon: const Icon(Icons.menu, color: Colors.white),
+                icon: Icon(Icons.menu, color: Colors.white),
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
         actions: [
@@ -836,10 +923,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.notifications_none_rounded,
                       color: Colors.white,
-                      size: 28,
+                      size: size.width * 0.071,
                     ),
                     onPressed: () => Navigator.push(
                       context,
@@ -850,25 +937,28 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                   ),
                   if (count > 0)
                     Positioned(
-                      right: 8,
-                      top: 8,
+                      right: size.width * 0.020,
+                      top: visibleHeight * 0.010,
                       child: Container(
-                        padding: const EdgeInsets.all(2),
+                        padding: EdgeInsets.all(size.width * 0.005),
                         decoration: BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
-                          border: Border.all(color: _brandTeal, width: 1.5),
+                          border: Border.all(
+                            color: _brandTeal,
+                            width: size.width * 0.004,
+                          ),
                         ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
+                        constraints: BoxConstraints(
+                          minWidth: size.width * 0.046,
+                          minHeight: visibleHeight * 0.023,
                         ),
                         child: Center(
                           child: Text(
                             '$count',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: size.width * 0.025,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -879,7 +969,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
               );
             },
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: size.width * 0.021),
         ],
       ),
       body: Column(
@@ -890,17 +980,22 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
       ),
       floatingActionButton: _selectedIndex == 0
           ? Padding(
-              padding: const EdgeInsets.only(bottom: 90.0),
+              padding: EdgeInsets.only(bottom: visibleHeight * 0.113),
               child: FloatingActionButton.extended(
                 backgroundColor: Colors.red.shade600,
                 onPressed: _navigateToSOS,
-                elevation: 4,
-                icon: const Icon(Icons.sos_rounded, color: Colors.white),
-                label: const Text(
+                elevation: size.width * 0.010,
+                icon: Icon(
+                  Icons.sos_rounded,
+                  color: Colors.white,
+                  size: size.width * 0.056,
+                ),
+                label: Text(
                   "EMERGENCY",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    fontSize: size.width * 0.034,
                   ),
                 ),
               ),
@@ -916,20 +1011,25 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildConcaveNavBar() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final navHeight = visibleHeight * 0.106;
     return SizedBox(
-      height: 85,
+      height: navHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+            left: size.width * 0.0,
+            right: size.width * 0.0,
+            bottom: visibleHeight * 0.0,
             child: AnimatedBuilder(
               animation: _curveAnimation,
               builder: (context, child) {
                 return CustomPaint(
-                  size: Size(MediaQuery.of(context).size.width, 85),
+                  size: Size(size.width, navHeight),
                   painter: ConcaveNavPainter(
                     selectedIndex: _curveAnimation.value,
                     itemsCount: 5,
@@ -958,6 +1058,11 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final navHeight = visibleHeight * 0.106;
     final bool isSelected = _selectedIndex == index;
     final bool isReportButton = index == 2;
 
@@ -973,8 +1078,8 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
       },
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 60,
-        height: 85,
+        width: size.width * 0.160,
+        height: navHeight,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
@@ -982,10 +1087,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutBack,
-              top: isSelected ? 0 : 20,
+              top: isSelected ? visibleHeight * 0.0 : visibleHeight * 0.025,
               child: Container(
-                width: 50,
-                height: 50,
+                width: size.width * 0.133,
+                height: visibleHeight * 0.063,
                 decoration: BoxDecoration(
                   color: isSelected ? _accentGold : Colors.transparent,
                   shape: BoxShape.circle,
@@ -997,12 +1102,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                       : (isReportButton
                             ? Colors.white
                             : Colors.white.withValues(alpha: 0.5)),
-                  size: 26,
+                  size: size.width * 0.067,
                 ),
               ),
             ),
             Positioned(
-              bottom: 4,
+              bottom: visibleHeight * 0.005,
               child: Text(
                 label,
                 style: TextStyle(
@@ -1011,7 +1116,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
                       : (isReportButton
                             ? Colors.white
                             : Colors.white.withValues(alpha: 0.7)),
-                  fontSize: 10,
+                  fontSize: size.width * 0.025,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -1044,32 +1149,35 @@ class ConcaveNavPainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.fill;
     Path path = Path();
-    double barHeight = 65.0;
+    double barHeight = size.height * 0.765;
     double topOffset = size.height - barHeight;
     double sectionWidth = size.width / itemsCount;
-    double currentCenter = (selectedIndex * sectionWidth) + (sectionWidth / 2);
-    double notchRadius = 38.0;
-    path.moveTo(0, topOffset);
-    path.lineTo(currentCenter - notchRadius - 5, topOffset);
+    double currentCenter =
+        (selectedIndex * sectionWidth) + (sectionWidth * 0.5);
+    double notchRadius = size.width * 0.097;
+    double notchPadding = size.width * 0.013;
+    double notchDepth = size.height * 0.471;
+    path.moveTo(size.width * 0.0, topOffset);
+    path.lineTo(currentCenter - notchRadius - notchPadding, topOffset);
     path.cubicTo(
       currentCenter - notchRadius,
       topOffset,
-      currentCenter - notchRadius + 5,
-      topOffset + 40,
+      currentCenter - notchRadius + notchPadding,
+      topOffset + notchDepth,
       currentCenter,
-      topOffset + 40,
+      topOffset + notchDepth,
     );
     path.cubicTo(
-      currentCenter + notchRadius - 5,
-      topOffset + 40,
+      currentCenter + notchRadius - notchPadding,
+      topOffset + notchDepth,
       currentCenter + notchRadius,
       topOffset,
-      currentCenter + notchRadius + 5,
+      currentCenter + notchRadius + notchPadding,
       topOffset,
     );
     path.lineTo(size.width, topOffset);
     path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
+    path.lineTo(size.width * 0.0, size.height);
     path.close();
     canvas.drawPath(path, paint);
   }

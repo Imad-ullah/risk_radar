@@ -1,5 +1,6 @@
 // lib/app_settings_screen.dart
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 
@@ -32,7 +33,7 @@ class AppSettingsScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(R.blockH * 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -47,66 +48,79 @@ class AppSettingsScreen extends StatelessWidget {
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 20,
-                offset: const Offset(0, 10),
-              )
+                offset: Offset(0, 10),
+              ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(R.blockH * 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.logout_rounded, color: Colors.white, size: 32),
+                child: Icon(
+                  Icons.logout_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: R.blockV * 2.5),
+              Text(
                 'Confirm Logout',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: R.blockH * 5.5,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: R.blockV * 1.5),
               Text(
                 'Are you sure you want to log out of RiskRadar?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: R.blockH * 3.75,
                   color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: R.blockV * 3.5),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
                     style: TextButton.styleFrom(foregroundColor: Colors.white),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: R.blockH * 4,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: R.blockH * 3.2),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.brandTeal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: R.blockH * 6,
+                        vertical: R.blockV * 1.5,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                       elevation: 4,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Logout',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: R.blockH * 4,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -119,18 +133,18 @@ class AppSettingsScreen extends StatelessWidget {
 
     if (confirm == true && context.mounted) {
       try {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Logging out...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Logging out...')));
         await Supabase.instance.client.auth.signOut();
         if (context.mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Logout failed: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
         }
       }
     }
@@ -138,6 +152,7 @@ class AppSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
@@ -152,7 +167,10 @@ class AppSettingsScreen extends StatelessWidget {
         body: SafeArea(
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: EdgeInsets.symmetric(
+                horizontal: R.blockH * 4,
+                vertical: R.blockV * 1.5,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -162,7 +180,7 @@ class AppSettingsScreen extends StatelessWidget {
                     title: 'Profile',
                     onTap: onProfileTap,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Emergency Details Card
                   _CompactSettingsTile(
@@ -183,7 +201,7 @@ class AppSettingsScreen extends StatelessWidget {
                       }
                     },
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Theme Toggle Card
                   _CompactSettingsTile(
@@ -192,10 +210,13 @@ class AppSettingsScreen extends StatelessWidget {
                     enableTileTap: true,
                     trailing: Switch.adaptive(
                       value: isDark,
-                      onChanged: (value) =>
-                          onThemeChanged(value ? ThemeMode.dark : ThemeMode.light),
+                      onChanged: (value) => onThemeChanged(
+                        value ? ThemeMode.dark : ThemeMode.light,
+                      ),
                       activeThumbColor: AppColors.accentGold,
-                      activeTrackColor: AppColors.brandTeal.withValues(alpha: 0.65),
+                      activeTrackColor: AppColors.brandTeal.withValues(
+                        alpha: 0.65,
+                      ),
                       inactiveThumbColor: Colors.white,
                       inactiveTrackColor: const Color(0xFF355F67),
                     ),
@@ -203,7 +224,7 @@ class AppSettingsScreen extends StatelessWidget {
                       onThemeChanged(isDark ? ThemeMode.light : ThemeMode.dark);
                     },
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Notifications
                   _CompactSettingsTile(
@@ -219,7 +240,7 @@ class AppSettingsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // Privacy
                   _CompactSettingsTile(
@@ -235,7 +256,7 @@ class AppSettingsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
 
                   // About
                   _CompactSettingsTile(
@@ -243,7 +264,7 @@ class AppSettingsScreen extends StatelessWidget {
                     title: 'About App',
                     onTap: () => onAboutTap(context),
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: R.blockV * 4),
 
                   // Sign Out Button
                   DecoratedBox(
@@ -256,10 +277,12 @@ class AppSettingsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFFF295F).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFFFF295F,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 14,
                           spreadRadius: 1,
-                          offset: const Offset(0, 6),
+                          offset: Offset(0, 6),
                         ),
                       ],
                     ),
@@ -274,14 +297,17 @@ class AppSettingsScreen extends StatelessWidget {
                         ),
                       ),
                       onPressed: () => _handleSignOut(context),
-                      icon: const Icon(Icons.logout, size: 22),
-                      label: const Text(
+                      icon: Icon(Icons.logout, size: 22),
+                      label: Text(
                         'Sign Out',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: R.blockH * 4,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: R.blockV * 2),
                 ],
               ),
             ),
@@ -314,6 +340,7 @@ class _CompactSettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardBase = isDark
@@ -324,7 +351,10 @@ class _CompactSettingsTile extends StatelessWidget {
       onTap: enableTileTap ? onTap : null,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: EdgeInsets.symmetric(
+          horizontal: R.blockH * 4,
+          vertical: R.blockV * 2.25,
+        ),
         decoration: BoxDecoration(
           color: cardBase,
           border: Border.all(
@@ -337,23 +367,19 @@ class _CompactSettingsTile extends StatelessWidget {
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
               blurRadius: 10,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: iconColor ?? Colors.white,
-              size: 26,
-            ),
-            const SizedBox(width: 16),
+            Icon(icon, color: iconColor ?? Colors.white, size: 26),
+            SizedBox(width: R.blockH * 4.267),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: R.blockH * 4,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
                 ),
@@ -362,11 +388,7 @@ class _CompactSettingsTile extends StatelessWidget {
             if (trailing != null)
               trailing!
             else
-              Icon(
-                Icons.chevron_right,
-                color: Colors.white70,
-                size: 24,
-              ),
+              Icon(Icons.chevron_right, color: Colors.white70, size: 24),
           ],
         ),
       ),

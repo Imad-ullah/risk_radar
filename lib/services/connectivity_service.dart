@@ -24,8 +24,8 @@ class ConnectivityService {
 
   Future<void> refresh() async {
     try {
-      final List<ConnectivityResult> results =
-          await _connectivity.checkConnectivity();
+      final List<ConnectivityResult> results = await _connectivity
+          .checkConnectivity();
       _setOnline(_hasNetwork(results));
     } catch (e, s) {
       LoggerService.error('Failed to check connectivity state', e, s);
@@ -40,11 +40,7 @@ class ConnectivityService {
         _setOnline(_hasNetwork(results));
       },
       onError: (Object error, StackTrace stackTrace) {
-        LoggerService.error(
-          'Connectivity stream failed',
-          error,
-          stackTrace,
-        );
+        LoggerService.error('Connectivity stream failed', error, stackTrace);
         _setOnline(false);
       },
     );

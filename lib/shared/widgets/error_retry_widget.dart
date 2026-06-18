@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 
 class ErrorRetryWidget extends StatelessWidget {
-  const ErrorRetryWidget({
-    super.key,
-    required this.message,
-    this.onRetry,
-  });
+  const ErrorRetryWidget({super.key, required this.message, this.onRetry});
 
   static const String defaultMessage = 'Something went wrong.';
   static const String retryLabel = 'Retry';
@@ -16,13 +13,14 @@ class ErrorRetryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final Color textColor = Theme.of(context).brightness == Brightness.dark
         ? Colors.grey.shade200
         : Colors.grey.shade700;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(R.blockH * 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -31,22 +29,22 @@ class ErrorRetryWidget extends StatelessWidget {
               color: Colors.red.shade700,
               size: 56,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: R.blockV * 2),
             Text(
               message.isEmpty ? defaultMessage : message,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: textColor,
-                fontSize: 15,
+                fontSize: R.blockH * 3.75,
                 fontWeight: FontWeight.w600,
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 20),
+              SizedBox(height: R.blockV * 2.5),
               ElevatedButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text(retryLabel),
+                icon: Icon(Icons.refresh_rounded),
+                label: Text(retryLabel),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandTeal,
                   foregroundColor: Colors.white,

@@ -1,5 +1,6 @@
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EmergencyPermissionDialog {
@@ -18,13 +19,23 @@ class EmergencyPermissionDialog {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        contentPadding: EdgeInsets.fromLTRB(
+          R.blockH * 6,
+          R.blockV * 0,
+          R.blockH * 6,
+          R.blockV * 3,
+        ),
+        titlePadding: EdgeInsets.fromLTRB(
+          R.blockH * 6,
+          R.blockV * 3,
+          R.blockH * 6,
+          R.blockV * 2,
+        ),
         title: Column(
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: R.blockV * 2.5),
               decoration: BoxDecoration(
                 color: const Color(0xFF1B3D3D),
                 borderRadius: BorderRadius.circular(16),
@@ -32,30 +43,33 @@ class EmergencyPermissionDialog {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(R.blockH * 3.5),
                     decoration: const BoxDecoration(
                       color: Color(0x26FFFFFF),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.emergency,
                       color: Color(0xFFE6A050),
                       size: 36,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: R.blockV * 1.5),
+                  Text(
                     'Emergency SOS Setup',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: R.blockH * 4.5,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
+                  SizedBox(height: R.blockV * 0.5),
+                  Text(
                     'One-time safety configuration',
-                    style: TextStyle(color: Color(0xB3FFFFFF), fontSize: 12),
+                    style: TextStyle(
+                      color: Color(0xB3FFFFFF),
+                      fontSize: R.blockH * 3,
+                    ),
                   ),
                 ],
               ),
@@ -66,16 +80,16 @@ class EmergencyPermissionDialog {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: R.blockV * 1),
+            Text(
               'RiskRadar needs special permissions so the SOS alarm works even when your phone is silenced or in Do Not Disturb mode.',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: R.blockH * 3.25,
                 color: Colors.black87,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: R.blockV * 2),
             _PermissionItem(
               icon: Icons.volume_up_rounded,
               title: 'Override Silent Mode',
@@ -91,32 +105,35 @@ class EmergencyPermissionDialog {
               title: 'Full Screen Alerts',
               subtitle: 'SOS wakes your screen immediately',
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: R.blockV * 1.5),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(R.blockH * 3),
               decoration: BoxDecoration(
                 color: const Color(0x1AE6A050),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0x66E6A050)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.info_outline_rounded,
                     color: Color(0xFFE6A050),
                     size: 18,
                   ),
-                  SizedBox(width: 10),
+                  SizedBox(width: R.blockH * 2.667),
                   Expanded(
                     child: Text(
                       'Only used for life-safety emergencies on your worksite.',
-                      style: TextStyle(fontSize: 12, color: Colors.black87),
+                      style: TextStyle(
+                        fontSize: R.blockH * 3,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             Row(
               children: [
                 Expanded(
@@ -125,31 +142,31 @@ class EmergencyPermissionDialog {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1B3D3D),
                       side: const BorderSide(color: Color(0xFF1B3D3D)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: R.blockV * 1.75),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Not Now',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: R.blockH * 3.2),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1B3D3D),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: R.blockV * 1.75),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Allow',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
@@ -159,7 +176,7 @@ class EmergencyPermissionDialog {
             ),
           ],
         ),
-        actions: const [],
+        actions: [],
       ),
     );
 
@@ -199,43 +216,43 @@ class _PermissionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: R.blockV * 1.5),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(R.blockH * 2),
             decoration: BoxDecoration(
               color: const Color(0x141B3D3D),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: const Color(0xFF1B3D3D), size: 18),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: R.blockH * 3.2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: TextStyle(
+                    fontSize: R.blockH * 3.25,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: R.blockH * 2.75,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.check_circle_rounded,
-            color: Color(0xFFE6A050),
-            size: 18,
-          ),
+          Icon(Icons.check_circle_rounded, color: Color(0xFFE6A050), size: 18),
         ],
       ),
     );

@@ -57,21 +57,14 @@ class Hazard {
     'report_number',
   };
 
-  static const hazardInsertColumns = {
-    ...hazardColumns,
-    ...localUploadColumns,
-  };
+  static const hazardInsertColumns = {...hazardColumns, ...localUploadColumns};
 
   static const assignHazardInsertColumns = {
     ...assignHazardColumns,
     ...localUploadColumns,
   };
 
-  static const hazardStatusUpdateColumns = {
-    'id',
-    'status',
-    'resolved_at',
-  };
+  static const hazardStatusUpdateColumns = {'id', 'status', 'resolved_at'};
 
   static const assignHazardUpdateColumns = {
     'id',

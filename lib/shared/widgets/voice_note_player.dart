@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class VoiceNotePlayer extends StatefulWidget {
@@ -36,11 +37,15 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: _togglePlay,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: R.blockH * 3,
+          vertical: R.blockV * 0.75,
+        ),
         decoration: BoxDecoration(
           color: Colors.purple.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
@@ -57,11 +62,11 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
               size: 16,
               color: Colors.purple,
             ),
-            const SizedBox(width: 6),
-            const Text(
+            SizedBox(width: R.blockH * 1.6),
+            Text(
               "Voice Note",
               style: TextStyle(
-                fontSize: 13,
+                fontSize: R.blockH * 3.25,
                 fontWeight: FontWeight.w600,
                 color: Colors.purple,
               ),

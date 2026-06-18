@@ -2,11 +2,9 @@ import '../database/database_helper.dart';
 import 'sqlite_cache_store.dart';
 
 class SyncRepository {
-  SyncRepository({
-    DatabaseHelper? databaseHelper,
-    SqliteCacheStore? cacheStore,
-  })  : _databaseHelper = databaseHelper ?? DatabaseHelper.instance,
-        _cacheStore = cacheStore ?? SqliteCacheStore.instance;
+  SyncRepository({DatabaseHelper? databaseHelper, SqliteCacheStore? cacheStore})
+    : _databaseHelper = databaseHelper ?? DatabaseHelper.instance,
+      _cacheStore = cacheStore ?? SqliteCacheStore.instance;
 
   static const _legacySyncQueueKey = 'rr_sync_queue';
 

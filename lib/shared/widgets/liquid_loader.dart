@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 
 // ✅ 1. Create the custom painter for the dot animation
 class _DotSpinnerPainter extends CustomPainter {
@@ -7,10 +8,7 @@ class _DotSpinnerPainter extends CustomPainter {
   final double animationValue;
   static const int dotCount = 8;
 
-  _DotSpinnerPainter({
-    required this.color,
-    required this.animationValue,
-  });
+  _DotSpinnerPainter({required this.color, required this.animationValue});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -83,6 +81,7 @@ class _CustomLoadingIndicatorState extends State<CustomLoadingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return SizedBox(
       width: widget.size,
       height: widget.size,
@@ -107,22 +106,16 @@ class RiskRadarLoader extends StatelessWidget {
   final Color? color;
   final double size;
 
-  const RiskRadarLoader({
-    super.key,
-    this.color,
-    this.size = 40.0,
-  });
+  RiskRadarLoader({super.key, this.color, this.size = 40.0});
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     // Default color is your app's teal, but can be overridden (e.g., for buttons)
     final effectiveColor = color ?? const Color(0xFF1B3D3D);
 
     return Center(
-      child: CustomLoadingIndicator(
-        size: size,
-        color: effectiveColor,
-      ),
+      child: CustomLoadingIndicator(size: size, color: effectiveColor),
     );
   }
 }

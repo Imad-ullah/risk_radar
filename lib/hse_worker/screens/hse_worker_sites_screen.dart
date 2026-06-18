@@ -1,5 +1,6 @@
 // lib/hse_workers/screens/hse_worker_sites_screen.dart
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart'; // Added for HapticFeedback
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -78,10 +79,7 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
 
         final currentProfile = _authRepository.getHseProfile();
         if (currentProfile != null && worker != null) {
-          await _authRepository.saveHseProfile({
-            ...currentProfile,
-            ...worker,
-          });
+          await _authRepository.saveHseProfile({...currentProfile, ...worker});
         }
 
         if (mounted) setState(() {});
@@ -92,7 +90,10 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
       debugPrint("Error fetching sites: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load sites: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to load sites: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -117,7 +118,7 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(R.blockH * 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -132,63 +133,80 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 20,
-                offset: const Offset(0, 10),
-              )
+                offset: Offset(0, 10),
+              ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(R.blockH * 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.swap_horiz_rounded,
-                    color: Colors.white, size: 36),
+                child: Icon(
+                  Icons.swap_horiz_rounded,
+                  color: Colors.white,
+                  size: 36,
+                ),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: R.blockV * 2.5),
+              Text(
                 'Change Site?',
                 style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
+                  fontSize: R.blockH * 5.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: R.blockV * 1.5),
               Text(
                 'Are you sure you want to switch your active location to this site?',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: Colors.white.withValues(alpha: 0.85)),
+                style: TextStyle(
+                  fontSize: R.blockH * 3.75,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: R.blockV * 3.5),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
+                    style: TextButton.styleFrom(foregroundColor: Colors.white),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: R.blockH * 4,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    child: const Text('Cancel',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: R.blockH * 3.2),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.brandTeal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: R.blockH * 6,
+                        vertical: R.blockV * 1.5,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       elevation: 4,
                     ),
-                    child: const Text('Confirm',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Confirm',
+                      style: TextStyle(
+                        fontSize: R.blockH * 4,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -212,7 +230,10 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Current site updated successfully'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Current site updated successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } on SocketException {
@@ -222,17 +243,17 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
           id: 'hse_site_${userId}_${DateTime.now().millisecondsSinceEpoch}',
           table: 'hse_workers',
           action: 'update',
-          payload: {
-            'id': userId,
-            'current_site_id': _selectedSite,
-          },
+          payload: {'id': userId, 'current_site_id': _selectedSite},
         );
         await _applyCurrentSiteLocally(_selectedSite!);
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved offline - site change will sync when online'), backgroundColor: Colors.orange),
+          const SnackBar(
+            content: Text('Saved offline - site change will sync when online'),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     } on PostgrestException catch (e) {
@@ -243,14 +264,20 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
           _showActiveHazardsErrorDialog(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to update site: ${e.message}'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Failed to update site: ${e.message}'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update site: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to update site: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -284,57 +311,63 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(R.blockH * 6),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.transparent),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : Colors.transparent,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 20,
-                offset: const Offset(0, 10),
-              )
+                offset: Offset(0, 10),
+              ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(R.blockH * 4),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(R.blockH * 4),
                   decoration: const BoxDecoration(
                     color: Colors.orange,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 48),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 48,
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: R.blockV * 3),
               Text(
                 "Active Hazards Found",
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: R.blockH * 5.5,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : AppColors.brandTeal,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: R.blockV * 1.5),
               Text(
                 "You cannot change your active site while you still have assigned or in-progress hazards. Please resolve them first.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: R.blockH * 3.5,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: R.blockV * 3.5),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -342,13 +375,19 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandTeal,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: EdgeInsets.symmetric(vertical: R.blockV * 1.75),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     elevation: 2,
                   ),
-                  child: const Text('Understood', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Understood',
+                    style: TextStyle(
+                      fontSize: R.blockH * 4,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -360,87 +399,110 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? const Color(0xFF121212)
+        : AppColors.backgroundLight;
     final subtitleColor = isDark ? Colors.grey[400] : Colors.grey[600];
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Sites', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Sites', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.brandTeal,
         foregroundColor: Colors.white,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Stack(
-        children: [
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-                child: Text(
-                  "Tap a site to switch your active location",
-                  style: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              Expanded(
-                child: _sites.isEmpty
-                    ? const Center(child: Text('No sites assigned by your officer'))
-                    : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
-                  itemCount: _sites.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final site = _sites[index];
-                    final siteId = site['id'] ?? "";
-                    final siteName = site['name'] ?? "Unnamed Site";
-                    final siteDesc = site['description'];
+              children: [
+                Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: R.blockV * 2,
+                        horizontal: R.blockH * 4,
+                      ),
+                      child: Text(
+                        "Tap a site to switch your active location",
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: R.blockH * 3.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      child: _sites.isEmpty
+                          ? Center(
+                              child: Text('No sites assigned by your officer'),
+                            )
+                          : ListView.separated(
+                              padding: EdgeInsets.fromLTRB(
+                                R.blockH * 4,
+                                R.blockV * 0,
+                                R.blockH * 4,
+                                R.blockV * 11.25,
+                              ),
+                              itemCount: _sites.length,
+                              separatorBuilder: (_, _) =>
+                                  SizedBox(height: R.blockV * 2),
+                              itemBuilder: (context, index) {
+                                final site = _sites[index];
+                                final siteId = site['id'] ?? "";
+                                final siteName = site['name'] ?? "Unnamed Site";
+                                final siteDesc = site['description'];
 
-                    final isCurrent = siteId == _currentSite;
-                    final isSelectedTemp = siteId == _selectedSite;
+                                final isCurrent = siteId == _currentSite;
+                                final isSelectedTemp = siteId == _selectedSite;
 
-                    return _buildDarkSiteCard(
-                      siteName: siteName,
-                      siteDesc: siteDesc,
-                      isCurrent: isCurrent,
-                      isSelectedTemp: isSelectedTemp,
-                      onTap: () => _onSiteTap(siteId),
-                    );
-                  },
+                                return _buildDarkSiteCard(
+                                  siteName: siteName,
+                                  siteDesc: siteDesc,
+                                  isCurrent: isCurrent,
+                                  isSelectedTemp: isSelectedTemp,
+                                  onTap: () => _onSiteTap(siteId),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          if (_selectedSite != null && _selectedSite != _currentSite)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
-              child: ElevatedButton(
-                onPressed: _confirmSiteChange,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandTeal,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
-                  shadowColor: AppColors.brandTeal.withValues(alpha: 0.4),
-                ),
-                child: const Text('Confirm Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
+                if (_selectedSite != null && _selectedSite != _currentSite)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 24,
+                    child: ElevatedButton(
+                      onPressed: _confirmSiteChange,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.brandTeal,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 56),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 8,
+                        shadowColor: AppColors.brandTeal.withValues(alpha: 0.4),
+                      ),
+                      child: Text(
+                        'Confirm Change',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: R.blockH * 4,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 
@@ -451,13 +513,15 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
     required bool isSelectedTemp,
     required VoidCallback onTap,
   }) {
-    String buttonText = isCurrent ? "Active" : (isSelectedTemp ? "Confirm?" : "Select");
+    String buttonText = isCurrent
+        ? "Active"
+        : (isSelectedTemp ? "Confirm?" : "Select");
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(R.blockH * 5),
         decoration: BoxDecoration(
           color: AppColors.brandTeal,
           borderRadius: BorderRadius.circular(24),
@@ -468,7 +532,7 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 15,
-              offset: const Offset(0, 8),
+              offset: Offset(0, 8),
             ),
           ],
         ),
@@ -478,27 +542,31 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.business_rounded, color: Colors.white.withValues(alpha: 0.9), size: 28),
-                const SizedBox(width: 12),
+                Icon(
+                  Icons.business_rounded,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 28,
+                ),
+                SizedBox(width: R.blockH * 3.2),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         siteName,
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: TextStyle(
+                          fontSize: R.blockH * 4.5,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
                       if (siteDesc != null && siteDesc.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
+                          padding: EdgeInsets.only(top: R.blockV * 0.5),
                           child: Text(
                             siteDesc,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: R.blockH * 3.25,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
                             maxLines: 2,
@@ -510,10 +578,10 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: R.blockV * 1.5),
               decoration: BoxDecoration(
                 color: AppColors.accentGold,
                 borderRadius: BorderRadius.circular(16),
@@ -521,13 +589,13 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
               alignment: Alignment.center,
               child: Text(
                 buttonText,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: R.blockH * 3.75,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

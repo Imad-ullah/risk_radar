@@ -36,8 +36,12 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Password is required';
     if (value.length < 8) return 'Minimum 8 characters required';
-    if (!value.contains(RegExp(r'[A-Z]'))) return 'Must contain at least one uppercase letter';
-    if (!value.contains(RegExp(r'[0-9]'))) return 'Must contain at least one number';
+    if (!value.contains(RegExp(r'[A-Z]'))) {
+      return 'Must contain at least one uppercase letter';
+    }
+    if (!value.contains(RegExp(r'[0-9]'))) {
+      return 'Must contain at least one number';
+    }
     if (!value.contains(RegExp(r'[!@#\$&*~%^()_\-+=]'))) {
       return 'Must contain at least one special character';
     }
@@ -47,7 +51,8 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Email is required';
     final emailRegex = RegExp(
-        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(value.trim())) {
       return 'Enter a valid email address';
     }
@@ -89,12 +94,15 @@ class _SignupScreenState extends State<SignupScreen> {
 
   void _showSnackBar(String message, {bool isError = true}) {
     if (!mounted) return;
+    final size = MediaQuery.of(context).size;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.031),
+        ),
       ),
     );
   }
@@ -119,13 +127,16 @@ class _SignupScreenState extends State<SignupScreen> {
 
     try {
       // ✅ FIX: Sign up directly — don't try sign-in first
-      final response = await Supabase.instance.client.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw Exception('Request timed out. Check your connection.'),
-      );
+      final response = await Supabase.instance.client.auth
+          .signUp(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () =>
+                throw Exception('Request timed out. Check your connection.'),
+          );
 
       if (!mounted) return;
 
@@ -134,7 +145,10 @@ class _SignupScreenState extends State<SignupScreen> {
         _failedAttempts = 0;
         _cooldownUntil = null;
 
-        _showSnackBar('Account created! Check your email to confirm.', isError: false);
+        _showSnackBar(
+          'Account created! Check your email to confirm.',
+          isError: false,
+        );
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) Navigator.pushReplacementNamed(context, '/login');
       }
@@ -145,7 +159,9 @@ class _SignupScreenState extends State<SignupScreen> {
       if (e.message.toLowerCase().contains('already registered') ||
           e.message.toLowerCase().contains('already exists') ||
           e.message.toLowerCase().contains('user already')) {
-        _showSnackBar('An account with this email already exists. Please log in.');
+        _showSnackBar(
+          'An account with this email already exists. Please log in.',
+        );
         await Future.delayed(const Duration(seconds: 1));
         if (mounted) Navigator.pushReplacementNamed(context, '/login');
       } else {
@@ -153,9 +169,11 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     } catch (e) {
       _handleFailedAttempt();
-      _showSnackBar(e.toString().contains('timed out')
-          ? 'Request timed out. Check your connection.'
-          : 'An unexpected error occurred. Please try again.');
+      _showSnackBar(
+        e.toString().contains('timed out')
+            ? 'Request timed out. Check your connection.'
+            : 'An unexpected error occurred. Please try again.',
+      );
     } finally {
       if (mounted) setState(() => _loadingEmail = false);
     }
@@ -186,22 +204,19 @@ class _SignupScreenState extends State<SignupScreen> {
       }
 
       // ✅ FIX: Added await — was missing before
-      final GoogleSignInAuthentication googleAuth =
-      googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
       final String? idToken = googleAuth.idToken;
 
       if (idToken == null) {
         throw const AuthException('Failed to get Google ID token.');
       }
 
-      final AuthResponse response =
-      await Supabase.instance.client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw Exception('Google sign-in timed out.'),
-      );
+      final AuthResponse response = await Supabase.instance.client.auth
+          .signInWithIdToken(provider: OAuthProvider.google, idToken: idToken)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Google sign-in timed out.'),
+          );
 
       if (!mounted) return;
 
@@ -213,14 +228,17 @@ class _SignupScreenState extends State<SignupScreen> {
       _handleFailedAttempt();
       _showSnackBar('Google sign-in failed: ${e.message}');
     } catch (e) {
-      if (e.toString().contains('canceled') || e.toString().contains('cancelled')) {
+      if (e.toString().contains('canceled') ||
+          e.toString().contains('cancelled')) {
         // User cancelled — silent
         return;
       }
       _handleFailedAttempt();
-      _showSnackBar(e.toString().contains('timed out')
-          ? 'Google sign-in timed out.'
-          : 'Google sign-in failed. Please try again.');
+      _showSnackBar(
+        e.toString().contains('timed out')
+            ? 'Google sign-in timed out.'
+            : 'Google sign-in failed. Please try again.',
+      );
     } finally {
       if (mounted) setState(() => _loadingGoogle = false);
     }
@@ -239,307 +257,412 @@ class _SignupScreenState extends State<SignupScreen> {
   // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     const Color tealColor = Color(0xFF1B3D3D);
     const Color goldColor = Color(0xFFE6A050);
-    final screenWidth = MediaQuery.of(context).size.width;
-    const double headerHeight = 240;
-    const double logoSize = 140;
-    const double goldRimOffset = 6.0;
+    final headerHeight = visibleHeight * 0.265;
+    final logoSize = size.width * 0.31;
+    final goldRimOffset = visibleHeight * 0.006;
+    final horizontalPadding = size.width * 0.077;
+    final fieldGap = visibleHeight * 0.017;
+    final buttonHeight = visibleHeight * 0.061;
+    final titleFont = size.width * 0.070;
+    final subtitleFont = size.width * 0.037;
+    final smallFont = size.width * 0.028;
+    final bodyFont = size.width * 0.034;
+    final iconSize = size.width * 0.050;
+    final googleSize = size.width * 0.135;
+    final formMaxWidth = size.width - (horizontalPadding * 2);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header
-            SizedBox(
-              height: headerHeight + (logoSize / 2) - 20,
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: goldRimOffset,
-                    left: 0,
-                    right: 0,
-                    child: ClipPath(
-                      clipper: ConcaveHeaderClipper(),
-                      child: Container(height: headerHeight, color: goldColor),
-                    ),
-                  ),
-                  ClipPath(
-                    clipper: ConcaveHeaderClipper(),
-                    child: Container(
-                      height: headerHeight,
-                      width: double.infinity,
-                      decoration: const BoxDecoration(color: tealColor),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, _) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: visibleHeight),
+                child: Column(
+                  children: [
+                    // Header
+                    SizedBox(
+                      height:
+                          headerHeight +
+                          (logoSize / 2) -
+                          (visibleHeight * 0.018),
                       child: Stack(
                         children: [
                           Positioned(
-                            top: -60,
-                            right: -40,
-                            child: Icon(Icons.security,
-                                size: 200,
-                                color: Colors.white.withValues(alpha: 0.08)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: headerHeight - (logoSize / 2) - 30,
-                    left: (screenWidth - logoSize) / 2,
-                    child: Hero(
-                      tag: 'app-logo',
-                      child: Container(
-                        height: logoSize,
-                        width: logoSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
-                            )
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/logo.png',
-                            fit: BoxFit.cover,
-                            errorBuilder: (c, o, s) => Container(
-                              color: tealColor,
-                              child: const Icon(Icons.security,
-                                  size: 80, color: Colors.white),
+                            top: goldRimOffset,
+                            left: size.width * 0.0,
+                            right: size.width * 0.0,
+                            child: ClipPath(
+                              clipper: ConcaveHeaderClipper(),
+                              child: Container(
+                                height: headerHeight,
+                                color: goldColor,
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 25),
-            const Text(
-              'Create Account',
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                color: tealColor,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Join RiskRadar to report hazards',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 45),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildCustomTextField(
-                      controller: _emailController,
-                      label: "Email Address",
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Email is required';
-                        }
-                        // ✅ SECURITY: Stricter email validation
-                        final emailRegex = RegExp(
-                            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-                        if (!emailRegex.hasMatch(value.trim())) {
-                          return 'Enter a valid email address';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ✅ Password with show/hide toggle
-                    _buildCustomTextField(
-                      controller: _passwordController,
-                      label: "Password",
-                      icon: Icons.lock_outline,
-                      obscureText: _obscurePassword,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: tealColor,
-                          size: 20,
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
-                      ),
-                      validator: _validatePassword,
-                    ),
-
-                    // ✅ Password strength hint
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, left: 8),
-                      child: Text(
-                        'Min 8 chars • 1 uppercase • 1 number • 1 special character',
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // ✅ NEW: Confirm password field
-                    _buildCustomTextField(
-                      controller: _confirmPasswordController,
-                      label: "Confirm Password",
-                      icon: Icons.lock_outline,
-                      obscureText: _obscureConfirm,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureConfirm
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: tealColor,
-                          size: 20,
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscureConfirm = !_obscureConfirm),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please confirm your password';
-                        }
-                        if (value != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // SIGN UP BUTTON
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        // ✅ SECURITY: Disabled during loading or cooldown
-                        onPressed: (_loadingEmail || _isInCooldown())
-                            ? null
-                            : _signUpWithEmail,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: goldColor,
-                          disabledBackgroundColor: Colors.grey.shade300,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30)),
-                          elevation: 8,
-                          shadowColor: goldColor.withValues(alpha: 0.4),
-                        ),
-                        child: _loadingEmail
-                            ? const RiskRadarLoader(
-                            size: 24, color: Colors.white)
-                            : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text("SIGN UP",
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
-                            SizedBox(width: 10),
-                            Icon(Icons.person_add_rounded,
-                                color: Colors.white)
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-                    Row(children: [
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                      Padding(
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 10),
-                          child: Text("or sign up with",
-                              style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500))),
-                      Expanded(child: Divider(color: Colors.grey.shade300))
-                    ]),
-
-                    const SizedBox(height: 25),
-
-                    // GOOGLE BUTTON
-                    GestureDetector(
-                      onTap: (_loadingGoogle || _isInCooldown())
-                          ? null
-                          : _signInWithGoogle,
-                      child: Container(
-                        height: 60,
-                        width: 60,
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.grey.shade200,
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 5))
-                            ],
-                            border: Border.all(color: Colors.grey.shade100)),
-                        padding: const EdgeInsets.all(12),
-                        child: _loadingGoogle
-                            ? const RiskRadarLoader(size: 24)
-                            : SvgPicture.asset('assets/google_logo.svg'),
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    RichText(
-                      text: TextSpan(
-                        text: "Already have an account? ",
-                        style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 15),
-                        children: [
-                          TextSpan(
-                            text: 'Login',
-                            style: const TextStyle(
-                                color: tealColor,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () => Navigator.pushReplacementNamed(
-                                  context, '/login'),
+                          ClipPath(
+                            clipper: ConcaveHeaderClipper(),
+                            child: Container(
+                              height: headerHeight,
+                              width: double.infinity,
+                              decoration: const BoxDecoration(color: tealColor),
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    top: -(visibleHeight * 0.060),
+                                    right: -(size.width * 0.103),
+                                    child: Icon(
+                                      Icons.security,
+                                      size: size.width * 0.487,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top:
+                                headerHeight -
+                                (logoSize / 2) -
+                                (visibleHeight * 0.018),
+                            left: (size.width - logoSize) / 2,
+                            child: Hero(
+                              tag: 'app-logo',
+                              child: Container(
+                                height: logoSize,
+                                width: logoSize,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      blurRadius: size.width * 0.038,
+                                      offset: Offset(
+                                        size.width * 0.0,
+                                        visibleHeight * 0.008,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                padding: EdgeInsets.all(size.width * 0.010),
+                                child: ClipOval(
+                                  child: Image.asset(
+                                    'assets/logo.png',
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, o, s) => Container(
+                                      color: tealColor,
+                                      child: Icon(
+                                        Icons.security,
+                                        size: size.width * 0.205,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 30),
+
+                    SizedBox(height: visibleHeight * 0.014),
+                    Text(
+                      'Create Account',
+                      style: TextStyle(
+                        fontSize: titleFont,
+                        fontWeight: FontWeight.w800,
+                        color: tealColor,
+                        letterSpacing: size.width * 0.0013,
+                      ),
+                    ),
+                    SizedBox(height: visibleHeight * 0.007),
+                    Text(
+                      'Join RiskRadar to report hazards',
+                      style: TextStyle(
+                        fontSize: subtitleFont,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: visibleHeight * 0.024),
+
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: formMaxWidth),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              _buildCustomTextField(
+                                size: size,
+                                visibleHeight: visibleHeight,
+                                controller: _emailController,
+                                label: "Email Address",
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Email is required';
+                                  }
+                                  // ✅ SECURITY: Stricter email validation
+                                  final emailRegex = RegExp(
+                                    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                                  );
+                                  if (!emailRegex.hasMatch(value.trim())) {
+                                    return 'Enter a valid email address';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: fieldGap),
+
+                              // ✅ Password with show/hide toggle
+                              _buildCustomTextField(
+                                size: size,
+                                visibleHeight: visibleHeight,
+                                controller: _passwordController,
+                                label: "Password",
+                                icon: Icons.lock_outline,
+                                obscureText: _obscurePassword,
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: tealColor,
+                                    size: iconSize,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                                ),
+                                validator: _validatePassword,
+                              ),
+
+                              // ✅ Password strength hint
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: visibleHeight * 0.007,
+                                  left: size.width * 0.020,
+                                ),
+                                child: Text(
+                                  'Min 8 chars • 1 uppercase • 1 number • 1 special character',
+                                  style: TextStyle(
+                                    fontSize: smallFont,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(height: fieldGap),
+
+                              // ✅ NEW: Confirm password field
+                              _buildCustomTextField(
+                                size: size,
+                                visibleHeight: visibleHeight,
+                                controller: _confirmPasswordController,
+                                label: "Confirm Password",
+                                icon: Icons.lock_outline,
+                                obscureText: _obscureConfirm,
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirm
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: tealColor,
+                                    size: iconSize,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscureConfirm = !_obscureConfirm,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please confirm your password';
+                                  }
+                                  if (value != _passwordController.text) {
+                                    return 'Passwords do not match';
+                                  }
+                                  return null;
+                                },
+                              ),
+
+                              SizedBox(height: visibleHeight * 0.030),
+
+                              // SIGN UP BUTTON
+                              SizedBox(
+                                width: double.infinity,
+                                height: buttonHeight,
+                                child: ElevatedButton(
+                                  // ✅ SECURITY: Disabled during loading or cooldown
+                                  onPressed: (_loadingEmail || _isInCooldown())
+                                      ? null
+                                      : _signUpWithEmail,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: goldColor,
+                                    disabledBackgroundColor:
+                                        Colors.grey.shade300,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        buttonHeight / 2,
+                                      ),
+                                    ),
+                                    elevation: size.width * 0.021,
+                                    shadowColor: goldColor.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                  child: _loadingEmail
+                                      ? RiskRadarLoader(
+                                          size: size.width * 0.062,
+                                          color: Colors.white,
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              "SIGN UP",
+                                              style: TextStyle(
+                                                fontSize: size.width * 0.041,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            SizedBox(width: size.width * 0.026),
+                                            Icon(
+                                              Icons.person_add_rounded,
+                                              color: Colors.white,
+                                              size: size.width * 0.056,
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+
+                              SizedBox(height: visibleHeight * 0.020),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(color: Colors.grey.shade300),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: size.width * 0.026,
+                                    ),
+                                    child: Text(
+                                      "or sign up with",
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: smallFont,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Divider(color: Colors.grey.shade300),
+                                  ),
+                                ],
+                              ),
+
+                              SizedBox(height: visibleHeight * 0.016),
+
+                              // GOOGLE BUTTON
+                              GestureDetector(
+                                onTap: (_loadingGoogle || _isInCooldown())
+                                    ? null
+                                    : _signInWithGoogle,
+                                child: Container(
+                                  height: googleSize,
+                                  width: googleSize,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.shade200,
+                                        blurRadius: size.width * 0.026,
+                                        offset: Offset(
+                                          size.width * 0.0,
+                                          visibleHeight * 0.005,
+                                        ),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: Colors.grey.shade100,
+                                    ),
+                                  ),
+                                  padding: EdgeInsets.all(size.width * 0.031),
+                                  child: _loadingGoogle
+                                      ? RiskRadarLoader(
+                                          size: size.width * 0.062,
+                                        )
+                                      : SvgPicture.asset(
+                                          'assets/google_logo.svg',
+                                        ),
+                                ),
+                              ),
+
+                              SizedBox(height: visibleHeight * 0.024),
+
+                              RichText(
+                                text: TextSpan(
+                                  text: "Already have an account? ",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: bodyFont,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: 'Login',
+                                      style: TextStyle(
+                                        color: tealColor,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () =>
+                                            Navigator.pushReplacementNamed(
+                                              context,
+                                              '/login',
+                                            ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: visibleHeight * 0.014),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
   Widget _buildCustomTextField({
+    required Size size,
+    required double visibleHeight,
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -550,9 +673,10 @@ class _SignupScreenState extends State<SignupScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.grey.shade200)),
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(size.width * 0.077),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -561,22 +685,33 @@ class _SignupScreenState extends State<SignupScreen> {
         // ✅ SECURITY: Disable autocorrect/suggestions for password fields
         autocorrect: false,
         enableSuggestions: !obscureText,
-        style: const TextStyle(
-            fontSize: 15,
-            color: Colors.black87,
-            fontWeight: FontWeight.w500),
+        style: TextStyle(
+          fontSize: size.width * 0.038,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: 15, right: 10),
-              child: Icon(icon,
-                  color: const Color(0xFF1B3D3D), size: 22)),
+            padding: EdgeInsets.only(
+              left: size.width * 0.038,
+              right: size.width * 0.026,
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF1B3D3D),
+              size: size.width * 0.056,
+            ),
+          ),
           suffixIcon: suffixIcon,
           hintText: label,
           hintStyle: TextStyle(color: Colors.grey.shade500),
           border: InputBorder.none,
-          errorStyle: const TextStyle(height: 0, fontSize: 0),
+          errorStyle: TextStyle(
+            height: visibleHeight * 0.0,
+            fontSize: size.width * 0.0,
+          ),
           errorMaxLines: 1,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          contentPadding: EdgeInsets.symmetric(vertical: visibleHeight * 0.018),
           filled: true,
           fillColor: Colors.transparent,
         ),
@@ -589,12 +724,17 @@ class ConcaveHeaderClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     var path = Path();
-    path.lineTo(0, size.height - 50);
-    var controlPoint = Offset(size.width / 2, size.height + 60);
-    var endPoint = Offset(size.width, size.height - 50);
+    final dip = size.height * 0.21;
+    path.lineTo(size.width * 0.0, size.height - dip);
+    var controlPoint = Offset(size.width * 0.5, size.height + (dip * 1.2));
+    var endPoint = Offset(size.width, size.height - dip);
     path.quadraticBezierTo(
-        controlPoint.dx, controlPoint.dy, endPoint.dx, endPoint.dy);
-    path.lineTo(size.width, 0);
+      controlPoint.dx,
+      controlPoint.dy,
+      endPoint.dx,
+      endPoint.dy,
+    );
+    path.lineTo(size.width, size.height * 0.0);
     path.close();
     return path;
   }

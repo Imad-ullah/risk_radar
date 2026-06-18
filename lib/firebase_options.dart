@@ -63,9 +63,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '418212768173',
     projectId: 'riskradar-467315',
     storageBucket: 'riskradar-467315.firebasestorage.app',
-    androidClientId: '418212768173-8ecla7efev8tjaq5c84aitomu2l72hqn.apps.googleusercontent.com',
-    iosClientId: '418212768173-jp2orta7gsf0bgeqbocpkg3td0slntql.apps.googleusercontent.com',
+    androidClientId:
+        '418212768173-8ecla7efev8tjaq5c84aitomu2l72hqn.apps.googleusercontent.com',
+    iosClientId:
+        '418212768173-jp2orta7gsf0bgeqbocpkg3td0slntql.apps.googleusercontent.com',
     iosBundleId: 'com.example.riskradar',
   );
-
 }

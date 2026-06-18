@@ -1,6 +1,7 @@
 // lib/shared/services/site_alert_listener.dart
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,7 +13,7 @@ class SiteAlertListener extends StatefulWidget {
   const SiteAlertListener({
     super.key,
     required this.siteId,
-    required this.child
+    required this.child,
   });
 
   @override
@@ -30,21 +31,25 @@ class _SiteAlertListenerState extends State<SiteAlertListener> {
   }
 
   void _subscribeToAlerts() {
-    _alertChannel = supabase.channel('public:site_alerts:site_${widget.siteId}');
+    _alertChannel = supabase.channel(
+      'public:site_alerts:site_${widget.siteId}',
+    );
 
-    _alertChannel.onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: 'public',
-      table: 'site_alerts',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'site_id',
-        value: widget.siteId,
-      ),
-      callback: (payload) {
-        _handleNewAlert(payload.newRecord);
-      },
-    ).subscribe();
+    _alertChannel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'site_alerts',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'site_id',
+            value: widget.siteId,
+          ),
+          callback: (payload) {
+            _handleNewAlert(payload.newRecord);
+          },
+        )
+        .subscribe();
   }
 
   void _handleNewAlert(Map<String, dynamic> alertData) {
@@ -67,7 +72,9 @@ class _SiteAlertListenerState extends State<SiteAlertListener> {
   Future<void> _openMapLocation(double? lat, double? long) async {
     if (lat == null || long == null) return;
 
-    final Uri googleMapsUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$long");
+    final Uri googleMapsUrl = Uri.parse(
+      "https://www.google.com/maps/search/?api=1&query=$lat,$long",
+    );
 
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
@@ -82,7 +89,7 @@ class _SiteAlertListenerState extends State<SiteAlertListener> {
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(R.blockH * 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -95,68 +102,89 @@ class _SiteAlertListenerState extends State<SiteAlertListener> {
                     return Transform.scale(
                       scale: value,
                       child: Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: EdgeInsets.all(R.blockH * 6),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 30, spreadRadius: 10)
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 30,
+                              spreadRadius: 10,
+                            ),
                           ],
                         ),
-                        child: const Icon(Icons.warning_rounded, size: 64, color: Color(0xFFD32F2F)),
+                        child: Icon(
+                          Icons.warning_rounded,
+                          size: 64,
+                          color: Color(0xFFD32F2F),
+                        ),
                       ),
                     );
                   },
                   onEnd: () {},
                 ),
 
-                const SizedBox(height: 30),
+                SizedBox(height: R.blockV * 3.75),
 
-                const Text(
+                Text(
                   "CRITICAL ALERT",
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 32,
+                    fontSize: R.blockH * 8,
                     letterSpacing: 3.0,
                     fontFamily: 'Roboto',
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: R.blockV * 1.25),
 
                 Text(
                   "SOS Signal Detected at your Site",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: R.blockH * 4,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
 
-                const SizedBox(height: 30),
+                SizedBox(height: R.blockV * 3.75),
 
                 // 2. SMART INFO CARD (Now shows Photo)
                 EmergencyInfoCard(
-                    reporterUid: data['reporter_uid'],
-                    initialRole: data['role'],
-                    timestamp: data['created_at']
+                  reporterUid: data['reporter_uid'],
+                  initialRole: data['role'],
+                  timestamp: data['created_at'],
                 ),
 
-                const SizedBox(height: 40),
+                SizedBox(height: R.blockV * 5),
 
                 // 3. Action Buttons
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: R.blockV * 7,
                   child: ElevatedButton.icon(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.check_circle, color: Color(0xFFB71C1C)),
-                    label: const Text("ACKNOWLEDGE ALERT", style: TextStyle(color: Color(0xFFB71C1C), fontWeight: FontWeight.bold, fontSize: 16)),
+                    icon: Icon(Icons.check_circle, color: Color(0xFFB71C1C)),
+                    label: Text(
+                      "ACKNOWLEDGE ALERT",
+                      style: TextStyle(
+                        color: Color(0xFFB71C1C),
+                        fontWeight: FontWeight.bold,
+                        fontSize: R.blockH * 4,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       elevation: 5,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: R.blockV * 2),
 
                 TextButton.icon(
                   onPressed: () {
@@ -164,9 +192,12 @@ class _SiteAlertListenerState extends State<SiteAlertListener> {
                     final long = data['longitude'] as double?;
                     _openMapLocation(lat, long);
                   },
-                  icon: const Icon(Icons.map, color: Colors.white70),
-                  label: const Text("VIEW LOCATION ON MAP", style: TextStyle(color: Colors.white70)),
-                )
+                  icon: Icon(Icons.map, color: Colors.white70),
+                  label: Text(
+                    "VIEW LOCATION ON MAP",
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
               ],
             ),
           ),
@@ -183,6 +214,7 @@ class _SiteAlertListenerState extends State<SiteAlertListener> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return widget.child;
   }
 }
@@ -224,15 +256,19 @@ class _EmergencyInfoCardState extends State<EmergencyInfoCard> {
   Future<void> _fetchReporterDetails() async {
     try {
       // 1. Try finding in HSE Workers table
-      final workerRes = await supabase.from('hse_workers')
-          .select('first_name, last_name, designation, profile_image_url') // ✅ Fetch Image
+      final workerRes = await supabase
+          .from('hse_workers')
+          .select(
+            'first_name, last_name, designation, profile_image_url',
+          ) // ✅ Fetch Image
           .eq('id', widget.reporterUid)
           .maybeSingle();
 
       if (workerRes != null) {
         if (mounted) {
           setState(() {
-            _displayName = "${workerRes['first_name']} ${workerRes['last_name']}";
+            _displayName =
+                "${workerRes['first_name']} ${workerRes['last_name']}";
             _designation = workerRes['designation'] ?? "Safety Supervisor";
             _finalRole = "SAFETY SUPERVISOR";
             _profileImageUrl = workerRes['profile_image_url']; // ✅ Set Image
@@ -243,15 +279,19 @@ class _EmergencyInfoCardState extends State<EmergencyInfoCard> {
       }
 
       // 2. If not found, try Officers table
-      final officerRes = await supabase.from('officers')
-          .select('first_name, last_name, designation, profile_image_url') // ✅ Fetch Image
+      final officerRes = await supabase
+          .from('officers')
+          .select(
+            'first_name, last_name, designation, profile_image_url',
+          ) // ✅ Fetch Image
           .eq('id', widget.reporterUid)
           .maybeSingle();
 
       if (officerRes != null) {
         if (mounted) {
           setState(() {
-            _displayName = "${officerRes['first_name']} ${officerRes['last_name']}";
+            _displayName =
+                "${officerRes['first_name']} ${officerRes['last_name']}";
             _designation = officerRes['designation'] ?? "Site Officer";
             _finalRole = "SITE OFFICER";
             _profileImageUrl = officerRes['profile_image_url']; // ✅ Set Image
@@ -270,7 +310,6 @@ class _EmergencyInfoCardState extends State<EmergencyInfoCard> {
           _isLoading = false;
         });
       }
-
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -278,83 +317,103 @@ class _EmergencyInfoCardState extends State<EmergencyInfoCard> {
 
   @override
   Widget build(BuildContext context) {
-    final timeString = DateTime.parse(widget.timestamp).toLocal().toString().split(' ')[1].substring(0, 5);
+    R.init(context);
+    final timeString = DateTime.parse(
+      widget.timestamp,
+    ).toLocal().toString().split(' ')[1].substring(0, 5);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(R.blockH * 5),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: Colors.white))
           : Column(
-        children: [
-          // ✅ PROFILE PHOTO AVATAR
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 10)],
-            ),
-            child: CircleAvatar(
-              radius: 35,
-              backgroundColor: Colors.grey.shade800,
-              backgroundImage: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
-                  ? NetworkImage(_profileImageUrl!)
-                  : null,
-              child: (_profileImageUrl == null || _profileImageUrl!.isEmpty)
-                  ? const Icon(Icons.person, size: 40, color: Colors.white54)
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 12),
+              children: [
+                // ✅ PROFILE PHOTO AVATAR
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black45, blurRadius: 10),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 35,
+                    backgroundColor: Colors.grey.shade800,
+                    backgroundImage:
+                        (_profileImageUrl != null &&
+                            _profileImageUrl!.isNotEmpty)
+                        ? NetworkImage(_profileImageUrl!)
+                        : null,
+                    child:
+                        (_profileImageUrl == null || _profileImageUrl!.isEmpty)
+                        ? Icon(Icons.person, size: 40, color: Colors.white54)
+                        : null,
+                  ),
+                ),
+                SizedBox(height: R.blockV * 1.5),
 
-          // Role Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _finalRole == "SITE OFFICER" ? Colors.blueAccent : Colors.orangeAccent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _finalRole,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87),
-            ),
-          ),
-          const SizedBox(height: 12),
+                // Role Badge
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: R.blockH * 3,
+                    vertical: R.blockV * 0.75,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _finalRole == "SITE OFFICER"
+                        ? Colors.blueAccent
+                        : Colors.orangeAccent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _finalRole,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: R.blockH * 3,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                SizedBox(height: R.blockV * 1.5),
 
-          // Name & Designation
-          Text(
-            _displayName.toUpperCase(),
-            style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20
+                // Name & Designation
+                Text(
+                  _displayName.toUpperCase(),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: R.blockH * 5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: R.blockV * 0.5),
+                Text(
+                  _designation,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: R.blockH * 3.75,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+
+                Divider(color: Colors.white24, height: R.blockV * 3.75),
+
+                // Time & Live Status Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _infoColumn(Icons.access_time_filled, "TIME", timeString),
+                    _liveStatusColumn(),
+                  ],
+                ),
+              ],
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _designation,
-            style: const TextStyle(color: Colors.white70, fontSize: 15),
-            textAlign: TextAlign.center,
-          ),
-
-          const Divider(color: Colors.white24, height: 30),
-
-          // Time & Live Status Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _infoColumn(Icons.access_time_filled, "TIME", timeString),
-              _liveStatusColumn(),
-            ],
-          )
-        ],
-      ),
     );
   }
 
@@ -362,9 +421,23 @@ class _EmergencyInfoCardState extends State<EmergencyInfoCard> {
     return Column(
       children: [
         Icon(icon, color: Colors.white54, size: 20),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+        SizedBox(height: R.blockV * 0.5),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: R.blockH * 2.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: R.blockH * 3.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
@@ -378,19 +451,39 @@ class _EmergencyInfoCardState extends State<EmergencyInfoCard> {
           duration: const Duration(milliseconds: 1000),
           builder: (context, value, child) {
             return Container(
-              height: 12, width: 12,
+              height: R.blockV * 1.5,
+              width: R.blockH * 3.2,
               decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: value),
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.6), blurRadius: 6)]
+                color: Colors.redAccent.withValues(alpha: value),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withValues(alpha: 0.6),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
             );
           },
           onEnd: () {},
         ),
-        const SizedBox(height: 8),
-        const Text("STATUS", style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
-        const Text("SOS LIVE", style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+        SizedBox(height: R.blockV * 1),
+        Text(
+          "STATUS",
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: R.blockH * 2.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          "SOS LIVE",
+          style: TextStyle(
+            color: Colors.redAccent,
+            fontSize: R.blockH * 3.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }

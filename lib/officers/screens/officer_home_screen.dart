@@ -1,5 +1,6 @@
 // lib/officers/screens/officer_home_screen.dart
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -245,8 +246,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                       cache.officerName.isNotEmpty
                           ? cache.officerName[0].toUpperCase()
                           : "O",
-                      style: const TextStyle(
-                        fontSize: 24,
+                      style: TextStyle(
+                        fontSize: R.blockH * 6,
                         fontWeight: FontWeight.bold,
                         color: AppColors.brandTeal,
                       ),
@@ -255,9 +256,9 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
             ),
             accountName: Text(
               cache.officerName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: R.blockH * 4.5,
                 color: Colors.white,
               ),
             ),
@@ -265,15 +266,12 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               "UID: ${cache.officerUid ?? '-'}",
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 14,
+                fontSize: R.blockH * 3.5,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -281,12 +279,12 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                   "OFFICER CONTEXT",
                   style: TextStyle(
                     color: AppColors.accentGold.withValues(alpha: 0.8),
-                    fontSize: 11,
+                    fontSize: R.blockH * 2.75,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.1,
                   ),
                 ),
-                const SizedBox(height: 15),
+                SizedBox(height: R.blockV * 1.875),
                 _drawerInfoTile(
                   Icons.business_rounded,
                   "Total Sites",
@@ -296,7 +294,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               ],
             ),
           ),
-          const Divider(color: Colors.white10),
+          Divider(color: Colors.white10),
           _drawerTile(Icons.account_circle_outlined, "Profile Details", () {
             Navigator.pop(context);
             _onProfileTap();
@@ -305,12 +303,15 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
             Navigator.pop(context);
             _onItemTapped(4);
           }),
-          const Spacer(),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
+          Spacer(),
+          Padding(
+            padding: EdgeInsets.all(R.blockH * 4),
             child: Text(
               "RiskRadar v1.0.2",
-              style: TextStyle(color: Colors.white24, fontSize: 11),
+              style: TextStyle(
+                color: Colors.white24,
+                fontSize: R.blockH * 2.75,
+              ),
             ),
           ),
         ],
@@ -323,8 +324,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
       leading: Icon(icon, color: Colors.white70),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 15,
+        style: TextStyle(
+          fontSize: R.blockH * 3.75,
           fontWeight: FontWeight.w500,
           color: Colors.white,
         ),
@@ -335,25 +336,25 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
   Widget _drawerInfoTile(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0),
+      padding: EdgeInsets.only(bottom: R.blockV * 1.875),
       child: Row(
         children: [
           Icon(icon, size: 20, color: AppColors.accentGold),
-          const SizedBox(width: 15),
+          SizedBox(width: R.blockH * 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: R.blockH * 2.5,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
               Text(
                 value,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: TextStyle(
+                  fontSize: R.blockH * 3.5,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -386,26 +387,26 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(R.blockH * 6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   "Let's manage",
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: R.blockH * 5.5,
                     color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 ),
-                const Text(
+                Text(
                   "Site Safety",
                   style: TextStyle(
-                    fontSize: 26,
+                    fontSize: R.blockH * 6.5,
                     fontWeight: FontWeight.bold,
                     color: AppColors.accentGold,
                   ),
                 ),
-                const SizedBox(height: 25),
+                SizedBox(height: R.blockV * 3.125),
 
                 Row(
                   children: [
@@ -425,7 +426,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: R.blockH * 4.267),
                     Expanded(
                       child: _buildStatCard(
                         title: "Resolved\nHazards",
@@ -447,7 +448,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: R.blockV * 2),
                 Row(
                   children: [
                     Expanded(
@@ -466,8 +467,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    const Expanded(child: SizedBox()),
+                    SizedBox(width: R.blockH * 4.267),
+                    Expanded(child: SizedBox()),
                   ],
                 ),
               ],
@@ -488,8 +489,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 180,
-        padding: const EdgeInsets.all(20),
+        height: R.blockV * 22.5,
+        padding: EdgeInsets.all(R.blockH * 5),
         decoration: BoxDecoration(
           color: AppColors.brandTeal,
           borderRadius: BorderRadius.circular(28),
@@ -506,11 +507,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                   color: color,
                   size: 28,
                 ), // Updated icon color to use passed variable slightly
-                const Icon(
-                  Icons.arrow_forward,
-                  color: Colors.white24,
-                  size: 20,
-                ),
+                Icon(Icons.arrow_forward, color: Colors.white24, size: 20),
               ],
             ),
             Column(
@@ -518,17 +515,17 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               children: [
                 Text(
                   count,
-                  style: const TextStyle(
-                    fontSize: 26,
+                  style: TextStyle(
+                    fontSize: R.blockH * 6.5,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: R.blockV * 0.5),
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 12,
+                  style: TextStyle(
+                    fontSize: R.blockH * 3,
                     color: Colors.white54,
                     height: 1.2,
                   ),
@@ -564,11 +561,12 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     super.build(context);
     if (isLoading) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: const Center(
+        body: Center(
           child: CircularProgressIndicator(color: AppColors.brandTeal),
         ),
       );
@@ -597,10 +595,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
         appBar: AppBar(
           title: Text(
             _titles[_selectedIndex],
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
           backgroundColor: AppColors.brandTeal,
           centerTitle: true,
@@ -613,7 +608,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               ? GestureDetector(
                   onTap: () => _scaffoldKey.currentState?.openDrawer(),
                   child: Padding(
-                    padding: const EdgeInsets.all(10.0),
+                    padding: EdgeInsets.all(R.blockH * 2.5),
                     child: CircleAvatar(
                       backgroundColor: Colors.white,
                       backgroundImage: cache.officerProfileImageUrl != null
@@ -624,7 +619,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                               cache.officerName.isNotEmpty
                                   ? cache.officerName[0].toUpperCase()
                                   : "O",
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.brandTeal,
                               ),
@@ -650,7 +645,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                   alignment: Alignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.notifications_none_rounded,
                         color: Colors.white,
                         size: 28,
@@ -668,7 +663,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                         right: 8,
                         top: 8,
                         child: Container(
-                          padding: const EdgeInsets.all(2),
+                          padding: EdgeInsets.all(R.blockH * 0.5),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
@@ -677,15 +672,15 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                               width: 1.5,
                             ),
                           ),
-                          constraints: const BoxConstraints(
+                          constraints: BoxConstraints(
                             minWidth: 18,
                             minHeight: 18,
                           ),
                           child: Text(
                             '$count',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: R.blockH * 2.5,
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
@@ -696,7 +691,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                 );
               },
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: R.blockH * 2.133),
           ],
         ),
 
@@ -711,13 +706,13 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
         floatingActionButton: _selectedIndex == 0
             ? Padding(
-                padding: const EdgeInsets.only(bottom: 90.0),
+                padding: EdgeInsets.only(bottom: R.blockV * 11.25),
                 child: FloatingActionButton.extended(
                   backgroundColor: Colors.red.shade600,
                   onPressed: _navigateToSOS,
                   elevation: 4,
-                  icon: const Icon(Icons.sos_rounded, color: Colors.white),
-                  label: const Text(
+                  icon: Icon(Icons.sos_rounded, color: Colors.white),
+                  label: Text(
                     "EMERGENCY",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -736,7 +731,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
 
   Widget _buildConcaveNavBar() {
     return SizedBox(
-      height: 85,
+      height: R.blockV * 10.625,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -782,8 +777,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 65,
-        height: 85,
+        width: R.blockH * 17.333,
+        height: R.blockV * 10.625,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
@@ -793,8 +788,8 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
               curve: Curves.easeOutBack,
               top: isSelected ? 0 : 20,
               child: Container(
-                width: 45,
-                height: 45,
+                width: R.blockH * 12,
+                height: R.blockV * 5.625,
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.accentGold : Colors.transparent,
                   shape: BoxShape.circle,
@@ -817,7 +812,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
                   label,
                   style: TextStyle(
                     color: isSelected ? AppColors.accentGold : Colors.white70,
-                    fontSize: 10,
+                    fontSize: R.blockH * 2.5,
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,

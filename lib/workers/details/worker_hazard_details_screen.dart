@@ -1,11 +1,13 @@
 // lib/workers/details/worker_hazard_details_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:riskradar/services/logger_service.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
-import 'package:riskradar/shared/widgets/voice_note_player.dart' as shared_voice;
+import 'package:riskradar/shared/widgets/voice_note_player.dart'
+    as shared_voice;
 
 // Import your fullscreen viewer
 import '../../shared/widgets/full_image_viewer.dart';
@@ -25,10 +27,13 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
   // Helper to capitalize names
   String _capitalizeName(String name) {
     if (name.isEmpty) return name;
-    return name.split(' ').map((word) {
-      if (word.isEmpty) return '';
-      return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
-    }).join(' ');
+    return name
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return '';
+          return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+        })
+        .join(' ');
   }
 
   String _formatTimestamp(String? isoString, {bool convertLocal = false}) {
@@ -130,50 +135,63 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? const Color(0xFF121212)
+        : AppColors.backgroundLight;
     final textColor = isDark ? Colors.white : Colors.black87;
 
     final hazardData = widget.hazardData;
     final String title = hazardData['hazard_type']?.toString() ?? 'Hazard';
     final String description =
         hazardData['description']?.toString() ?? 'No description provided.';
-    final List<String> images =
-    _parseStringToList(hazardData['images'] ?? hazardData['image_url']);
+    final List<String> images = _parseStringToList(
+      hazardData['images'] ?? hazardData['image_url'],
+    );
 
-    final String reporterName =
-    _capitalizeName(hazardData['reporter_name']?.toString() ?? 'Unknown');
-    final String assignedName =
-    _capitalizeName(hazardData['assigned_name']?.toString() ?? 'Not Assigned');
+    final String reporterName = _capitalizeName(
+      hazardData['reporter_name']?.toString() ?? 'Unknown',
+    );
+    final String assignedName = _capitalizeName(
+      hazardData['assigned_name']?.toString() ?? 'Not Assigned',
+    );
 
     final String severity = hazardData['severity']?.toString() ?? 'Unknown';
     final String status = hazardData['status']?.toString() ?? 'Unknown';
     final String statusLower = status.toLowerCase();
 
-    final String createdAt =
-    _formatTimestamp(hazardData['created_at']?.toString(), convertLocal: false);
-    final String assignedAt =
-    _formatTimestamp(hazardData['assigned_at']?.toString(), convertLocal: true);
+    final String createdAt = _formatTimestamp(
+      hazardData['created_at']?.toString(),
+      convertLocal: false,
+    );
+    final String assignedAt = _formatTimestamp(
+      hazardData['assigned_at']?.toString(),
+      convertLocal: true,
+    );
 
-    final List<String> voiceUrls =
-    _parseStringToList(hazardData['voice_note_url']);
-    final List<String> resolutionImages =
-    _parseStringToList(hazardData['resolution_image_url']);
-    final List<String> resolutionVoiceUrls =
-    _parseStringToList(hazardData['resolution_voice_note_url']);
+    final List<String> voiceUrls = _parseStringToList(
+      hazardData['voice_note_url'],
+    );
+    final List<String> resolutionImages = _parseStringToList(
+      hazardData['resolution_image_url'],
+    );
+    final List<String> resolutionVoiceUrls = _parseStringToList(
+      hazardData['resolution_voice_note_url'],
+    );
     final String? resolutionNotes = hazardData['resolution_notes']?.toString();
     final bool hasResolutionDetails =
         (statusLower == 'resolved' || statusLower == 'resolved by other') &&
-            ((resolutionNotes?.trim().isNotEmpty ?? false) ||
-                resolutionImages.isNotEmpty ||
-                resolutionVoiceUrls.isNotEmpty);
+        ((resolutionNotes?.trim().isNotEmpty ?? false) ||
+            resolutionImages.isNotEmpty ||
+            resolutionVoiceUrls.isNotEmpty);
     final double? latitude = _toDoubleOrNull(hazardData['latitude']);
     final double? longitude = _toDoubleOrNull(hazardData['longitude']);
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Hazard Details",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
@@ -182,12 +200,12 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
         centerTitle: true,
         // Standard Arrow Back Button (with dash/line)
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(R.blockH * 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -200,48 +218,50 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
               severityColor: _getSeverityColor(severity),
               statusColor: _getStatusColor(status),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: R.blockV * 3),
 
             // Images
             if (images.isNotEmpty) ...[
               _SectionHeader(title: "Photos", isDark: isDark),
-              const SizedBox(height: 12),
+              SizedBox(height: R.blockV * 1.5),
               ImageSlideshow(imageUrls: images),
-              const SizedBox(height: 24),
+              SizedBox(height: R.blockV * 3),
             ],
 
             // Description
             _SectionHeader(title: "Description", isDark: isDark),
-            const SizedBox(height: 8),
+            SizedBox(height: R.blockV * 1),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(R.blockH * 4),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                ),
               ),
               child: Text(
                 description,
                 style: TextStyle(
-                    fontSize: 15, height: 1.5, color: textColor),
+                  fontSize: R.blockH * 3.75,
+                  height: 1.5,
+                  color: textColor,
+                ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: R.blockV * 3),
 
             // Voice Notes
             if (voiceUrls.isNotEmpty) ...[
               _SectionHeader(title: "Voice Notes", isDark: isDark),
-              const SizedBox(height: 12),
-              _VoiceNoteList(
-                  voiceUrls: voiceUrls,
-                  isDark: isDark),
-              const SizedBox(height: 24),
+              SizedBox(height: R.blockV * 1.5),
+              _VoiceNoteList(voiceUrls: voiceUrls, isDark: isDark),
+              SizedBox(height: R.blockV * 3),
             ],
 
             _SectionHeader(title: "Status Timeline", isDark: isDark),
-            const SizedBox(height: 12),
+            SizedBox(height: R.blockV * 1.5),
             _StatusTimeline(
               currentStatus: status,
               createdAt: createdAt,
@@ -256,23 +276,23 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
               ),
               isDark: isDark,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: R.blockV * 3),
 
             if (hasResolutionDetails) ...[
               _SectionHeader(title: "Resolution", isDark: isDark),
-              const SizedBox(height: 12),
+              SizedBox(height: R.blockV * 1.5),
               _ResolutionSection(
                 notes: resolutionNotes,
                 imageUrls: resolutionImages,
                 voiceUrls: resolutionVoiceUrls,
                 isDark: isDark,
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: R.blockV * 3),
             ],
 
             // Details Section
             _SectionHeader(title: "Details", isDark: isDark),
-            const SizedBox(height: 12),
+            SizedBox(height: R.blockV * 1.5),
             Card(
               elevation: 0,
               margin: EdgeInsets.zero,
@@ -280,80 +300,99 @@ class _WorkerHazardDetailsScreenState extends State<WorkerHazardDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                    color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                ),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: EdgeInsets.symmetric(vertical: R.blockV * 1),
                 child: Column(
                   children: [
                     _DetailItem(
-                        icon: Icons.person_pin_circle_outlined,
-                        title: "Reported By",
-                        value: reporterName,
-                        isDark: isDark),
+                      icon: Icons.person_pin_circle_outlined,
+                      title: "Reported By",
+                      value: reporterName,
+                      isDark: isDark,
+                    ),
                     _DetailItem(
-                        icon: Icons.engineering_outlined,
-                        title: "Assigned To",
-                        value: assignedName,
-                        isDark: isDark),
+                      icon: Icons.engineering_outlined,
+                      title: "Assigned To",
+                      value: assignedName,
+                      isDark: isDark,
+                    ),
                     _DetailItem(
-                        icon: Icons.today_outlined,
-                        title: "Reported On",
-                        value: createdAt,
-                        isDark: isDark),
+                      icon: Icons.today_outlined,
+                      title: "Reported On",
+                      value: createdAt,
+                      isDark: isDark,
+                    ),
                     if (assignedAt != 'N/A')
                       _DetailItem(
-                          icon: Icons.assignment_turned_in_outlined,
-                          title: "Assigned On",
-                          value: assignedAt,
-                          isDark: isDark),
+                        icon: Icons.assignment_turned_in_outlined,
+                        title: "Assigned On",
+                        value: assignedAt,
+                        isDark: isDark,
+                      ),
                     if (latitude != null && longitude != null) ...[
                       Divider(
-                          height: 1,
-                          indent: 16,
-                          endIndent: 16,
-                          color: isDark ? Colors.grey[800] : Colors.grey[200]),
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: isDark ? Colors.grey[800] : Colors.grey[200],
+                      ),
                       ListTile(
                         leading: Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: EdgeInsets.all(R.blockH * 2),
                           decoration: BoxDecoration(
                             color: AppColors.brandTeal,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.location_on_outlined,
-                              color: AppColors.accentGold, size: 20),
+                          child: Icon(
+                            Icons.location_on_outlined,
+                            color: AppColors.accentGold,
+                            size: 20,
+                          ),
                         ),
-                        title: Text("Location",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: textColor)),
-                        subtitle: Text("Lat: $latitude, Lng: $longitude",
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                        title: Text(
+                          "Location",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          "Lat: $latitude, Lng: $longitude",
+                          style: TextStyle(
+                            fontSize: R.blockH * 3,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
                         trailing: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.brandTeal,
                             foregroundColor: AppColors.accentGold,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(Icons.map_rounded, size: 18),
-                          label: const Text("Open",
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          icon: Icon(Icons.map_rounded, size: 18),
+                          label: Text(
+                            "Open",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           onPressed: () => _openMap(latitude, longitude),
                         ),
                       ),
-                    ]
+                    ],
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: R.blockV * 3),
           ],
         ),
       ),
@@ -382,6 +421,7 @@ class _HazardHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     // Generate a darker shade for the gradient end
     final Color darkerColor = Color.lerp(severityColor, Colors.black, 0.3)!;
 
@@ -393,45 +433,42 @@ class _HazardHeaderCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            severityColor,
-            darkerColor,
-          ],
+          colors: [severityColor, darkerColor],
         ),
         boxShadow: [
           BoxShadow(
             color: severityColor.withValues(alpha: 0.3),
             blurRadius: 10,
-            offset: const Offset(0, 5),
+            offset: Offset(0, 5),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(R.blockH * 5),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(R.blockH * 3),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: Colors.white, size: 36),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: R.blockH * 4.267),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 22,
+                    style: TextStyle(
+                      fontSize: R.blockH * 5.5,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: R.blockV * 1.25),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -472,8 +509,12 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: R.blockH * 3,
+        vertical: R.blockV * 0.75,
+      ),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
@@ -481,10 +522,11 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 11,
-            letterSpacing: 0.5),
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: R.blockH * 2.75,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -497,21 +539,22 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 20,
+          width: R.blockH * 1.067,
+          height: R.blockV * 2.5,
           decoration: BoxDecoration(
             color: AppColors.brandTeal,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: R.blockH * 2.133),
         Text(
           title,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: R.blockH * 4.5,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
           ),
@@ -525,22 +568,22 @@ class _VoiceNoteList extends StatelessWidget {
   final List<String> voiceUrls;
   final bool isDark;
 
-  const _VoiceNoteList(
-      {required this.voiceUrls,
-        required this.isDark});
+  const _VoiceNoteList({required this.voiceUrls, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Column(
       children: List.generate(voiceUrls.length, (index) {
         return Card(
           elevation: 0,
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: EdgeInsets.only(bottom: R.blockV * 1),
           color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-                color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+              color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+            ),
           ),
           child: shared_voice.VoiceNotePlayer(
             key: ValueKey(voiceUrls[index]),
@@ -587,6 +630,7 @@ class _StatusTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final List<_TimelineStepData> steps = <_TimelineStepData>[
       _TimelineStepData(
         title: 'Reported',
@@ -611,7 +655,7 @@ class _StatusTimeline extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: R.blockV * 1),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -662,14 +706,16 @@ class _TimelineStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color activeColor =
-        isComplete ? AppColors.brandTeal : Colors.grey.shade400;
+    R.init(context);
+    final Color activeColor = isComplete
+        ? AppColors.brandTeal
+        : Colors.grey.shade400;
     final String timestampText = data.timestamp == 'N/A'
         ? 'Pending'
         : data.timestamp;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: R.blockH * 4),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -677,7 +723,7 @@ class _TimelineStep extends StatelessWidget {
             Column(
               children: <Widget>[
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(R.blockH * 2),
                   decoration: BoxDecoration(
                     color: activeColor,
                     shape: BoxShape.circle,
@@ -697,7 +743,7 @@ class _TimelineStep extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: R.blockH * 3.733),
             Expanded(
               child: Padding(
                 padding: EdgeInsets.only(bottom: isLast ? 0 : 18),
@@ -711,12 +757,12 @@ class _TimelineStep extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: R.blockV * 0.375),
                     Text(
                       timestampText,
                       style: TextStyle(
                         color: isDark ? Colors.grey[400] : Colors.grey[600],
-                        fontSize: 12,
+                        fontSize: R.blockH * 3,
                       ),
                     ),
                   ],
@@ -745,11 +791,12 @@ class _ResolutionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final String? trimmedNotes = notes?.trim();
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(R.blockH * 4),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -765,16 +812,16 @@ class _ResolutionSection extends StatelessWidget {
               trimmedNotes,
               style: TextStyle(
                 color: isDark ? Colors.white : Colors.black87,
-                fontSize: 15,
+                fontSize: R.blockH * 3.75,
                 height: 1.5,
               ),
             ),
             if (imageUrls.isNotEmpty || voiceUrls.isNotEmpty)
-              const SizedBox(height: 16),
+              SizedBox(height: R.blockV * 2),
           ],
           if (imageUrls.isNotEmpty) ...<Widget>[
             ImageSlideshow(imageUrls: imageUrls),
-            if (voiceUrls.isNotEmpty) const SizedBox(height: 16),
+            if (voiceUrls.isNotEmpty) SizedBox(height: R.blockV * 2),
           ],
           if (voiceUrls.isNotEmpty)
             _VoiceNoteList(voiceUrls: voiceUrls, isDark: isDark),
@@ -817,8 +864,8 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
   Widget _buildDot(int index) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.symmetric(horizontal: 4.0),
-      height: 8.0,
+      margin: EdgeInsets.symmetric(horizontal: R.blockH * 1),
+      height: R.blockV * 1,
       width: _currentPage == index ? 24.0 : 8.0,
       decoration: BoxDecoration(
         color: _currentPage == index
@@ -831,6 +878,7 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     if (widget.imageUrls.isEmpty) return const SizedBox.shrink();
 
     return AspectRatio(
@@ -863,16 +911,19 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
                       imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.broken_image,
-                              color: Colors.grey)),
+                        color: Colors.grey.shade200,
+                        child: Icon(Icons.broken_image, color: Colors.grey),
+                      ),
                       loadingBuilder: (_, child, progress) => progress == null
                           ? child
                           : Container(
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2))),
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 );
@@ -884,7 +935,9 @@ class _ImageSlideshowState extends State<ImageSlideshow> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
-                      widget.imageUrls.length, (index) => _buildDot(index)),
+                    widget.imageUrls.length,
+                    (index) => _buildDot(index),
+                  ),
                 ),
               ),
           ],
@@ -900,40 +953,51 @@ class _DetailItem extends StatelessWidget {
   final String value;
   final bool isDark;
 
-  const _DetailItem(
-      {required this.icon,
-        required this.title,
-        required this.value,
-        required this.isDark});
+  const _DetailItem({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: R.blockH * 4,
+        vertical: R.blockV * 1.75,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(R.blockH * 2),
             decoration: BoxDecoration(
               color: AppColors.brandTeal,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: AppColors.accentGold, size: 20),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: R.blockH * 4.267),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87)),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: TextStyle(
-                        color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
               ],
             ),
           ),

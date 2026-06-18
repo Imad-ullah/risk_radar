@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:riskradar/services/connectivity_service.dart';
 
 class OfflineBanner extends StatefulWidget {
@@ -29,11 +30,9 @@ class _OfflineBannerState extends State<OfflineBanner>
       duration: const Duration(milliseconds: 260),
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1),
+      begin: Offset(0, -1),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _subscription = ConnectivityService.instance.isOnlineStream.listen(
       _handleConnectivityChanged,
     );
@@ -65,6 +64,7 @@ class _OfflineBannerState extends State<OfflineBanner>
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return ClipRect(
       child: SizeTransition(
         sizeFactor: _controller,
@@ -78,12 +78,12 @@ class _OfflineBannerState extends State<OfflineBanner>
               width: double.infinity,
               color: Colors.orange.shade700,
               padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
+                left: R.blockH * 4,
+                right: R.blockH * 4,
                 top: MediaQuery.paddingOf(context).top > 0 ? 10 : 8,
                 bottom: 8,
               ),
-              child: const SafeArea(
+              child: SafeArea(
                 top: false,
                 bottom: false,
                 child: Row(
@@ -95,7 +95,7 @@ class _OfflineBannerState extends State<OfflineBanner>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: R.blockH * 3.25,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../details/worker_hazard_details_screen.dart';
@@ -189,8 +190,9 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
             .inFilter('id', assignedToIds);
 
         for (final hse in hseWorkers as List<dynamic>) {
-          hseWorkerMap[hse['id'].toString()] =
-          Map<String, dynamic>.from(hse as Map);
+          hseWorkerMap[hse['id'].toString()] = Map<String, dynamic>.from(
+            hse as Map,
+          );
         }
       }
 
@@ -216,9 +218,10 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
       final cachedReported = resetPagination
           ? <Map<String, dynamic>>[]
           : await _hazardRepository.getHazards();
-      await _hazardRepository.saveHazards(
-        <Map<String, dynamic>>[...cachedReported, ...reported],
-      );
+      await _hazardRepository.saveHazards(<Map<String, dynamic>>[
+        ...cachedReported,
+        ...reported,
+      ]);
 
       if (mounted) {
         setState(() {
@@ -313,24 +316,25 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Hazards'),
+        title: Text('My Hazards'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: theme.scaffoldBackgroundColor,
         actions: [
           // Subtle refresh indicator in app bar
           if (_isRefreshing)
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
+            Padding(
+              padding: EdgeInsets.only(right: R.blockH * 4),
               child: Center(
                 child: SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: R.blockH * 4.267,
+                  height: R.blockV * 2,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
@@ -338,28 +342,31 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-        onRefresh: fetchMyHazards,
-        child: hazards.isEmpty
-            ? _buildEmptyState(theme)
-            : ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 12),
-          itemCount: hazards.length + (_isLoadingMore ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index == hazards.length) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            return _buildHazardCard(
-                hazards[index], theme, isDark);
-          },
-        ),
-      ),
+              onRefresh: fetchMyHazards,
+              child: hazards.isEmpty
+                  ? _buildEmptyState(theme)
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      itemCount: hazards.length + (_isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == hazards.length) {
+                          return Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: R.blockV * 2,
+                            ),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        return _buildHazardCard(hazards[index], theme, isDark);
+                      },
+                    ),
+            ),
     );
   }
 
@@ -376,19 +383,24 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.check_circle_outline,
-                  size: 80, color: theme.disabledColor),
-              const SizedBox(height: 16),
+              Icon(
+                Icons.check_circle_outline,
+                size: 80,
+                color: theme.disabledColor,
+              ),
+              SizedBox(height: R.blockV * 2),
               Text(
                 'No Hazards Found',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(color: theme.hintColor),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.hintColor,
+                ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: R.blockV * 1),
               Text(
                 'You have no reported or assigned hazards.',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.disabledColor),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.disabledColor,
+                ),
               ),
             ],
           ),
@@ -398,7 +410,10 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
   }
 
   Widget _buildHazardCard(
-      Map<String, dynamic> hazard, ThemeData theme, bool isDark) {
+    Map<String, dynamic> hazard,
+    ThemeData theme,
+    bool isDark,
+  ) {
     final hazardType = hazard['hazard_type'] ?? 'General Hazard';
     final description = hazard['description'] ?? 'No description provided.';
     final status = hazard['status'] ?? 'Pending';
@@ -410,12 +425,14 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
 
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: R.blockV * 2),
       color: theme.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-            color: theme.dividerColor.withValues(alpha: 0.1), width: 1),
+          color: theme.dividerColor.withValues(alpha: 0.1),
+          width: 1,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -438,12 +455,12 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Side stripe — severity colour
-              Container(width: 6, color: severityColor),
+              Container(width: R.blockH * 1.6, color: severityColor),
 
               // Main content
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(R.blockH * 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -456,26 +473,28 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
                               children: [
                                 Text(
                                   hazardType,
-                                  style: theme.textTheme.titleMedium
-                                      ?.copyWith(
-                                      fontWeight: FontWeight.bold),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
                                   '$severity Severity',
-                                  style: theme.textTheme.labelSmall
-                                      ?.copyWith(
-                                      color: severityColor,
-                                      fontWeight: FontWeight.w600),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: severityColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: R.blockH * 2.133),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
@@ -491,43 +510,52 @@ class _MyHazardsScreenState extends State<MyHazardsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: R.blockV * 1.5),
                       Text(
                         description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.textTheme.bodyMedium?.color
-                              ?.withValues(alpha: 0.7),
+                          color: theme.textTheme.bodyMedium?.color?.withValues(
+                            alpha: 0.7,
+                          ),
                           height: 1.4,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: R.blockV * 2),
                       Row(
                         children: [
                           if (assignedTo != null) ...[
-                            Icon(Icons.person_outline,
-                                size: 14, color: theme.hintColor),
-                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: theme.hintColor,
+                            ),
+                            SizedBox(width: R.blockH * 1.067),
                             Expanded(
                               child: Text(
                                 assignedTo,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: theme.hintColor),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.hintColor,
+                                ),
                               ),
                             ),
                           ] else ...[
-                            const Spacer(),
+                            Spacer(),
                           ],
-                          Icon(Icons.calendar_today_outlined,
-                              size: 14, color: theme.hintColor),
-                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 14,
+                            color: theme.hintColor,
+                          ),
+                          SizedBox(width: R.blockH * 1.067),
                           Text(
                             createdAt,
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: theme.hintColor),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.hintColor,
+                            ),
                           ),
                         ],
                       ),

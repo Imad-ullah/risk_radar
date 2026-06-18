@@ -1,6 +1,7 @@
 // lib/hse_workers/screens/resolved_hazard_report_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -20,10 +21,12 @@ class ResolvedHazardReportScreen extends StatefulWidget {
   const ResolvedHazardReportScreen({super.key, required this.hazardId});
 
   @override
-  State<ResolvedHazardReportScreen> createState() => _ResolvedHazardReportScreenState();
+  State<ResolvedHazardReportScreen> createState() =>
+      _ResolvedHazardReportScreenState();
 }
 
-class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen> {
+class _ResolvedHazardReportScreenState
+    extends State<ResolvedHazardReportScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   Map<String, dynamic>? hazardData;
   bool _isLoading = true;
@@ -89,10 +92,13 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
     if (fullName.isEmpty) return "Unassigned";
 
-    return fullName.split(' ').map((word) {
-      if (word.isEmpty) return '';
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join(' ');
+    return fullName
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return '';
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        })
+        .join(' ');
   }
 
   void _showLoadingDialog(String title, bool isDark) {
@@ -103,24 +109,45 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         backgroundColor: Theme.of(context).cardColor,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 24.0),
+          padding: EdgeInsets.symmetric(
+            vertical: R.blockV * 3,
+            horizontal: R.blockH * 6,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 30,
                 height: 30,
-                child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.brandTeal),
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppColors.brandTeal,
+                ),
               ),
-              const SizedBox(width: 20),
+              SizedBox(width: 19.999),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.brandTeal)),
-                    const SizedBox(height: 4),
-                    Text("Please keep the app open", style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.brandTeal,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "Please keep the app open",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -151,7 +178,8 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
     }
 
     try {
-      if (hazardData!['image_url'] != null && hazardData!['image_url'].toString().isNotEmpty) {
+      if (hazardData!['image_url'] != null &&
+          hazardData!['image_url'].toString().isNotEmpty) {
         final urls = hazardData!['image_url'].toString().split(',');
         for (String url in urls) {
           if (url.trim().isNotEmpty) {
@@ -159,10 +187,13 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
           }
         }
       }
-    } catch (e) { debugPrint("Could not load before images for PDF"); }
+    } catch (e) {
+      debugPrint("Could not load before images for PDF");
+    }
 
     try {
-      if (hazardData!['resolution_image_url'] != null && hazardData!['resolution_image_url'].toString().isNotEmpty) {
+      if (hazardData!['resolution_image_url'] != null &&
+          hazardData!['resolution_image_url'].toString().isNotEmpty) {
         final urls = hazardData!['resolution_image_url'].toString().split(',');
         for (String url in urls) {
           if (url.trim().isNotEmpty) {
@@ -170,7 +201,9 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
           }
         }
       }
-    } catch (e) { debugPrint("Could not load after images for PDF"); }
+    } catch (e) {
+      debugPrint("Could not load after images for PDF");
+    }
 
     pdf.addPage(
       pw.MultiPage(
@@ -182,9 +215,21 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Expanded(child: _buildPdfPersonnelBox("REPORTED BY", hazardData!['reporter'], hazardData!['reporter']?['work_type'] ?? "Worker")),
-                pw.SizedBox(width: 20),
-                pw.Expanded(child: _buildPdfPersonnelBox("RESOLVED BY", hazardData!['resolver'], hazardData!['resolver']?['designation'] ?? "Specialist")),
+                pw.Expanded(
+                  child: _buildPdfPersonnelBox(
+                    "REPORTED BY",
+                    hazardData!['reporter'],
+                    hazardData!['reporter']?['work_type'] ?? "Worker",
+                  ),
+                ),
+                pw.SizedBox(width: 19.999),
+                pw.Expanded(
+                  child: _buildPdfPersonnelBox(
+                    "RESOLVED BY",
+                    hazardData!['resolver'],
+                    hazardData!['resolver']?['designation'] ?? "Specialist",
+                  ),
+                ),
               ],
             ),
             pw.SizedBox(height: 20),
@@ -193,29 +238,50 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 _buildPdfMetricBox("DURATION", _calculateTime()),
-                pw.SizedBox(width: 10),
-                _buildPdfMetricBox("SEVERITY", hazardData!['severity'] ?? "LOW"),
-                pw.SizedBox(width: 10),
-                _buildPdfMetricBox("IMPACT SCORE", "${(_getSeverityValue(hazardData!['severity']) * 100).toInt()}%"),
+                pw.SizedBox(width: 10.001),
+                _buildPdfMetricBox(
+                  "SEVERITY",
+                  hazardData!['severity'] ?? "LOW",
+                ),
+                pw.SizedBox(width: 10.001),
+                _buildPdfMetricBox(
+                  "IMPACT SCORE",
+                  "${(_getSeverityValue(hazardData!['severity']) * 100).toInt()}%",
+                ),
               ],
             ),
             pw.SizedBox(height: 30),
 
-            pw.Text("METADATA LOG", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1B3D3D'))),
+            pw.Text(
+              "METADATA LOG",
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromHex('#1B3D3D'),
+              ),
+            ),
             pw.SizedBox(height: 10),
             pw.TableHelper.fromTextArray(
               headers: ['DATA FIELD', 'ENTRY LOG'],
               data: [
                 ['Hazard Type', hazardData!['hazard_type'] ?? "N/A"],
                 ['Site Name', hazardData!['site']?['name'] ?? "Unknown Site"],
-                ['Location', '${hazardData!['latitude']}, ${hazardData!['longitude']}'],
+                [
+                  'Location',
+                  '${hazardData!['latitude']}, ${hazardData!['longitude']}',
+                ],
                 ['Reported At', reportedDate],
                 ['Started At', startedDate],
                 ['Resolved At', resolvedDate],
                 ['Resolution Notes', hazardData!['resolution_notes'] ?? "N/A"],
               ],
-              headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
-              headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#1B3D3D')),
+              headerStyle: pw.TextStyle(
+                color: PdfColors.white,
+                fontWeight: pw.FontWeight.bold,
+              ),
+              headerDecoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('#1B3D3D'),
+              ),
               cellPadding: const pw.EdgeInsets.all(10),
               border: pw.TableBorder.all(color: PdfColors.grey300),
             ),
@@ -226,59 +292,91 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
     if (beforeImages.isNotEmpty) {
       pdf.addPage(
-          pw.MultiPage(
-              pageFormat: PdfPageFormat.a4,
-              margin: const pw.EdgeInsets.all(32),
-              header: (context) => _buildPdfHeader(displayId, logoImage),
-              build: (pw.Context context) {
-                return [
-                  pw.Text("VISUAL VERIFICATION: INITIAL HAZARD (BEFORE)", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1B3D3D'))),
-                  pw.SizedBox(height: 10),
-                  pw.Wrap(
-                    spacing: 15,
-                    runSpacing: 15,
-                    children: beforeImages.map((img) => pw.Container(
-                      width: 250,
-                      height: 200,
-                      decoration: pw.BoxDecoration(
-                        image: pw.DecorationImage(image: img, fit: pw.BoxFit.cover),
-                        border: pw.Border.all(color: PdfColors.grey300),
-                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          header: (context) => _buildPdfHeader(displayId, logoImage),
+          build: (pw.Context context) {
+            return [
+              pw.Text(
+                "VISUAL VERIFICATION: INITIAL HAZARD (BEFORE)",
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColor.fromHex('#1B3D3D'),
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Wrap(
+                spacing: 15,
+                runSpacing: 15,
+                children: beforeImages
+                    .map(
+                      (img) => pw.Container(
+                        width: 250.001,
+                        height: 200,
+                        decoration: pw.BoxDecoration(
+                          image: pw.DecorationImage(
+                            image: img,
+                            fit: pw.BoxFit.cover,
+                          ),
+                          border: pw.Border.all(color: PdfColors.grey300),
+                          borderRadius: const pw.BorderRadius.all(
+                            pw.Radius.circular(8),
+                          ),
+                        ),
                       ),
-                    )).toList(),
-                  ),
-                ];
-              }
-          )
+                    )
+                    .toList(),
+              ),
+            ];
+          },
+        ),
       );
     }
 
     if (afterImages.isNotEmpty) {
       pdf.addPage(
-          pw.MultiPage(
-              pageFormat: PdfPageFormat.a4,
-              margin: const pw.EdgeInsets.all(32),
-              header: (context) => _buildPdfHeader(displayId, logoImage),
-              build: (pw.Context context) {
-                return [
-                  pw.Text("VISUAL VERIFICATION: RESOLUTION PROOF (AFTER)", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1B3D3D'))),
-                  pw.SizedBox(height: 10),
-                  pw.Wrap(
-                    spacing: 15,
-                    runSpacing: 15,
-                    children: afterImages.map((img) => pw.Container(
-                      width: 250,
-                      height: 200,
-                      decoration: pw.BoxDecoration(
-                        image: pw.DecorationImage(image: img, fit: pw.BoxFit.cover),
-                        border: pw.Border.all(color: PdfColors.grey300),
-                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          header: (context) => _buildPdfHeader(displayId, logoImage),
+          build: (pw.Context context) {
+            return [
+              pw.Text(
+                "VISUAL VERIFICATION: RESOLUTION PROOF (AFTER)",
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColor.fromHex('#1B3D3D'),
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Wrap(
+                spacing: 15,
+                runSpacing: 15,
+                children: afterImages
+                    .map(
+                      (img) => pw.Container(
+                        width: 250.001,
+                        height: 200,
+                        decoration: pw.BoxDecoration(
+                          image: pw.DecorationImage(
+                            image: img,
+                            fit: pw.BoxFit.cover,
+                          ),
+                          border: pw.Border.all(color: PdfColors.grey300),
+                          borderRadius: const pw.BorderRadius.all(
+                            pw.Radius.circular(8),
+                          ),
+                        ),
                       ),
-                    )).toList(),
-                  ),
-                ];
-              }
-          )
+                    )
+                    .toList(),
+              ),
+            ];
+          },
+        ),
       );
     }
 
@@ -297,12 +395,18 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => bytes,
-        name: 'RiskRadar_Audit_${hazardData!['report_number'] ?? hazardData!['id'].toString().substring(0, 6)}.pdf',
+        name:
+            'RiskRadar_Audit_${hazardData!['report_number'] ?? hazardData!['id'].toString().substring(0, 6)}.pdf',
       );
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error downloading PDF: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -317,20 +421,28 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
       final bytes = await _generatePdfBytes();
       if (mounted) Navigator.pop(context);
 
-      final fileName = 'RiskRadar_Audit_${hazardData!['report_number'] ?? hazardData!['id'].toString().substring(0, 6)}.pdf';
+      final fileName =
+          'RiskRadar_Audit_${hazardData!['report_number'] ?? hazardData!['id'].toString().substring(0, 6)}.pdf';
 
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile.fromData(bytes, name: fileName, mimeType: 'application/pdf')],
+          files: [
+            XFile.fromData(bytes, name: fileName, mimeType: 'application/pdf'),
+          ],
           subject: 'Safety Report: ${hazardData!['hazard_type']}',
-          text: 'Please find the attached Safety Compliance Audit for ${hazardData!['site']?['name'] ?? 'the site'}.',
+          text:
+              'Please find the attached Safety Compliance Audit for ${hazardData!['site']?['name'] ?? 'the site'}.',
         ),
       );
-
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sharing PDF: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sharing PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -347,16 +459,26 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text("SAFETY COMPLIANCE AUDIT", style: pw.TextStyle(fontSize: 24, color: PdfColor.fromHex('#1B3D3D'), fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                    "SAFETY COMPLIANCE AUDIT",
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      color: PdfColor.fromHex('#1B3D3D'),
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                   pw.SizedBox(height: 4),
-                  pw.Text(displayId, style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                  pw.Text(
+                    displayId,
+                    style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+                  ),
                 ],
               ),
             ),
             if (logoImage != null)
               pw.Container(
                 height: 80,
-                width: 140,
+                width: 139.999,
                 alignment: pw.Alignment.centerRight,
                 child: pw.Image(logoImage, fit: pw.BoxFit.contain),
               ),
@@ -369,7 +491,11 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
     );
   }
 
-  pw.Widget _buildPdfPersonnelBox(String title, Map<String, dynamic>? user, String role) {
+  pw.Widget _buildPdfPersonnelBox(
+    String title,
+    Map<String, dynamic>? user,
+    String role,
+  ) {
     final name = _formatName(user);
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
@@ -380,10 +506,30 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(title, style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              fontSize: 9,
+              color: PdfColors.grey600,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           pw.SizedBox(height: 8),
-          pw.Text(name, style: pw.TextStyle(fontSize: 14, color: PdfColor.fromHex('#1B3D3D'), fontWeight: pw.FontWeight.bold)),
-          pw.Text(role, style: pw.TextStyle(fontSize: 11, color: PdfColor.fromHex('#E6A050'))),
+          pw.Text(
+            name,
+            style: pw.TextStyle(
+              fontSize: 14,
+              color: PdfColor.fromHex('#1B3D3D'),
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.Text(
+            role,
+            style: pw.TextStyle(
+              fontSize: 11,
+              color: PdfColor.fromHex('#E6A050'),
+            ),
+          ),
         ],
       ),
     );
@@ -400,9 +546,23 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text(title, style: pw.TextStyle(fontSize: 8, color: PdfColors.grey300, fontWeight: pw.FontWeight.bold)),
+            pw.Text(
+              title,
+              style: pw.TextStyle(
+                fontSize: 8,
+                color: PdfColors.grey300,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
             pw.SizedBox(height: 4),
-            pw.Text(value, style: pw.TextStyle(fontSize: 14, color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
+            pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 14,
+                color: PdfColors.white,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -420,15 +580,26 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
               child: InteractiveViewer(
                 child: CachedNetworkImage(
                   imageUrl: url,
-                  placeholder: (context, url) => const CircularProgressIndicator(color: AppColors.accentGold),
-                  errorWidget: (context, url, error) => Icon(Icons.error, color: Theme.of(context).iconTheme.color),
+                  placeholder: (context, url) =>
+                      const CircularProgressIndicator(
+                        color: AppColors.accentGold,
+                      ),
+                  errorWidget: (context, url, error) => Icon(
+                    Icons.error,
+                    color: Theme.of(context).iconTheme.color,
+                  ),
                 ),
               ),
             ),
             Positioned(
-              top: 40, left: 20,
+              top: 40,
+              left: 20,
               child: IconButton(
-                icon: Icon(Icons.close, color: Theme.of(context).iconTheme.color, size: 30),
+                icon: Icon(
+                  Icons.close,
+                  color: Theme.of(context).iconTheme.color,
+                  size: 30,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ),
@@ -440,26 +611,50 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_isLoading) return Scaffold(backgroundColor: Theme.of(context).scaffoldBackgroundColor, body: const Center(child: CircularProgressIndicator(color: AppColors.brandTeal)));
-    if (hazardData == null) return Scaffold(backgroundColor: Theme.of(context).scaffoldBackgroundColor, body: const Center(child: Text("Report not found.")));
+    if (_isLoading)
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.brandTeal),
+        ),
+      );
+    if (hazardData == null)
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(child: Text("Report not found.")),
+      );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("HAZARD DETAILS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
+        title: Text(
+          "HAZARD DETAILS",
+          style: TextStyle(
+            fontSize: R.blockH * 3.5,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+          ),
+        ),
         backgroundColor: AppColors.brandTeal,
         foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 1,
         actions: [
-          IconButton(icon: const Icon(Icons.download_outlined, color: Colors.white), onPressed: () => _downloadReport(isDark)),
-          IconButton(icon: const Icon(Icons.share_outlined, color: Colors.white), onPressed: () => _shareReport(isDark)),
+          IconButton(
+            icon: Icon(Icons.download_outlined, color: Colors.white),
+            onPressed: () => _downloadReport(isDark),
+          ),
+          IconButton(
+            icon: Icon(Icons.share_outlined, color: Colors.white),
+            onPressed: () => _shareReport(isDark),
+          ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(R.blockH * 5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -472,7 +667,7 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
                   fallbackIcon: Icons.person_search_outlined,
                   isDark: isDark,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: R.blockH * 3.2),
                 _buildPersonnelBadge(
                   label: "RESOLVED BY",
                   userData: hazardData!['resolver'],
@@ -482,55 +677,90 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 30),
+            SizedBox(height: R.blockV * 3.75),
 
-            Text("RESOLUTION SUMMARY",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppColors.brandTeal, letterSpacing: -0.5)),
-            const SizedBox(height: 5),
+            Text(
+              "RESOLUTION SUMMARY",
+              style: TextStyle(
+                fontSize: R.blockH * 6,
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white : AppColors.brandTeal,
+                letterSpacing: -0.5,
+              ),
+            ),
+            SizedBox(height: R.blockV * 0.625),
             Row(
               children: [
-                _buildBadge(_getDisplayId(), AppColors.brandTeal.withValues(alpha: 0.6)),
-                const SizedBox(width: 8),
+                _buildBadge(
+                  _getDisplayId(),
+                  AppColors.brandTeal.withValues(alpha: 0.6),
+                ),
+                SizedBox(width: R.blockH * 2.133),
                 _buildBadge("VERIFIED RESOLUTION", _successGreen),
               ],
             ),
-            const SizedBox(height: 25),
+            SizedBox(height: R.blockV * 3.125),
 
             Row(
               children: [
-                _buildMetricCard("TOTAL DURATION", _calculateTime(), Icons.timer_outlined),
-                const SizedBox(width: 12),
-                _buildMetricCard("RISK SEVERITY", hazardData!['severity'] ?? "LOW", Icons.assessment_outlined),
+                _buildMetricCard(
+                  "TOTAL DURATION",
+                  _calculateTime(),
+                  Icons.timer_outlined,
+                ),
+                SizedBox(width: R.blockH * 3.2),
+                _buildMetricCard(
+                  "RISK SEVERITY",
+                  hazardData!['severity'] ?? "LOW",
+                  Icons.assessment_outlined,
+                ),
               ],
             ),
-            const SizedBox(height: 25),
+            SizedBox(height: R.blockV * 3.125),
 
             _buildSectionLabel("RISK IMPACT ANALYSIS", isDark),
             _buildChartCard(isDark),
 
-            const SizedBox(height: 30),
+            SizedBox(height: R.blockV * 3.75),
 
             _buildSectionLabel("METADATA LOG", isDark),
             _buildAuditTable(isDark),
 
-            const SizedBox(height: 30),
+            SizedBox(height: R.blockV * 3.75),
 
             _buildSectionLabel("VISUAL VERIFICATION (CLICK TO VIEW)", isDark),
-            _buildClickableGallery("Initial Hazard (Before)", hazardData!['image_url'], isDark),
-            const SizedBox(height: 15),
-            _buildClickableGallery("Resolution Proof (After)", hazardData!['resolution_image_url'], isDark),
+            _buildClickableGallery(
+              "Initial Hazard (Before)",
+              hazardData!['image_url'],
+              isDark,
+            ),
+            SizedBox(height: R.blockV * 1.875),
+            _buildClickableGallery(
+              "Resolution Proof (After)",
+              hazardData!['resolution_image_url'],
+              isDark,
+            ),
 
-            if (hazardData!['voice_note_url'] != null || hazardData!['resolution_voice_note_url'] != null) ...[
-              const SizedBox(height: 30),
+            if (hazardData!['voice_note_url'] != null ||
+                hazardData!['resolution_voice_note_url'] != null) ...[
+              SizedBox(height: R.blockV * 3.75),
               _buildSectionLabel("AUDIO TESTIMONY", isDark),
               if (hazardData!['voice_note_url'] != null)
-                _buildSimpleCard("Original Voice Report", _buildVoiceList(hazardData!['voice_note_url']), isDark),
-              const SizedBox(height: 12),
+                _buildSimpleCard(
+                  "Original Voice Report",
+                  _buildVoiceList(hazardData!['voice_note_url']),
+                  isDark,
+                ),
+              SizedBox(height: R.blockV * 1.5),
               if (hazardData!['resolution_voice_note_url'] != null)
-                _buildSimpleCard("Resolution Testimony", _buildVoiceList(hazardData!['resolution_voice_note_url']), isDark),
+                _buildSimpleCard(
+                  "Resolution Testimony",
+                  _buildVoiceList(hazardData!['resolution_voice_note_url']),
+                  isDark,
+                ),
             ],
 
-            const SizedBox(height: 50),
+            SizedBox(height: R.blockV * 6.25),
           ],
         ),
       ),
@@ -539,31 +769,71 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
   // ==================== UI BUILDERS ====================
 
-  Widget _buildPersonnelBadge({required String label, required Map<String, dynamic>? userData, required String role, required IconData fallbackIcon, required bool isDark}) {
+  Widget _buildPersonnelBadge({
+    required String label,
+    required Map<String, dynamic>? userData,
+    required String role,
+    required IconData fallbackIcon,
+    required bool isDark,
+  }) {
     final name = _formatName(userData);
     final String? imageUrl = userData?['profile_image_url'];
     final bool hasImage = imageUrl != null && imageUrl.trim().isNotEmpty;
 
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(R.blockH * 3),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: isDark ? Colors.grey.shade800 : AppColors.brandTeal.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: isDark
+                ? Colors.grey.shade800
+                : AppColors.brandTeal.withValues(alpha: 0.1),
+          ),
         ),
         child: Column(
           children: [
-            Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 10),
-            CircleAvatar(
-              radius: 28, backgroundColor: isDark ? Colors.grey.shade800 : AppColors.backgroundLight,
-              backgroundImage: hasImage ? CachedNetworkImageProvider(imageUrl) : null,
-              child: !hasImage ? Icon(fallbackIcon, color: AppColors.brandTeal) : null,
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: R.blockH * 2.25,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
-            const SizedBox(height: 10),
-            Text(name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppColors.brandTeal), maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(role, style: const TextStyle(fontSize: 10, color: AppColors.accentGold, fontWeight: FontWeight.bold)),
+            SizedBox(height: R.blockV * 1.25),
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: isDark
+                  ? Colors.grey.shade800
+                  : AppColors.backgroundLight,
+              backgroundImage: hasImage
+                  ? CachedNetworkImageProvider(imageUrl)
+                  : null,
+              child: !hasImage
+                  ? Icon(fallbackIcon, color: AppColors.brandTeal)
+                  : null,
+            ),
+            SizedBox(height: R.blockV * 1.25),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: R.blockH * 3.25,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.brandTeal,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              role,
+              style: TextStyle(
+                fontSize: R.blockH * 2.5,
+                color: AppColors.accentGold,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -578,10 +848,17 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : AppColors.brandTeal)),
-        const SizedBox(height: 10),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: R.blockH * 2.75,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white70 : AppColors.brandTeal,
+          ),
+        ),
+        SizedBox(height: R.blockV * 1.25),
         SizedBox(
-          height: 120,
+          height: R.blockV * 15,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: urls.length,
@@ -590,12 +867,24 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
               return GestureDetector(
                 onTap: () => _showImagePreview(cleanUrl),
                 child: Container(
-                  width: 150, margin: const EdgeInsets.only(right: 12),
+                  width: R.blockH * 40,
+                  margin: EdgeInsets.only(right: R.blockH * 3),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.white, width: 3),
-                    image: DecorationImage(image: CachedNetworkImageProvider(cleanUrl), fit: BoxFit.cover),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
+                    border: Border.all(
+                      color: isDark ? Colors.grey.shade700 : Colors.white,
+                      width: R.blockH * 0.8,
+                    ),
+                    image: DecorationImage(
+                      image: CachedNetworkImageProvider(cleanUrl),
+                      fit: BoxFit.cover,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -609,28 +898,73 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
   Widget _buildChartCard(bool isDark) {
     final double risk = _getSeverityValue(hazardData!['severity']);
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.transparent)),
+      padding: EdgeInsets.all(R.blockH * 5),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.transparent,
+        ),
+      ),
       child: Row(
         children: [
           SizedBox(
-            height: 90, width: 90,
-            child: PieChart(PieChartData(sectionsSpace: 0, centerSpaceRadius: 25, sections: [
-              PieChartSectionData(value: risk, color: _getSeverityColor(hazardData!['severity']), radius: 12, showTitle: false),
-              PieChartSectionData(value: 1 - risk, color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight, radius: 12, showTitle: false),
-            ])),
+            height: R.blockV * 11.25,
+            width: R.blockH * 24,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 0,
+                centerSpaceRadius: 25,
+                sections: [
+                  PieChartSectionData(
+                    value: risk,
+                    color: _getSeverityColor(hazardData!['severity']),
+                    radius: 12,
+                    showTitle: false,
+                  ),
+                  PieChartSectionData(
+                    value: 1 - risk,
+                    color: isDark
+                        ? Colors.grey.shade800
+                        : AppColors.backgroundLight,
+                    radius: 12,
+                    showTitle: false,
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(width: 25),
+          SizedBox(width: R.blockH * 6.667),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("IMPACT SCORE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                Text("${(risk * 100).toInt()}%", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _getSeverityColor(hazardData!['severity']))),
-                const Text("Risk level analyzed at original report.", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(
+                  "IMPACT SCORE",
+                  style: TextStyle(
+                    fontSize: R.blockH * 2.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  "${(risk * 100).toInt()}%",
+                  style: TextStyle(
+                    fontSize: R.blockH * 7,
+                    fontWeight: FontWeight.w900,
+                    color: _getSeverityColor(hazardData!['severity']),
+                  ),
+                ),
+                Text(
+                  "Risk level analyzed at original report.",
+                  style: TextStyle(
+                    fontSize: R.blockH * 2.75,
+                    color: Colors.grey,
+                  ),
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -638,20 +972,57 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
 
   Widget _buildAuditTable(bool isDark) {
     return Container(
-      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.transparent)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.transparent,
+        ),
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
         child: Table(
-          border: TableBorder.all(color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight, width: 1),
+          border: TableBorder.all(
+            color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight,
+            width: 1,
+          ),
           children: [
             _buildTableRow("DATA FIELD", "ENTRY LOG", isDark, isHeader: true),
-            _buildTableRow("Hazard Type", hazardData!['hazard_type'] ?? "N/A", isDark),
-            _buildTableRow("Site Name", hazardData!['site']?['name'] ?? "Unknown Site", isDark),
-            _buildTableRow("Location", "${hazardData!['latitude']}, ${hazardData!['longitude']}", isDark),
-            _buildTableRow("Reported At", _formatDate(hazardData!['created_at']), isDark),
-            _buildTableRow("Started At", _formatDate(hazardData!['started_at']), isDark),
-            _buildTableRow("Resolved At", _formatDate(hazardData!['resolved_at']), isDark),
-            _buildTableRow("Resolution Notes", hazardData!['resolution_notes'] ?? "N/A", isDark),
+            _buildTableRow(
+              "Hazard Type",
+              hazardData!['hazard_type'] ?? "N/A",
+              isDark,
+            ),
+            _buildTableRow(
+              "Site Name",
+              hazardData!['site']?['name'] ?? "Unknown Site",
+              isDark,
+            ),
+            _buildTableRow(
+              "Location",
+              "${hazardData!['latitude']}, ${hazardData!['longitude']}",
+              isDark,
+            ),
+            _buildTableRow(
+              "Reported At",
+              _formatDate(hazardData!['created_at']),
+              isDark,
+            ),
+            _buildTableRow(
+              "Started At",
+              _formatDate(hazardData!['started_at']),
+              isDark,
+            ),
+            _buildTableRow(
+              "Resolved At",
+              _formatDate(hazardData!['resolved_at']),
+              isDark,
+            ),
+            _buildTableRow(
+              "Resolution Notes",
+              hazardData!['resolution_notes'] ?? "N/A",
+              isDark,
+            ),
           ],
         ),
       ),
@@ -663,50 +1034,172 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
   Widget _buildMetricCard(String l, String v, IconData i) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.brandTeal, borderRadius: BorderRadius.circular(12)),
+        padding: EdgeInsets.all(R.blockH * 4),
+        decoration: BoxDecoration(
+          color: AppColors.brandTeal,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(i, size: 14, color: AppColors.accentGold),
-            const SizedBox(height: 10),
-            Text(l, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.6))),
-            Text(v, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            SizedBox(height: R.blockV * 1.25),
+            Text(
+              l,
+              style: TextStyle(
+                fontSize: R.blockH * 2.25,
+                fontWeight: FontWeight.bold,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+            ),
+            Text(
+              v,
+              style: TextStyle(
+                fontSize: R.blockH * 4,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBadge(String t, Color c) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: c.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: c.withValues(alpha: 0.5))), child: Text(t, style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.bold)));
+  Widget _buildBadge(String t, Color c) => Container(
+    padding: EdgeInsets.symmetric(
+      horizontal: R.blockH * 2.5,
+      vertical: R.blockV * 0.5,
+    ),
+    decoration: BoxDecoration(
+      color: c.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: c.withValues(alpha: 0.5)),
+    ),
+    child: Text(
+      t,
+      style: TextStyle(
+        color: c,
+        fontSize: R.blockH * 2.5,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 
-  Widget _buildSectionLabel(String t, bool isDark) => Padding(padding: const EdgeInsets.only(bottom: 12, left: 4), child: Text(t, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.white54 : AppColors.brandTeal.withValues(alpha: 0.4), letterSpacing: 1.5)));
+  Widget _buildSectionLabel(String t, bool isDark) => Padding(
+    padding: EdgeInsets.only(bottom: R.blockV * 1.5, left: R.blockH * 1),
+    child: Text(
+      t,
+      style: TextStyle(
+        fontSize: R.blockH * 2.5,
+        fontWeight: FontWeight.bold,
+        color: isDark
+            ? Colors.white54
+            : AppColors.brandTeal.withValues(alpha: 0.4),
+        letterSpacing: 1.5,
+      ),
+    ),
+  );
 
-  Widget _buildSimpleCard(String label, List<Widget> children, bool isDark) => Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: isDark ? Colors.grey.shade800 : Colors.transparent)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)), ...children]));
+  Widget _buildSimpleCard(String label, List<Widget> children, bool isDark) =>
+      Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(R.blockH * 4),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: isDark ? Colors.grey.shade800 : Colors.transparent,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: R.blockH * 2.5,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+            ...children,
+          ],
+        ),
+      );
 
-  List<Widget> _buildVoiceList(String? url) => (url ?? "").split(',').where((u) => u.trim().isNotEmpty).map((u) => Padding(padding: const EdgeInsets.only(top: 8), child: VoiceNotePlayer(url: u.trim()))).toList();
+  List<Widget> _buildVoiceList(String? url) => (url ?? "")
+      .split(',')
+      .where((u) => u.trim().isNotEmpty)
+      .map(
+        (u) => Padding(
+          padding: EdgeInsets.only(top: R.blockV * 1),
+          child: VoiceNotePlayer(url: u.trim()),
+        ),
+      )
+      .toList();
 
-  TableRow _buildTableRow(String l, String v, bool isDark, {bool isHeader = false}) {
+  TableRow _buildTableRow(
+    String l,
+    String v,
+    bool isDark, {
+    bool isHeader = false,
+  }) {
     return TableRow(
-        decoration: BoxDecoration(color: isHeader ? AppColors.brandTeal : Colors.transparent),
-        children: [
-          Padding(padding: const EdgeInsets.all(12), child: Text(l, style: TextStyle(fontSize: 11, color: isHeader ? Colors.white : Colors.grey.shade600, fontWeight: FontWeight.bold))),
-          Padding(padding: const EdgeInsets.all(12), child: Text(v, style: TextStyle(fontSize: 11, color: isHeader ? Colors.white : (isDark ? Colors.white : AppColors.brandTeal), fontWeight: isHeader ? FontWeight.bold : FontWeight.normal)))
-        ]
+      decoration: BoxDecoration(
+        color: isHeader ? AppColors.brandTeal : Colors.transparent,
+      ),
+      children: [
+        Padding(
+          padding: EdgeInsets.all(R.blockH * 3),
+          child: Text(
+            l,
+            style: TextStyle(
+              fontSize: R.blockH * 2.75,
+              color: isHeader ? Colors.white : Colors.grey.shade600,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.all(R.blockH * 3),
+          child: Text(
+            v,
+            style: TextStyle(
+              fontSize: R.blockH * 2.75,
+              color: isHeader
+                  ? Colors.white
+                  : (isDark ? Colors.white : AppColors.brandTeal),
+              fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   String _calculateTime() {
-    if (hazardData!['started_at'] == null || hazardData!['resolved_at'] == null) return "N/A";
+    if (hazardData!['started_at'] == null || hazardData!['resolved_at'] == null)
+      return "N/A";
     try {
-      String startRaw = hazardData!['started_at'].toString().split('+')[0].split('Z')[0].replaceFirst(' ', 'T');
-      String endRaw = hazardData!['resolved_at'].toString().split('+')[0].split('Z')[0].replaceFirst(' ', 'T');
+      String startRaw = hazardData!['started_at']
+          .toString()
+          .split('+')[0]
+          .split('Z')[0]
+          .replaceFirst(' ', 'T');
+      String endRaw = hazardData!['resolved_at']
+          .toString()
+          .split('+')[0]
+          .split('Z')[0]
+          .replaceFirst(' ', 'T');
 
       final start = DateTime.parse("${startRaw}Z");
       final end = DateTime.parse("${endRaw}Z");
 
       final diff = end.difference(start);
-      return diff.inHours > 0 ? "${diff.inHours}h ${diff.inMinutes % 60}m" : "${diff.inMinutes}m";
+      return diff.inHours > 0
+          ? "${diff.inHours}h ${diff.inMinutes % 60}m"
+          : "${diff.inMinutes}m";
     } catch (e) {
       return "N/A";
     }
@@ -726,6 +1219,10 @@ class _ResolvedHazardReportScreenState extends State<ResolvedHazardReportScreen>
     }
   }
 
-  Color _getSeverityColor(String? s) => s?.toLowerCase() == 'high' ? Colors.red : (s?.toLowerCase() == 'moderate' ? Colors.orange : _successGreen);
-  double _getSeverityValue(String? s) => s?.toLowerCase() == 'high' ? 0.85 : (s?.toLowerCase() == 'moderate' ? 0.5 : 0.2);
+  Color _getSeverityColor(String? s) => s?.toLowerCase() == 'high'
+      ? Colors.red
+      : (s?.toLowerCase() == 'moderate' ? Colors.orange : _successGreen);
+  double _getSeverityValue(String? s) => s?.toLowerCase() == 'high'
+      ? 0.85
+      : (s?.toLowerCase() == 'moderate' ? 0.5 : 0.2);
 }

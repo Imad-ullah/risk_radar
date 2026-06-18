@@ -1,6 +1,7 @@
 // lib/shared/settings/about_app_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:riskradar/shared/theme/app_colors.dart'; // Ensure correct import
 
 class AboutAppScreen extends StatelessWidget {
@@ -8,16 +9,19 @@ class AboutAppScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     // Theme Detection
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? const Color(0xFF121212)
+        : AppColors.backgroundLight;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "About RiskRadar",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
@@ -25,12 +29,12 @@ class AboutAppScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(R.blockH * 6),
         children: [
           // App Logo / Icon
           Center(
@@ -38,72 +42,80 @@ class AboutAppScreen extends StatelessWidget {
               radius: 56,
               // ✅ Teal Background
               backgroundColor: AppColors.brandTeal.withValues(alpha: 0.1),
-              child: const Icon(
+              child: Icon(
                 Icons.shield_rounded,
                 size: 56,
                 color: AppColors.brandTeal, // ✅ Teal Icon
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: R.blockV * 2.5),
           Center(
             child: Text(
               "RiskRadar",
               style: TextStyle(
-                fontSize: 24,
+                fontSize: R.blockH * 6,
                 fontWeight: FontWeight.bold,
                 color: textColor,
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: R.blockV * 0.75),
           Center(
             child: Text(
               "Version 1.0.0",
-              style: TextStyle(color: subTextColor, fontSize: 14),
+              style: TextStyle(color: subTextColor, fontSize: R.blockH * 3.5),
             ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: R.blockV * 4),
 
           // About description
           Text(
             "About RiskRadar",
             style: TextStyle(
-              fontSize: 18,
+              fontSize: R.blockH * 4.5,
               fontWeight: FontWeight.bold,
               color: isDark ? AppColors.accentGold : AppColors.brandTeal,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: R.blockV * 1.5),
           Text(
             "RiskRadar is a workplace safety and hazard management application "
-                "designed to streamline reporting and monitoring of workplace risks. "
-                "It helps workers report hazards quickly and allows officers to review, "
-                "assign and resolve tasks. The app aims to improve safety culture by "
-                "increasing hazard visibility and speeding up corrective actions. "
-                "RiskRadar uses Supabase for secure authentication and data storage.",
+            "designed to streamline reporting and monitoring of workplace risks. "
+            "It helps workers report hazards quickly and allows officers to review, "
+            "assign and resolve tasks. The app aims to improve safety culture by "
+            "increasing hazard visibility and speeding up corrective actions. "
+            "RiskRadar uses Supabase for secure authentication and data storage.",
             textAlign: TextAlign.justify,
-            style: TextStyle(fontSize: 15, height: 1.6, color: textColor),
+            style: TextStyle(
+              fontSize: R.blockH * 3.75,
+              height: 1.6,
+              color: textColor,
+            ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: R.blockV * 3),
 
           Text(
             "Our Aim",
             style: TextStyle(
-              fontSize: 18,
+              fontSize: R.blockH * 4.5,
               fontWeight: FontWeight.bold,
               color: isDark ? AppColors.accentGold : AppColors.brandTeal,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: R.blockV * 1.5),
           Text(
             "Reduce workplace accidents by enabling quick hazard reporting, "
-                "transparent task assignments, and timely resolutions. We want to "
-                "empower teams to proactively manage safety and reduce incident costs.",
+            "transparent task assignments, and timely resolutions. We want to "
+            "empower teams to proactively manage safety and reduce incident costs.",
             textAlign: TextAlign.justify,
-            style: TextStyle(fontSize: 15, height: 1.6, color: textColor),
+            style: TextStyle(
+              fontSize: R.blockH * 3.75,
+              height: 1.6,
+              color: textColor,
+            ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: R.blockV * 4),
 
           Divider(color: isDark ? Colors.grey[800] : Colors.grey[200]),
 
@@ -117,7 +129,11 @@ class AboutAppScreen extends StatelessWidget {
             textColor: textColor,
             subTextColor: subTextColor,
           ),
-          Divider(height: 1, indent: 56, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+          Divider(
+            height: 1,
+            indent: 56,
+            color: isDark ? Colors.grey[800] : Colors.grey[200],
+          ),
 
           _buildInfoTile(
             context,
@@ -128,7 +144,11 @@ class AboutAppScreen extends StatelessWidget {
             textColor: textColor,
             subTextColor: subTextColor,
           ),
-          Divider(height: 1, indent: 56, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+          Divider(
+            height: 1,
+            indent: 56,
+            color: isDark ? Colors.grey[800] : Colors.grey[200],
+          ),
 
           _buildInfoTile(
             context,
@@ -140,11 +160,11 @@ class AboutAppScreen extends StatelessWidget {
             subTextColor: subTextColor,
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: R.blockV * 4),
           Center(
             child: Text(
               "© 2024 RiskRadar Inc.",
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              style: TextStyle(color: Colors.grey[500], fontSize: R.blockH * 3),
             ),
           ),
         ],
@@ -153,18 +173,21 @@ class AboutAppScreen extends StatelessWidget {
   }
 
   Widget _buildInfoTile(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required String subtitle,
-        required bool isDark,
-        required Color textColor,
-        required Color? subTextColor,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required Color textColor,
+    required Color? subTextColor,
+  }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      contentPadding: EdgeInsets.symmetric(
+        vertical: R.blockV * 0.5,
+        horizontal: R.blockH * 2,
+      ),
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: EdgeInsets.all(R.blockH * 2),
         decoration: BoxDecoration(
           color: isDark ? Colors.grey[800] : Colors.grey[100],
           borderRadius: BorderRadius.circular(8),
@@ -175,18 +198,15 @@ class AboutAppScreen extends StatelessWidget {
         title,
         style: TextStyle(
           fontWeight: FontWeight.w600,
-          fontSize: 16,
+          fontSize: R.blockH * 4,
           color: textColor,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: subTextColor, fontSize: 13),
+        style: TextStyle(color: subTextColor, fontSize: R.blockH * 3.25),
       ),
-      trailing: Icon(
-        Icons.chevron_right_rounded,
-        color: Colors.grey[400],
-      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
       onTap: () {
         // Placeholder for future navigation
       },

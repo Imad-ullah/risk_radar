@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
@@ -388,6 +389,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     const goldColor = Color(0xFFE6A050);
     return Scaffold(
       backgroundColor: _isAlerting ? Colors.red.shade900 : Colors.white,
@@ -415,18 +417,18 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const SizedBox(height: 20),
+            SizedBox(height: R.blockV * 2.5),
             _buildTriggerButton(goldColor),
-            const SizedBox(height: 16),
+            SizedBox(height: R.blockV * 2),
 
             // ✅ STOP button — only visible when alarm is active
             if (_isAlerting)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 60),
+                padding: EdgeInsets.symmetric(horizontal: R.blockH * 15),
                 child: ElevatedButton.icon(
                   onPressed: _cancelEmergency,
-                  icon: const Icon(Icons.stop_circle_outlined),
-                  label: const Text(
+                  icon: Icon(Icons.stop_circle_outlined),
+                  label: Text(
                     "STOP ALARM",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
@@ -441,9 +443,9 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                 ),
               ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: R.blockV * 2),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
+              padding: EdgeInsets.symmetric(horizontal: R.blockH * 10),
               child: Text(
                 _isAlerting
                     ? "Alarm active! Tap STOP ALARM to silence."
@@ -451,11 +453,11 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _isAlerting ? Colors.white70 : Colors.grey.shade600,
-                  fontSize: 14,
+                  fontSize: R.blockH * 3.5,
                 ),
               ),
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: R.blockV * 5),
             _buildContactList(),
           ],
         ),
@@ -475,8 +477,8 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
               animation: _pulseController,
               builder: (context, child) {
                 return Container(
-                  width: 240 + (20 * _pulseController.value),
-                  height: 240 + (20 * _pulseController.value),
+                  width: R.blockH * 64 + (20 * _pulseController.value),
+                  height: R.blockV * 30 + (20 * _pulseController.value),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: (_isAlerting ? Colors.red : gold).withValues(
@@ -487,8 +489,8 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
               },
             ),
             SizedBox(
-              width: 210,
-              height: 210,
+              width: R.blockH * 56,
+              height: R.blockV * 26.25,
               child: CircularProgressIndicator(
                 value: _pressProgress,
                 strokeWidth: 10,
@@ -499,8 +501,8 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
               ),
             ),
             Container(
-              width: 180,
-              height: 180,
+              width: R.blockH * 48,
+              height: R.blockV * 22.5,
               decoration: BoxDecoration(
                 color: _isAlerting ? Colors.red : gold,
                 shape: BoxShape.circle,
@@ -520,14 +522,14 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
                     size: 50,
                     color: Colors.white,
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: R.blockV * 1.25),
                   Text(
                     _isAlerting ? "HELP\nREQUESTED" : "HOLD TO\nALERT",
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: R.blockH * 4.5,
                     ),
                   ),
                 ],
@@ -541,7 +543,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
 
   Widget _buildContactList() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(R.blockH * 6),
       width: double.infinity,
       decoration: BoxDecoration(
         color: _isAlerting
@@ -555,22 +557,22 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
           Text(
             "DIRECT CALL CONTACTS",
             style: TextStyle(
-              fontSize: 12,
+              fontSize: R.blockH * 3,
               fontWeight: FontWeight.bold,
               color: _isAlerting ? Colors.white : Colors.grey.shade600,
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: R.blockV * 2.5),
           if (_loadingContacts)
-            const Center(child: CircularProgressIndicator())
+            Center(child: CircularProgressIndicator())
           else if (_contacts.isEmpty)
-            const Text(
+            Text(
               "No emergency contacts found.",
               style: TextStyle(color: Colors.grey),
             )
           else
             ..._contacts.map((c) => _buildContactTile(c, _isAlerting)),
-          const SizedBox(height: 20),
+          SizedBox(height: R.blockV * 2.5),
         ],
       ),
     );
@@ -581,7 +583,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
     bool hasNum = displayNum.isNotEmpty && displayNum != "null";
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: R.blockV * 1.5),
       decoration: BoxDecoration(
         color: isAlert ? Colors.white.withValues(alpha: 0.15) : Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -612,12 +614,12 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
               : "No number provided",
           style: TextStyle(
             color: isAlert ? Colors.white70 : Colors.grey,
-            fontSize: 12,
+            fontSize: R.blockH * 3,
           ),
         ),
         trailing: hasNum
-            ? const Icon(Icons.call, color: Colors.green)
-            : const Icon(Icons.do_not_disturb_on_rounded, color: Colors.grey),
+            ? Icon(Icons.call, color: Colors.green)
+            : Icon(Icons.do_not_disturb_on_rounded, color: Colors.grey),
         onTap: () {
           if (hasNum) FlutterPhoneDirectCaller.callNumber(displayNum);
         },

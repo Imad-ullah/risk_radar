@@ -90,7 +90,9 @@ class NotificationHandlers {
     }
   }
 
-  static Future<void> _openHazardDetails(Map<String, dynamic> hazardData) async {
+  static Future<void> _openHazardDetails(
+    Map<String, dynamic> hazardData,
+  ) async {
     for (var i = 0; i < 8; i++) {
       final nav = navigatorKey.currentState;
       if (nav != null) {

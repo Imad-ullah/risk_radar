@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:riskradar/utils/responsive.dart';
 import 'package:riskradar/services/error_service.dart';
 import 'package:riskradar/shared/widgets/error_retry_widget.dart';
 
 class ErrorBoundary extends StatefulWidget {
-  const ErrorBoundary({
-    super.key,
-    required this.child,
-    this.onRetry,
-  });
+  const ErrorBoundary({super.key, required this.child, this.onRetry});
 
   final Widget child;
   final VoidCallback? onRetry;
@@ -44,6 +41,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
 
   @override
   Widget build(BuildContext context) {
+    R.init(context);
     return widget.child;
   }
 }

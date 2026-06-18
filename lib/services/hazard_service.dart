@@ -9,13 +9,24 @@ class HazardService {
     final imageBase64 = base64Encode(bytes);
     final mimeType = _mimeTypeFor(imageFile.path);
 
-    final response = await Supabase.instance.client.functions.invoke(
-      'analyze-hazard-image',
-      body: {
-        'imageBase64': imageBase64,
-        'mimeType': mimeType,
-      },
-    ).timeout(const Duration(seconds: 45));
+    final FunctionResponse response;
+    try {
+      response = await Supabase.instance.client.functions
+          .invoke(
+            'analyze-hazard-image',
+            body: {'imageBase64': imageBase64, 'mimeType': mimeType},
+          )
+          .timeout(const Duration(seconds: 45));
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['detail'] != null) {
+        throw Exception(details['detail']);
+      }
+      if (details is Map && details['error'] != null) {
+        throw Exception(details['error']);
+      }
+      throw Exception(error.reasonPhrase ?? error.toString());
+    }
 
     final data = response.data;
     if (data is! Map) {

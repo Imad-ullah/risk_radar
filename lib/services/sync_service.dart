@@ -232,8 +232,10 @@ class SyncService {
       return directNumber;
     }
 
-    final RegExpMatch? prefixedMatch =
-        RegExp(r'^RR-(\d{4})-(\d+)$', caseSensitive: false).firstMatch(text);
+    final RegExpMatch? prefixedMatch = RegExp(
+      r'^RR-(\d{4})-(\d+)$',
+      caseSensitive: false,
+    ).firstMatch(text);
     if (prefixedMatch == null) {
       return null;
     }

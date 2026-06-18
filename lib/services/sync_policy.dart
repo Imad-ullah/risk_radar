@@ -31,11 +31,11 @@ class SyncPolicy {
       throw SyncValidationException('Unsupported RPC: $rawName.');
     }
 
-    _rejectUnknownColumns(
-      rawName,
-      payload,
-      {'hazard_id', 'assigned_to', 'assigned_at'},
-    );
+    _rejectUnknownColumns(rawName, payload, {
+      'hazard_id',
+      'assigned_to',
+      'assigned_at',
+    });
     _requireAll(payload, {'hazard_id', 'assigned_to'});
 
     return ValidatedRpcAction(
@@ -66,7 +66,9 @@ class SyncPolicy {
 
     final allowedColumns = allowedColumnsFor(table, action);
     if (allowedColumns == null) {
-      throw SyncValidationException('Unsupported operation: $action on $table.');
+      throw SyncValidationException(
+        'Unsupported operation: $action on $table.',
+      );
     }
 
     _rejectUnknownColumns(table, payload, allowedColumns);
@@ -213,8 +215,11 @@ class SyncPolicy {
     if (table == 'workers' && action == 'update' && role == 'worker') {
       _requirePayloadOwner(payload, 'id', currentUserId);
       final disallowed = payload.keys.where(
-        (key) => !{'id', 'profile_image_url', ...Hazard.localUploadColumns}
-            .contains(key),
+        (key) => !{
+          'id',
+          'profile_image_url',
+          ...Hazard.localUploadColumns,
+        }.contains(key),
       );
       if (disallowed.isNotEmpty) {
         throw SyncValidationException(
@@ -360,10 +365,7 @@ class ValidatedSyncAction {
 }
 
 class ValidatedRpcAction {
-  const ValidatedRpcAction({
-    required this.name,
-    required this.params,
-  });
+  const ValidatedRpcAction({required this.name, required this.params});
 
   final String name;
   final Map<String, dynamic> params;
