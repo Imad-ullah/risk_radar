@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/officers/notifications/officer_hazard_notifier.dart';
 import 'package:riskradar/shared/hazards/hazard_details_screen.dart';
+import 'package:riskradar/shared/theme/app_colors.dart';
 
 enum NotificationAction { markAllRead, clearAll }
 
@@ -74,19 +75,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
-    const Color brandTeal = Color(0xFF1B3D3D);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    const Color brandTeal = AppColors.brandTeal;
     final Color unreadColorLight = Colors.blue.shade50;
     final Color unreadColorDark = brandTeal.withValues(alpha: 0.1);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hazard Notifications'),
+        elevation: 0,
+        centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: Text(
+          'Notifications',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: size.width * 0.044,
+          ),
+        ),
         backgroundColor: brandTeal,
         foregroundColor: Colors.white,
         actions: [
           Padding(
-            padding: EdgeInsets.only(right: R.blockH * 2),
+            padding: EdgeInsets.only(right: size.width * 0.020),
             child: ListenableBuilder(
               listenable: officerHazardNotifier,
               builder: (context, _) {
@@ -98,22 +111,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     if (count > 0)
                       Positioned(
                         right: 0,
-                        top: 6,
+                        top: visibleHeight * 0.006,
                         child: Container(
-                          padding: EdgeInsets.all(R.blockH * 0.5),
+                          padding: EdgeInsets.all(size.width * 0.005),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
                           ),
                           constraints: BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
+                            minWidth: size.width * 0.043,
+                            minHeight: size.width * 0.043,
                           ),
                           child: Text(
                             count.toString(),
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: R.blockH * 2.5,
+                              fontSize: size.width * 0.025,
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
@@ -142,10 +155,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       children: [
                         Icon(
                           Icons.mark_email_read,
-                          size: 20,
-                          color: Colors.black54,
+                          size: size.width * 0.053,
+                          color: AppColors.accentGold,
                         ),
-                        SizedBox(width: R.blockH * 2.133),
+                        SizedBox(width: size.width * 0.021),
                         Text('Mark All as Read'),
                       ],
                     ),
@@ -156,10 +169,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       children: [
                         Icon(
                           Icons.delete_sweep,
-                          size: 20,
-                          color: Colors.black54,
+                          size: size.width * 0.053,
+                          color: AppColors.accentGold,
                         ),
-                        SizedBox(width: R.blockH * 2.133),
+                        SizedBox(width: size.width * 0.021),
                         Text('Clear All Notifications'),
                       ],
                     ),
@@ -182,22 +195,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 children: [
                   Icon(
                     Icons.notifications_off_outlined,
-                    size: 80,
+                    size: size.width * 0.213,
                     color: Colors.grey.shade400,
                   ),
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.020),
                   Text(
                     'No hazard notifications yet.',
                     style: TextStyle(
-                      fontSize: R.blockH * 4.5,
+                      fontSize: size.width * 0.045,
                       color: Colors.grey,
                     ),
                   ),
-                  SizedBox(height: R.blockV * 1),
+                  SizedBox(height: visibleHeight * 0.010),
                   Text(
                     'You\'ll be notified when hazards are nearby.',
                     style: TextStyle(
-                      fontSize: R.blockH * 3.5,
+                      fontSize: size.width * 0.035,
                       color: Colors.grey,
                     ),
                   ),
@@ -210,10 +223,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
             itemCount: notifications.length,
             // Extra bottom spacing so last card never sticks behind bottom app area.
             padding: EdgeInsets.fromLTRB(
-              R.blockH * 0,
-              R.blockV * 1,
-              R.blockH * 0,
-              R.blockV * 15,
+              size.width * 0.0,
+              visibleHeight * 0.010,
+              size.width * 0.0,
+              visibleHeight * 0.150,
             ),
             itemBuilder: (context, index) {
               final notification = notifications[index];
@@ -230,36 +243,42 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 elevation: notification.isRead ? 0.5 : 2,
                 color: cardColor,
                 margin: EdgeInsets.symmetric(
-                  horizontal: R.blockH * 2.5,
-                  vertical: R.blockV * 0.5,
+                  horizontal: size.width * 0.025,
+                  vertical: visibleHeight * 0.005,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(size.width * 0.027),
                   side: !notification.isRead && !isDark
-                      ? BorderSide(color: Colors.blue.shade200, width: 1)
+                      ? BorderSide(
+                          color: AppColors.brandTeal.withValues(alpha: 0.22),
+                          width: size.width * 0.003,
+                        )
                       : BorderSide.none,
                 ),
                 child: ListTile(
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                    horizontal: size.width * 0.040,
+                    vertical: visibleHeight * 0.008,
                   ),
                   leading: Container(
-                    width: R.blockH * 12.8,
-                    height: R.blockV * 6,
-                    padding: EdgeInsets.all(R.blockH * 2.5),
+                    width: size.width * 0.128,
+                    height: visibleHeight * 0.060,
+                    padding: EdgeInsets.all(size.width * 0.025),
                     decoration: BoxDecoration(
                       color: severityColor.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: severityColor.withValues(alpha: 0.85),
-                        width: 1.4,
+                        width: size.width * 0.004,
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: severityColor.withValues(alpha: 0.22),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
+                          blurRadius: size.width * 0.021,
+                          offset: Offset(
+                            size.width * 0.0,
+                            visibleHeight * 0.002,
+                          ),
                         ),
                       ],
                     ),
@@ -273,19 +292,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   title: Text(
                     notification.title,
                     style: TextStyle(
+                      fontSize: size.width * 0.035,
                       fontWeight: notification.isRead
                           ? FontWeight.normal
                           : FontWeight.bold,
                     ),
                   ),
                   subtitle: Padding(
-                    padding: EdgeInsets.only(top: R.blockV * 0.5),
+                    padding: EdgeInsets.only(top: visibleHeight * 0.005),
                     child: Text(
                       notification.body,
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isDark ? Colors.grey.shade300 : Colors.black87,
+                        fontSize: size.width * 0.030,
                         fontWeight: notification.isRead
                             ? FontWeight.normal
                             : FontWeight.w500,
@@ -295,7 +316,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   trailing: Text(
                     formattedTime,
                     style: TextStyle(
-                      fontSize: R.blockH * 3,
+                      fontSize: size.width * 0.030,
                       color: Colors.grey.shade600,
                     ),
                   ),

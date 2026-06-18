@@ -1,6 +1,5 @@
 // lib/hse_workers/screens/hse_worker_sites_screen.dart
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart'; // Added for HapticFeedback
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -109,16 +108,26 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
 
   Future<void> _confirmSiteChange() async {
     if (_selectedSite == null || _selectedSite == _currentSite) return;
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
 
     // ✅ Themed Confirmation Dialog (Dark Teal Gradient)
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: size.width * 0.085,
+          vertical: visibleHeight * 0.030,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.071),
+        ),
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        elevation: size.width * 0.0,
         child: Container(
-          padding: EdgeInsets.all(R.blockH * 6),
+          padding: EdgeInsets.all(size.width * 0.048),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -128,12 +137,12 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 AppColors.brandTeal.withValues(alpha: 0.85),
               ],
             ),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(size.width * 0.071),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: Offset(0, 10),
+                blurRadius: size.width * 0.053,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.013),
               ),
             ],
           ),
@@ -141,7 +150,7 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: EdgeInsets.all(R.blockH * 4),
+                padding: EdgeInsets.all(size.width * 0.032),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
@@ -149,28 +158,28 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 child: Icon(
                   Icons.swap_horiz_rounded,
                   color: Colors.white,
-                  size: 36,
+                  size: size.width * 0.080,
                 ),
               ),
-              SizedBox(height: R.blockV * 2.5),
+              SizedBox(height: visibleHeight * 0.018),
               Text(
                 'Change Site?',
                 style: TextStyle(
-                  fontSize: R.blockH * 5.5,
+                  fontSize: size.width * 0.050,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              SizedBox(height: R.blockV * 1.5),
+              SizedBox(height: visibleHeight * 0.010),
               Text(
                 'Are you sure you want to switch your active location to this site?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: R.blockH * 3.75,
+                  fontSize: size.width * 0.035,
                   color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
-              SizedBox(height: R.blockV * 3.5),
+              SizedBox(height: visibleHeight * 0.024),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -180,30 +189,30 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                     child: Text(
                       'Cancel',
                       style: TextStyle(
-                        fontSize: R.blockH * 4,
+                        fontSize: size.width * 0.038,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  SizedBox(width: R.blockH * 3.2),
+                  SizedBox(width: size.width * 0.028),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.brandTeal,
                       padding: EdgeInsets.symmetric(
-                        horizontal: R.blockH * 6,
-                        vertical: R.blockV * 1.5,
+                        horizontal: size.width * 0.060,
+                        vertical: visibleHeight * 0.010,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(size.width * 0.041),
                       ),
-                      elevation: 4,
+                      elevation: size.width * 0.011,
                     ),
                     child: Text(
                       'Confirm',
                       style: TextStyle(
-                        fontSize: R.blockH * 4,
+                        fontSize: size.width * 0.038,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -302,27 +311,37 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
   // ✅ THE NEW ACTIVE HAZARDS WARNING DIALOG
   Future<void> _showActiveHazardsErrorDialog(BuildContext context) async {
     HapticFeedback.heavyImpact();
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: size.width * 0.085,
+          vertical: visibleHeight * 0.030,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.071),
+        ),
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        elevation: size.width * 0.0,
         child: Container(
-          padding: EdgeInsets.all(R.blockH * 6),
+          padding: EdgeInsets.all(size.width * 0.048),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(size.width * 0.071),
             border: Border.all(
               color: isDark ? Colors.grey.shade800 : Colors.transparent,
             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 20,
-                offset: Offset(0, 10),
+                blurRadius: size.width * 0.053,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.013),
               ),
             ],
           ),
@@ -330,13 +349,13 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: EdgeInsets.all(R.blockH * 4),
+                padding: EdgeInsets.all(size.width * 0.032),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Container(
-                  padding: EdgeInsets.all(R.blockH * 4),
+                  padding: EdgeInsets.all(size.width * 0.032),
                   decoration: const BoxDecoration(
                     color: Colors.orange,
                     shape: BoxShape.circle,
@@ -344,30 +363,30 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                   child: Icon(
                     Icons.warning_amber_rounded,
                     color: Colors.white,
-                    size: 48,
+                    size: size.width * 0.128,
                   ),
                 ),
               ),
-              SizedBox(height: R.blockV * 3),
+              SizedBox(height: visibleHeight * 0.022),
               Text(
                 "Active Hazards Found",
                 style: TextStyle(
-                  fontSize: R.blockH * 5.5,
+                  fontSize: size.width * 0.050,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : AppColors.brandTeal,
                 ),
               ),
-              SizedBox(height: R.blockV * 1.5),
+              SizedBox(height: visibleHeight * 0.010),
               Text(
                 "You cannot change your active site while you still have assigned or in-progress hazards. Please resolve them first.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: R.blockH * 3.5,
+                  fontSize: size.width * 0.034,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   height: 1.4,
                 ),
               ),
-              SizedBox(height: R.blockV * 3.5),
+              SizedBox(height: visibleHeight * 0.024),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -375,16 +394,18 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandTeal,
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: R.blockV * 1.75),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    padding: EdgeInsets.symmetric(
+                      vertical: visibleHeight * 0.013,
                     ),
-                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(size.width * 0.041),
+                    ),
+                    elevation: size.width * 0.005,
                   ),
                   child: Text(
                     'Understood',
                     style: TextStyle(
-                      fontSize: R.blockH * 4,
+                      fontSize: size.width * 0.038,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -399,7 +420,10 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark
         ? const Color(0xFF121212)
@@ -414,7 +438,7 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
         foregroundColor: Colors.white,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -426,14 +450,14 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                   children: [
                     Padding(
                       padding: EdgeInsets.symmetric(
-                        vertical: R.blockV * 2,
-                        horizontal: R.blockH * 4,
+                        vertical: visibleHeight * 0.012,
+                        horizontal: size.width * 0.040,
                       ),
                       child: Text(
                         "Tap a site to switch your active location",
                         style: TextStyle(
                           color: subtitleColor,
-                          fontSize: R.blockH * 3.5,
+                          fontSize: size.width * 0.033,
                           fontWeight: FontWeight.w500,
                         ),
                         textAlign: TextAlign.center,
@@ -446,14 +470,14 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                             )
                           : ListView.separated(
                               padding: EdgeInsets.fromLTRB(
-                                R.blockH * 4,
-                                R.blockV * 0,
-                                R.blockH * 4,
-                                R.blockV * 11.25,
+                                size.width * 0.040,
+                                visibleHeight * 0.0,
+                                size.width * 0.040,
+                                visibleHeight * 0.095,
                               ),
                               itemCount: _sites.length,
                               separatorBuilder: (_, _) =>
-                                  SizedBox(height: R.blockV * 2),
+                                  SizedBox(height: visibleHeight * 0.012),
                               itemBuilder: (context, index) {
                                 final site = _sites[index];
                                 final siteId = site['id'] ?? "";
@@ -477,26 +501,30 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 ),
                 if (_selectedSite != null && _selectedSite != _currentSite)
                   Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 24,
+                    left: size.width * 0.043,
+                    right: size.width * 0.043,
+                    bottom: visibleHeight * 0.030,
                     child: ElevatedButton(
                       onPressed: _confirmSiteChange,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.brandTeal,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 56),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                        padding: EdgeInsets.symmetric(
+                          vertical: visibleHeight * 0.014,
                         ),
-                        elevation: 8,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.041,
+                          ),
+                        ),
+                        elevation: size.width * 0.021,
                         shadowColor: AppColors.brandTeal.withValues(alpha: 0.4),
                       ),
                       child: Text(
                         'Confirm Change',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: R.blockH * 4,
+                          fontSize: size.width * 0.038,
                         ),
                       ),
                     ),
@@ -513,6 +541,10 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
     required bool isSelectedTemp,
     required VoidCallback onTap,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     String buttonText = isCurrent
         ? "Active"
         : (isSelectedTemp ? "Confirm?" : "Select");
@@ -521,18 +553,21 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.all(R.blockH * 5),
+        padding: EdgeInsets.all(size.width * 0.038),
         decoration: BoxDecoration(
           color: AppColors.brandTeal,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(size.width * 0.052),
           border: isSelectedTemp
-              ? Border.all(color: AppColors.accentGold, width: 2)
+              ? Border.all(
+                  color: AppColors.accentGold,
+                  width: size.width * 0.005,
+                )
               : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 15,
-              offset: Offset(0, 8),
+              blurRadius: size.width * 0.040,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.010),
             ),
           ],
         ),
@@ -545,9 +580,9 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 Icon(
                   Icons.business_rounded,
                   color: Colors.white.withValues(alpha: 0.9),
-                  size: 28,
+                  size: size.width * 0.064,
                 ),
-                SizedBox(width: R.blockH * 3.2),
+                SizedBox(width: size.width * 0.028),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,18 +590,18 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                       Text(
                         siteName,
                         style: TextStyle(
-                          fontSize: R.blockH * 4.5,
+                          fontSize: size.width * 0.040,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
                       if (siteDesc != null && siteDesc.isNotEmpty)
                         Padding(
-                          padding: EdgeInsets.only(top: R.blockV * 0.5),
+                          padding: EdgeInsets.only(top: visibleHeight * 0.004),
                           child: Text(
                             siteDesc,
                             style: TextStyle(
-                              fontSize: R.blockH * 3.25,
+                              fontSize: size.width * 0.030,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
                             maxLines: 2,
@@ -578,13 +613,13 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 ),
               ],
             ),
-            SizedBox(height: R.blockV * 2.5),
+            SizedBox(height: visibleHeight * 0.016),
             Container(
               width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: R.blockV * 1.5),
+              padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.010),
               decoration: BoxDecoration(
                 color: AppColors.accentGold,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(size.width * 0.041),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -592,7 +627,7 @@ class _HSEWorkerSitesScreenState extends State<HSEWorkerSitesScreen> {
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: R.blockH * 3.75,
+                  fontSize: size.width * 0.035,
                 ),
               ),
             ),

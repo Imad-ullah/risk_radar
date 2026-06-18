@@ -1,6 +1,5 @@
 // lib/officers/sites/officer_sites_screen.dart
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/officers/sites/site_personnel_screen.dart';
@@ -67,7 +66,11 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
       final cached = liveOnly
           ? <Map<String, dynamic>>[]
           : OfficerRepository.instance.getOfficerSites() ?? [];
-      if (mounted) setState(() => _sitesFuture = Future.value(cached));
+      if (mounted) {
+        setState(() {
+          _sitesFuture = Future.value(cached);
+        });
+      }
       return;
     }
 
@@ -93,7 +96,9 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
         });
 
     if (mounted) {
-      setState(() => _sitesFuture = future);
+      setState(() {
+        _sitesFuture = future;
+      });
     } else {
       _sitesFuture = future;
     }
@@ -112,35 +117,39 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
+        final mediaQuery = MediaQuery.of(context);
+        final size = mediaQuery.size;
+        final visibleHeight =
+            size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
         const dialogBg = Color(0xFF123636);
         const fieldBg = Color(0x33FFFFFF);
         const textColor = Colors.white;
 
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(size.width * 0.056),
           ),
           backgroundColor: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
               color: dialogBg,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(size.width * 0.056),
               border: Border.all(
                 color: AppColors.surfaceTeal.withValues(alpha: 0.8),
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
+                  blurRadius: size.width * 0.046,
+                  offset: Offset(size.width * 0.0, visibleHeight * 0.010),
                 ),
               ],
             ),
             padding: EdgeInsets.fromLTRB(
-              R.blockH * 5,
-              R.blockV * 2,
-              R.blockH * 5,
-              R.blockV * 1.5,
+              size.width * 0.051,
+              visibleHeight * 0.020,
+              size.width * 0.051,
+              visibleHeight * 0.015,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -148,10 +157,10 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.all(R.blockH * 2),
+                      padding: EdgeInsets.all(size.width * 0.020),
                       decoration: BoxDecoration(
                         color: AppColors.brandTeal.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(size.width * 0.026),
                       ),
                       child: Icon(
                         isEditing
@@ -160,18 +169,18 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         color: AppColors.accentGold,
                       ),
                     ),
-                    SizedBox(width: R.blockH * 3.2),
+                    SizedBox(width: size.width * 0.032),
                     Text(
                       isEditing ? 'Edit Site' : 'Add New Site',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: textColor,
-                        fontSize: R.blockH * 5,
+                        fontSize: size.width * 0.050,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: R.blockV * 1.75),
+                SizedBox(height: visibleHeight * 0.017),
                 Form(
                   key: formKey,
                   child: Column(
@@ -191,10 +200,14 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                             color: AppColors.accentGold,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.0),
+                            borderRadius: BorderRadius.circular(
+                              size.width * 0.031,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.0),
+                            borderRadius: BorderRadius.circular(
+                              size.width * 0.031,
+                            ),
                             borderSide: BorderSide(
                               color: textColor.withValues(alpha: 0.25),
                             ),
@@ -209,7 +222,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                                 maxLength: 80,
                               ),
                       ),
-                      SizedBox(height: R.blockV * 2),
+                      SizedBox(height: visibleHeight * 0.018),
                       TextFormField(
                         controller: descController,
                         maxLines: 3,
@@ -226,10 +239,14 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           ),
                           alignLabelWithHint: true,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.0),
+                            borderRadius: BorderRadius.circular(
+                              size.width * 0.031,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.0),
+                            borderRadius: BorderRadius.circular(
+                              size.width * 0.031,
+                            ),
                             borderSide: BorderSide(
                               color: textColor.withValues(alpha: 0.25),
                             ),
@@ -246,7 +263,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: R.blockV * 1),
+                SizedBox(height: visibleHeight * 0.010),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -259,17 +276,19 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(width: R.blockH * 2.133),
+                    SizedBox(width: size.width * 0.021),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.brandTeal,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                          horizontal: size.width * 0.061,
+                          vertical: visibleHeight * 0.012,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.026,
+                          ),
                         ),
                       ),
                       onPressed: () async {
@@ -405,27 +424,31 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) {
+        final mediaQuery = MediaQuery.of(context);
+        final size = mediaQuery.size;
+        final visibleHeight =
+            size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
         const dialogBg = Color(0xFF123636);
         const textColor = Colors.white;
 
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(size.width * 0.056),
           ),
           backgroundColor: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
               color: dialogBg,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(size.width * 0.056),
               border: Border.all(
                 color: AppColors.surfaceTeal.withValues(alpha: 0.8),
               ),
             ),
             padding: EdgeInsets.fromLTRB(
-              R.blockH * 5,
-              R.blockV * 2,
-              R.blockH * 5,
-              R.blockV * 1.5,
+              size.width * 0.051,
+              visibleHeight * 0.020,
+              size.width * 0.051,
+              visibleHeight * 0.015,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -439,27 +462,27 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                           : Icons.delete_forever_rounded,
                       color: Colors.redAccent,
                     ),
-                    SizedBox(width: R.blockH * 3.2),
+                    SizedBox(width: size.width * 0.032),
                     Expanded(
                       child: Text(
                         hasWorkers ? 'Warning: Site in Use' : 'Delete Site',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: textColor,
-                          fontSize: R.blockH * 5,
+                          fontSize: size.width * 0.050,
                         ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: R.blockV * 1.5),
+                SizedBox(height: visibleHeight * 0.015),
                 Text(
                   hasWorkers
                       ? '"$name" is currently assigned to $totalWorkers worker(s) and may be linked to other records like resolved hazards.\n\nDeleting the site will automatically un-link it from all associated records. Are you sure you want to proceed?'
                       : 'Are you sure you want to delete "$name"? This action cannot be undone.',
                   style: TextStyle(color: textColor.withValues(alpha: 0.9)),
                 ),
-                SizedBox(height: R.blockV * 1),
+                SizedBox(height: visibleHeight * 0.010),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -472,18 +495,20 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(width: R.blockH * 2.133),
+                    SizedBox(width: size.width * 0.021),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                          horizontal: size.width * 0.061,
+                          vertical: visibleHeight * 0.012,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.026,
+                          ),
                         ),
                       ),
                       child: Text('Delete'),
@@ -570,7 +595,10 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: RefreshIndicator(
@@ -584,20 +612,20 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
             if (snapshot.hasError) {
               return Center(
                 child: Padding(
-                  padding: EdgeInsets.all(R.blockH * 4),
+                  padding: EdgeInsets.all(size.width * 0.040),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.error_outline,
-                        size: 64,
+                        size: size.width * 0.160,
                         color: Colors.red.shade400,
                       ),
-                      SizedBox(height: R.blockV * 2),
+                      SizedBox(height: visibleHeight * 0.018),
                       Text(
                         'Error: ${snapshot.error}',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: R.blockH * 4),
+                        style: TextStyle(fontSize: size.width * 0.039),
                       ),
                     ],
                   ),
@@ -613,7 +641,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: EdgeInsets.all(R.blockH * 8),
+                      padding: EdgeInsets.all(size.width * 0.070),
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
@@ -622,27 +650,27 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                       ),
                       child: Icon(
                         Icons.maps_home_work_rounded,
-                        size: 80,
+                        size: size.width * 0.180,
                         color: Theme.of(context).primaryColor,
                       ),
                     ),
-                    SizedBox(height: R.blockV * 3),
+                    SizedBox(height: visibleHeight * 0.025),
                     Text(
                       'No sites found',
                       style: TextStyle(
-                        fontSize: R.blockH * 5.5,
+                        fontSize: size.width * 0.052,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: R.blockV * 1),
+                    SizedBox(height: visibleHeight * 0.008),
                     Text(
                       'Create your first site to get started',
                       style: TextStyle(
                         color: Colors.grey.shade600,
-                        fontSize: R.blockH * 4,
+                        fontSize: size.width * 0.036,
                       ),
                     ),
-                    SizedBox(height: R.blockV * 4),
+                    SizedBox(height: visibleHeight * 0.030),
                     ElevatedButton.icon(
                       onPressed: () => _addOrEditSite(),
                       icon: Icon(Icons.add),
@@ -651,11 +679,13 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         backgroundColor: Theme.of(context).primaryColor,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
+                          horizontal: size.width * 0.080,
+                          vertical: visibleHeight * 0.015,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.031,
+                          ),
                         ),
                       ),
                     ),
@@ -669,23 +699,26 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                 // Header Section
                 Container(
                   margin: EdgeInsets.fromLTRB(
-                    R.blockH * 5,
-                    R.blockV * 1.5,
-                    R.blockH * 5,
-                    R.blockV * 1,
+                    size.width * 0.045,
+                    visibleHeight * 0.015,
+                    size.width * 0.045,
+                    visibleHeight * 0.008,
                   ),
                   padding: EdgeInsets.fromLTRB(
-                    R.blockH * 3.5,
-                    R.blockV * 1,
-                    R.blockH * 2,
-                    R.blockV * 1,
+                    size.width * 0.035,
+                    visibleHeight * 0.008,
+                    size.width * 0.020,
+                    visibleHeight * 0.008,
                   ),
-                  constraints: BoxConstraints(minHeight: 56, maxHeight: 56),
+                  constraints: BoxConstraints(
+                    minHeight: visibleHeight * 0.065,
+                    maxHeight: visibleHeight * 0.065,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
                         : Color.lerp(AppColors.brandTeal, Colors.white, 0.78)!,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(size.width * 0.031),
                     border: Border.all(
                       color: Theme.of(context).brightness == Brightness.dark
                           ? AppColors.surfaceTeal.withValues(alpha: 0.8)
@@ -710,7 +743,7 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                         ),
                       ),
                       IconButton.filled(
-                        icon: Icon(Icons.add, size: 20),
+                        icon: Icon(Icons.add, size: size.width * 0.051),
                         onPressed: () => _addOrEditSite(),
                         style: IconButton.styleFrom(
                           backgroundColor: AppColors.accentGold,
@@ -726,10 +759,10 @@ class _OfficerSitesScreenState extends State<OfficerSitesScreen> {
                   child: ListView.builder(
                     // ADDED BOTTOM PADDING HERE TO CLEAR THE NAV BAR
                     padding: EdgeInsets.only(
-                      left: R.blockH * 3,
-                      right: R.blockH * 3,
-                      top: R.blockV * 1.5,
-                      bottom: R.blockV * 12.5,
+                      left: size.width * 0.030,
+                      right: size.width * 0.030,
+                      top: visibleHeight * 0.012,
+                      bottom: visibleHeight * 0.125,
                     ),
                     itemCount: sites.length,
                     itemBuilder: (context, index) {
@@ -767,7 +800,10 @@ class _SiteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final description = site['description'];
     final workersData = site['workers'] as List? ?? [];
     final workerCount = workersData.isNotEmpty ? workersData[0]['count'] : 0;
@@ -793,12 +829,15 @@ class _SiteCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
+          offset: Offset(
+            size.width * 0.0,
+            visibleHeight * 0.025 * (1 - value),
+          ),
           child: Opacity(opacity: value, child: child),
         );
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: R.blockV * 2),
+        margin: EdgeInsets.only(bottom: visibleHeight * 0.014),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -808,19 +847,19 @@ class _SiteCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size.width * 0.041),
           boxShadow: [
             BoxShadow(
               color: colorPair[0].withValues(alpha: 0.4),
-              blurRadius: 15,
-              offset: Offset(0, 8),
+              blurRadius: size.width * 0.038,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.010),
             ),
           ],
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(size.width * 0.041),
             onTap: () {
               // Navigates to the new personnel screen
               Navigator.push(
@@ -834,7 +873,7 @@ class _SiteCard extends StatelessWidget {
               );
             },
             child: Padding(
-              padding: EdgeInsets.all(R.blockH * 5),
+              padding: EdgeInsets.all(size.width * 0.040),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -843,21 +882,23 @@ class _SiteCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: R.blockH * 14.933,
-                        height: R.blockV * 7,
+                        width: size.width * 0.125,
+                        height: size.width * 0.125,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.031,
+                          ),
                         ),
                         child: Center(
                           child: Icon(
                             Icons.domain_rounded,
-                            size: 28,
+                            size: size.width * 0.068,
                             color: Colors.white,
                           ),
                         ),
                       ),
-                      SizedBox(width: R.blockH * 4.267),
+                      SizedBox(width: size.width * 0.032),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -866,17 +907,19 @@ class _SiteCard extends StatelessWidget {
                               site['name'] ?? 'Unnamed Site',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: R.blockH * 5,
+                                fontSize: size.width * 0.047,
                                 color: Colors.white,
                               ),
                             ),
                             if (description != null && description.isNotEmpty)
                               Padding(
-                                padding: EdgeInsets.only(top: R.blockV * 0.75),
+                                padding: EdgeInsets.only(
+                                  top: visibleHeight * 0.005,
+                                ),
                                 child: Text(
                                   description,
                                   style: TextStyle(
-                                    fontSize: R.blockH * 3.5,
+                                    fontSize: size.width * 0.032,
                                     color: Colors.white.withValues(alpha: 0.9),
                                     height: 1.4,
                                   ),
@@ -890,15 +933,15 @@ class _SiteCard extends StatelessWidget {
                     ],
                   ),
 
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.014),
 
                   // Divider
                   Divider(
                     color: Colors.white.withValues(alpha: 0.3),
-                    height: 1,
+                    height: visibleHeight * 0.001,
                   ),
 
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.014),
 
                   // Worker Stats
                   Row(
@@ -910,7 +953,7 @@ class _SiteCard extends StatelessWidget {
                           count: workerCount.toString(),
                         ),
                       ),
-                      SizedBox(width: R.blockH * 3.2),
+                      SizedBox(width: size.width * 0.024),
                       Expanded(
                         child: _StatBox(
                           icon: Icons.health_and_safety_rounded,
@@ -918,7 +961,7 @@ class _SiteCard extends StatelessWidget {
                           count: hseWorkerCount.toString(),
                         ),
                       ),
-                      SizedBox(width: R.blockH * 3.2),
+                      SizedBox(width: size.width * 0.024),
                       Expanded(
                         child: _StatBox(
                           icon: Icons.groups_rounded,
@@ -929,7 +972,7 @@ class _SiteCard extends StatelessWidget {
                     ],
                   ),
 
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.014),
 
                   // Action Buttons
                   Row(
@@ -937,7 +980,10 @@ class _SiteCard extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: onEdit,
-                          icon: Icon(Icons.edit_rounded, size: 18),
+                          icon: Icon(
+                            Icons.edit_rounded,
+                            size: size.width * 0.046,
+                          ),
                           label: Text('Edit'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white.withValues(
@@ -946,19 +992,24 @@ class _SiteCard extends StatelessWidget {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: EdgeInsets.symmetric(
-                              vertical: R.blockV * 1.5,
+                              vertical: visibleHeight * 0.011,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(
+                                size.width * 0.031,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: R.blockH * 3.2),
+                      SizedBox(width: size.width * 0.032),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: onDelete,
-                          icon: Icon(Icons.delete_forever_rounded, size: 18),
+                          icon: Icon(
+                            Icons.delete_forever_rounded,
+                            size: size.width * 0.046,
+                          ),
                           label: Text('Delete'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white.withValues(
@@ -967,10 +1018,12 @@ class _SiteCard extends StatelessWidget {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: EdgeInsets.symmetric(
-                              vertical: R.blockV * 1.5,
+                              vertical: visibleHeight * 0.011,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(
+                                size.width * 0.031,
+                              ),
                             ),
                           ),
                         ),
@@ -1000,25 +1053,28 @@ class _StatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Container(
       padding: EdgeInsets.symmetric(
-        vertical: R.blockV * 1.5,
-        horizontal: R.blockH * 2,
+        vertical: visibleHeight * 0.010,
+        horizontal: size.width * 0.014,
       ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(size.width * 0.026),
       ),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white, size: 24),
-          SizedBox(height: R.blockV * 0.5),
+          Icon(icon, color: Colors.white, size: size.width * 0.055),
+          SizedBox(height: visibleHeight * 0.004),
           Text(
             count,
             style: TextStyle(
               color: Colors.white,
-              fontSize: R.blockH * 4.5,
+              fontSize: size.width * 0.039,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1026,7 +1082,7 @@ class _StatBox extends StatelessWidget {
             label,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: R.blockH * 2.75,
+              fontSize: size.width * 0.025,
             ),
             textAlign: TextAlign.center,
           ),

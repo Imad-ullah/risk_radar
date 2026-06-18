@@ -1,7 +1,6 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,7 +11,12 @@ import 'package:riskradar/services/repositories/hazard_repository.dart';
 import 'package:riskradar/shared/hazards/resolved_hazard_report_screen.dart';
 
 class HSEWorkerResolvedHazardsScreen extends StatefulWidget {
-  const HSEWorkerResolvedHazardsScreen({super.key});
+  final ValueChanged<DateTime>? onSelectedDateChanged;
+
+  const HSEWorkerResolvedHazardsScreen({
+    super.key,
+    this.onSelectedDateChanged,
+  });
 
   @override
   State<HSEWorkerResolvedHazardsScreen> createState() =>
@@ -55,6 +59,9 @@ class _HSEWorkerResolvedHazardsScreenState
     super.initState();
     _calendarController = FixedExtentScrollController(initialItem: 30);
     _scrollController.addListener(_handleScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onSelectedDateChanged?.call(_selectedDate);
+    });
     _loadResolvedHazardsCacheFirst();
   }
 
@@ -251,6 +258,7 @@ class _HSEWorkerResolvedHazardsScreenState
   }
 
   void _filterHazardsByDate(DateTime date) {
+    widget.onSelectedDateChanged?.call(date);
     setState(() {
       _selectedDate = date;
       _filteredHazards = _allHazards.where((hazard) {
@@ -320,8 +328,11 @@ class _HSEWorkerResolvedHazardsScreenState
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDark
         ? const Color(0xFF121212)
         : const Color(0xFFF9FAFB);
@@ -340,17 +351,24 @@ class _HSEWorkerResolvedHazardsScreenState
               loading
                   ? Center(child: CircularProgressIndicator(color: _headerTeal))
                   : _filteredHazards.isEmpty
-                  ? Padding(
-                      padding: EdgeInsets.only(top: R.blockV * 27.5),
-                      child: _buildEmptyState(isDark),
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(top: visibleHeight * 0.220),
+                      children: [
+                        SizedBox(
+                          height: visibleHeight * 0.450,
+                          child: _buildEmptyState(isDark),
+                        ),
+                      ],
                     )
                   : ListView.builder(
                       controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(
-                        R.blockH * 5,
-                        R.blockV * 27.5,
-                        R.blockH * 5,
-                        R.blockV * 15,
+                        size.width * 0.025,
+                        visibleHeight * 0.220,
+                        size.width * 0.045,
+                        visibleHeight * 0.150,
                       ),
                       itemCount:
                           _filteredHazards.length + (_isLoadingMore ? 1 : 0),
@@ -358,7 +376,7 @@ class _HSEWorkerResolvedHazardsScreenState
                         if (index == _filteredHazards.length) {
                           return Padding(
                             padding: EdgeInsets.symmetric(
-                              vertical: R.blockV * 2,
+                              vertical: visibleHeight * 0.020,
                             ),
                             child: Center(
                               child: CircularProgressIndicator(
@@ -377,51 +395,26 @@ class _HSEWorkerResolvedHazardsScreenState
                     ),
 
               Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
+                top: visibleHeight * 0.0,
+                left: size.width * 0.0,
+                right: size.width * 0.0,
                 child: CustomPaint(
                   painter: HeaderCurvePainter(color: _headerTeal),
                   child: Container(
-                    padding: EdgeInsets.only(bottom: R.blockV * 6.25),
+                    padding: EdgeInsets.only(bottom: visibleHeight * 0.045),
                     child: SafeArea(
                       bottom: false,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(height: R.blockV * 1.25),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(width: R.blockH * 12.8),
-                              Spacer(),
-                              Text(
-                                DateFormat('MMMM yyyy').format(_selectedDate),
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: R.blockH * 5.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Spacer(),
-                              IconButton(
-                                tooltip: 'Refresh',
-                                icon: Icon(
-                                  Icons.refresh_rounded,
-                                  color: Colors.white,
-                                ),
-                                onPressed: _refreshResolvedHazards,
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: R.blockV * 1.875),
+                          SizedBox(height: visibleHeight * 0.018),
                           SizedBox(
-                            height: R.blockV * 11.25,
+                            height: visibleHeight * 0.112,
                             child: RotatedBox(
                               quarterTurns: -1,
                               child: ListWheelScrollView.useDelegate(
                                 controller: _calendarController,
-                                itemExtent: 65,
+                                itemExtent: size.width * 0.173,
                                 perspective: 0.002,
                                 diameterRatio: 1.5,
                                 physics: const FixedExtentScrollPhysics(),
@@ -430,6 +423,7 @@ class _HSEWorkerResolvedHazardsScreenState
                                   final date = today.subtract(
                                     Duration(days: 30 - index),
                                   );
+                                  widget.onSelectedDateChanged?.call(date);
                                   _filterHazardsByDate(date);
                                 },
                                 childDelegate: ListWheelChildBuilderDelegate(
@@ -458,6 +452,10 @@ class _HSEWorkerResolvedHazardsScreenState
   }
 
   Widget _buildDateCapsule(int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final today = DateTime.now();
     final date = today.subtract(Duration(days: 30 - index));
     final isSelected =
@@ -467,13 +465,13 @@ class _HSEWorkerResolvedHazardsScreenState
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: R.blockH * 15.467,
-      margin: EdgeInsets.symmetric(horizontal: R.blockH * 1),
+      width: size.width * 0.155,
+      margin: EdgeInsets.symmetric(horizontal: size.width * 0.010),
       decoration: BoxDecoration(
         color: isSelected
             ? _selectedDateColor
             : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(size.width * 0.077),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -482,16 +480,16 @@ class _HSEWorkerResolvedHazardsScreenState
             DateFormat('d').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white,
-              fontSize: R.blockH * 5,
+              fontSize: size.width * 0.050,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: R.blockV * 0.5),
+          SizedBox(height: visibleHeight * 0.005),
           Text(
             DateFormat('E').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white60,
-              fontSize: R.blockH * 3,
+              fontSize: size.width * 0.030,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -506,6 +504,10 @@ class _HSEWorkerResolvedHazardsScreenState
     Color timeColor,
     Color lineColor,
   ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final dateStr = hazard['resolved_at'] ?? hazard['created_at'];
     String timeDisplay = '--';
     if (dateStr != null) {
@@ -518,30 +520,36 @@ class _HSEWorkerResolvedHazardsScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: R.blockH * 14.667,
-            child: Column(
-              children: [
-                Text(
-                  timeDisplay,
-                  style: TextStyle(
-                    color: timeColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: R.blockH * 3.25,
-                  ),
-                ),
-                SizedBox(height: R.blockV * 1),
-                Expanded(
-                  child: CustomPaint(
-                    painter: DashedLinePainter(color: lineColor),
-                  ),
-                ),
-              ],
+            width: size.width * 0.045,
+            child: Padding(
+              padding: EdgeInsets.only(top: visibleHeight * 0.025),
+              child: CustomPaint(painter: DashedLinePainter(color: lineColor)),
             ),
           ),
+          SizedBox(width: size.width * 0.006),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: R.blockV * 2.5),
-              child: _buildTabbedGradientCard(hazard, index),
+              padding: EdgeInsets.only(bottom: visibleHeight * 0.015),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: size.width * 0.004,
+                      bottom: visibleHeight * 0.004,
+                    ),
+                    child: Text(
+                      timeDisplay,
+                      style: TextStyle(
+                        color: timeColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: size.width * 0.033,
+                      ),
+                    ),
+                  ),
+                  _buildTabbedGradientCard(hazard, index),
+                ],
+              ),
             ),
           ),
         ],
@@ -550,6 +558,11 @@ class _HSEWorkerResolvedHazardsScreenState
   }
 
   Widget _buildTabbedGradientCard(Map<String, dynamic> hazard, int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     // ✅ Now perfectly targets 'report_number' everywhere
     final String reportNumber = hazard['report_number']?.toString() ?? 'N/A';
 
@@ -594,7 +607,7 @@ class _HSEWorkerResolvedHazardsScreenState
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 30 * (1 - value)),
+          offset: Offset(size.width * 0.0, visibleHeight * 0.037 * (1 - value)),
           child: Opacity(opacity: value, child: child),
         );
       },
@@ -618,10 +631,10 @@ class _HSEWorkerResolvedHazardsScreenState
           ),
           child: Container(
             padding: EdgeInsets.fromLTRB(
-              R.blockH * 4,
-              R.blockV * 1.5,
-              R.blockH * 4,
-              R.blockV * 2.5,
+              size.width * 0.034,
+              visibleHeight * 0.010,
+              size.width * 0.034,
+              visibleHeight * 0.016,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,18 +645,18 @@ class _HSEWorkerResolvedHazardsScreenState
                     // ✅ Report Number Tag
                     Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: R.blockH * 2,
-                        vertical: R.blockV * 0.5,
+                        horizontal: size.width * 0.018,
+                        vertical: visibleHeight * 0.003,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(size.width * 0.015),
                       ),
                       child: Text(
                         '#$reportNumber',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: R.blockH * 3,
+                          fontSize: size.width * 0.030,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -651,74 +664,81 @@ class _HSEWorkerResolvedHazardsScreenState
 
                     // ✅ Media Icons placed directly next to the tag
                     if (hasVoiceNotes) ...[
-                      SizedBox(width: R.blockH * 2.133),
+                      SizedBox(width: size.width * 0.021),
                       Icon(
                         Icons.mic_rounded,
-                        size: 16,
+                        size: size.width * 0.041,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ],
                     if (hasImages) ...[
-                      SizedBox(width: R.blockH * 2.133),
+                      SizedBox(width: size.width * 0.021),
                       Icon(
                         Icons.image_rounded,
-                        size: 16,
+                        size: size.width * 0.041,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ],
 
                     Spacer(),
-
-                    // Profile Avatar
-                    SizedBox(
-                      height: R.blockV * 3.5,
-                      width: R.blockH * 7.467,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            width: 2,
+                    Transform.translate(
+                      offset: Offset(size.width * 0.0, -(visibleHeight * 0.018)),
+                      child: SizedBox(
+                        height: visibleHeight * 0.035,
+                        width: size.width * 0.075,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.5)
+                                  : Colors.black,
+                              width: size.width * 0.005,
+                            ),
+                            image: reporterImage != null
+                                ? DecorationImage(
+                                    image: CachedNetworkImageProvider(
+                                      reporterImage,
+                                    ),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            color: Colors.white24,
                           ),
-                          image: reporterImage != null
-                              ? DecorationImage(
-                                  image: CachedNetworkImageProvider(
-                                    reporterImage,
-                                  ),
-                                  fit: BoxFit.cover,
+                          child: reporterImage == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: size.width * 0.041,
+                                  color: Colors.white,
                                 )
                               : null,
-                          color: Colors.white24,
                         ),
-                        child: reporterImage == null
-                            ? Icon(Icons.person, size: 16, color: Colors.white)
-                            : null,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.012),
 
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: R.blockH * 18.667,
-                      height: R.blockV * 8.75,
+                      width: size.width * 0.165,
+                      height: visibleHeight * 0.074,
                       alignment: Alignment.center,
                       child: SvgPicture.asset(
                         iconAsset,
                         fit: BoxFit.contain,
-                        width: R.blockH * 15.467,
-                        height: R.blockV * 7.25,
+                        width: size.width * 0.132,
+                        height: visibleHeight * 0.060,
                         placeholderBuilder: (context) => Icon(
                           Icons.warning_amber_rounded,
                           color: Colors.white,
-                          size: 50,
+                          size: size.width * 0.128,
                         ),
                       ),
                     ),
-                    SizedBox(width: R.blockH * 4.267),
+                    SizedBox(width: size.width * 0.032),
 
                     Expanded(
                       child: Column(
@@ -728,18 +748,18 @@ class _HSEWorkerResolvedHazardsScreenState
                             hazardType,
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: R.blockH * 4.25,
+                              fontSize: size.width * 0.043,
                               fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: R.blockV * 0.5),
+                          SizedBox(height: visibleHeight * 0.005),
                           Text(
                             description,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: R.blockH * 3.25,
+                              fontSize: size.width * 0.033,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -748,13 +768,21 @@ class _HSEWorkerResolvedHazardsScreenState
                       ),
                     ),
 
+                    SizedBox(width: size.width * 0.018),
                     Container(
-                      padding: EdgeInsets.all(R.blockH * 1.5),
+                      padding: EdgeInsets.all(size.width * 0.015),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: size.width * 0.005,
+                        ),
                       ),
-                      child: Icon(Icons.check, size: 16, color: Colors.white),
+                      child: Icon(
+                        Icons.check,
+                        size: size.width * 0.041,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -767,16 +795,20 @@ class _HSEWorkerResolvedHazardsScreenState
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.event_note,
-            size: 64,
+            size: size.width * 0.164,
             color: isDark ? Colors.white12 : Colors.black12,
           ),
-          SizedBox(height: R.blockV * 2),
+          SizedBox(height: visibleHeight * 0.020),
           Text(
             "No hazards found for this day",
             style: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
@@ -798,16 +830,17 @@ class HeaderCurvePainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
+    final curveDepth = size.height * 0.180;
 
     final path = Path();
-    path.lineTo(0, size.height - 40);
+    path.lineTo(size.width * 0.0, size.height - curveDepth);
     path.quadraticBezierTo(
-      size.width / 2,
+      size.width * 0.5,
       size.height,
       size.width,
-      size.height - 40,
+      size.height - curveDepth,
     );
-    path.lineTo(size.width, 0);
+    path.lineTo(size.width, size.height * 0.0);
     path.close();
 
     canvas.drawPath(path, paint);
@@ -825,14 +858,16 @@ class DashedLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()
       ..color = color
-      ..strokeWidth = 1.5
+      ..strokeWidth = size.width * 0.020
       ..style = PaintingStyle.stroke;
 
-    double dashHeight = 5, dashSpace = 3, startY = 0;
+    double dashHeight = size.height * 0.040;
+    double dashSpace = size.height * 0.022;
+    double startY = size.height * 0.0;
     while (startY < size.height) {
       canvas.drawLine(
-        Offset(size.width / 2, startY),
-        Offset(size.width / 2, startY + dashHeight),
+        Offset(size.width * 0.5, startY),
+        Offset(size.width * 0.5, startY + dashHeight),
         paint,
       );
       startY += dashHeight + dashSpace;
@@ -857,14 +892,27 @@ class TabbedCardGradientPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-    const double radius = 20.0;
-    const double tabHeight = 40.0;
-    const double tabWidth = 115.0; // Wide enough for tag + icons
+    final double radius = size.width * 0.060;
+    final double tabHeight = size.height * 0.220;
+    final double tabWidth = size.width * 0.390;
+    final double tabShoulder = size.width * 0.045;
 
-    path.moveTo(0, radius);
-    path.quadraticBezierTo(0, 0, radius, 0);
-    path.lineTo(tabWidth - 20, 0);
-    path.cubicTo(tabWidth, 0, tabWidth, tabHeight, tabWidth + 20, tabHeight);
+    path.moveTo(size.width * 0.0, radius);
+    path.quadraticBezierTo(
+      size.width * 0.0,
+      size.height * 0.0,
+      radius,
+      size.height * 0.0,
+    );
+    path.lineTo(tabWidth - tabShoulder, size.height * 0.0);
+    path.cubicTo(
+      tabWidth,
+      size.height * 0.0,
+      tabWidth,
+      tabHeight,
+      tabWidth + tabShoulder,
+      tabHeight,
+    );
     path.lineTo(size.width - radius, tabHeight);
     path.quadraticBezierTo(
       size.width,
@@ -880,7 +928,12 @@ class TabbedCardGradientPainter extends CustomPainter {
       size.height,
     );
     path.lineTo(radius, size.height);
-    path.quadraticBezierTo(0, size.height, 0, size.height - radius);
+    path.quadraticBezierTo(
+      size.width * 0.0,
+      size.height,
+      size.width * 0.0,
+      size.height - radius,
+    );
     path.close();
 
     canvas.drawPath(path, paint);

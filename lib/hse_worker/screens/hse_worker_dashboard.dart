@@ -6,6 +6,7 @@ import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'hse_worker_notification_screen.dart';
@@ -56,6 +57,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   bool loading = true;
   bool _hasError = false;
   bool _isRefreshing = false;
+  DateTime _resolvedTitleDate = DateTime.now();
 
   String fullName = "";
   String firstNameInitial = "";
@@ -331,7 +333,9 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
     _screens = [
       _dashboardBody(),
       const AssignedTasksScreen(),
-      const HSEWorkerResolvedHazardsScreen(),
+      HSEWorkerResolvedHazardsScreen(
+        onSelectedDateChanged: _updateResolvedTitleDate,
+      ),
       HSEWorkerAppSettingsScreen(
         onAboutTap: (ctx) => Navigator.push(
           ctx,
@@ -341,6 +345,13 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
         currentThemeMode: widget.currentThemeMode,
       ),
     ];
+  }
+
+  void _updateResolvedTitleDate(DateTime date) {
+    final selectedMonth = DateTime(date.year, date.month);
+    if (mounted) {
+      setState(() => _resolvedTitleDate = selectedMonth);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -406,6 +417,11 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   // DRAWER
   // ---------------------------------------------------------------------------
   Widget _buildSpotifyDrawer() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+
     return Drawer(
       backgroundColor: _brandTeal,
       child: Column(
@@ -445,7 +461,10 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.041,
+              vertical: visibleHeight * 0.010,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -522,11 +541,15 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   }
 
   Widget _drawerInfoTile(IconData icon, String label, String value) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: EdgeInsets.only(bottom: R.blockV * 1.875),
+      padding: EdgeInsets.only(bottom: visibleHeight * 0.019),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: _accentGold),
+          Icon(icon, size: size.width * 0.051, color: _accentGold),
           SizedBox(width: R.blockH * 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,13 +581,21 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   // ---------------------------------------------------------------------------
   Widget _dashboardBody() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
 
     if (_hasError) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey.shade400),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: size.width * 0.164,
+              color: Colors.grey.shade400,
+            ),
             SizedBox(height: R.blockV * 2),
             Text(
               'Failed to load dashboard',
@@ -591,7 +622,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                 backgroundColor: _brandTeal,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(size.width * 0.031),
                 ),
               ),
             ),
@@ -686,13 +717,13 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
               ),
               if (_isRefreshing)
                 Positioned(
-                  top: 10,
-                  right: 20,
+                  top: visibleHeight * 0.013,
+                  right: size.width * 0.051,
                   child: SizedBox(
                     width: R.blockH * 4.267,
                     height: R.blockV * 2,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                      strokeWidth: size.width * 0.005,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         _brandTeal.withValues(alpha: 0.5),
                       ),
@@ -714,12 +745,17 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
     required VoidCallback onTap,
     bool showProgress = false,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+
     return Container(
-      height: R.blockV * 22.5,
-      padding: EdgeInsets.all(R.blockH * 5),
+      height: visibleHeight * 0.225,
+      padding: EdgeInsets.all(size.width * 0.050),
       decoration: BoxDecoration(
         color: _brandTeal,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(size.width * 0.071),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,20 +764,24 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: Colors.white70, size: 28),
+              Icon(icon, color: Colors.white70, size: size.width * 0.071),
               if (showProgress)
                 SizedBox(
-                  width: R.blockH * 10.667,
-                  height: R.blockV * 5,
+                  width: size.width * 0.107,
+                  height: visibleHeight * 0.050,
                   child: CircularProgressIndicator(
                     value: completionPercentage,
-                    strokeWidth: 4,
+                    strokeWidth: size.width * 0.010,
                     backgroundColor: Colors.white.withValues(alpha: 0.1),
                     valueColor: AlwaysStoppedAnimation(_accentGold),
                   ),
                 )
               else
-                Icon(Icons.arrow_forward, color: Colors.white24, size: 20),
+                Icon(
+                  Icons.arrow_forward,
+                  color: Colors.white24,
+                  size: size.width * 0.051,
+                ),
             ],
           ),
           Column(
@@ -766,11 +806,11 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: _accentGold,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(size.width * 0.031),
               ),
-              padding: EdgeInsets.symmetric(horizontal: R.blockH * 4),
-              minimumSize: const Size(double.infinity, 36),
-              elevation: 0,
+              padding: EdgeInsets.symmetric(horizontal: size.width * 0.040),
+              minimumSize: Size(double.infinity, visibleHeight * 0.045),
+              elevation: size.width * 0.0,
             ),
             child: Text(
               buttonText,
@@ -792,6 +832,11 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   @override
   Widget build(BuildContext context) {
     R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+
     if (loading) {
       return const RiskRadarLoadingScreen(message: 'Loading your dashboard...');
     }
@@ -804,7 +849,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
     final String title = [
       "Dashboard",
       "My Tasks",
-      "Resolved",
+      DateFormat('MMMM yyyy').format(_resolvedTitleDate),
       "Settings",
     ][_selectedIndex];
 
@@ -824,15 +869,15 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
         appBar: AppBar(
           backgroundColor: _brandTeal,
           centerTitle: true,
-          elevation: 0,
-          scrolledUnderElevation: 0,
+          elevation: size.width * 0.0,
+          scrolledUnderElevation: size.width * 0.0,
           systemOverlayStyle: SystemUiOverlayStyle.light,
           iconTheme: const IconThemeData(color: Colors.white),
           leading: (_selectedIndex == 0)
               ? GestureDetector(
                   onTap: () => _scaffoldKey.currentState?.openDrawer(),
                   child: Padding(
-                    padding: EdgeInsets.all(R.blockH * 2.5),
+                    padding: EdgeInsets.all(size.width * 0.025),
                     child: CircleAvatar(
                       backgroundColor: Colors.purple.shade200,
                       backgroundImage: profileImageUrl.isNotEmpty
@@ -844,6 +889,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black,
+                                fontSize: size.width * 0.040,
                               ),
                             )
                           : null,
@@ -873,7 +919,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                       icon: Icon(
                         Icons.notifications_none_rounded,
                         color: Colors.white,
-                        size: 28,
+                        size: size.width * 0.071,
                       ),
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -884,18 +930,21 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                     ),
                     if (count > 0)
                       Positioned(
-                        right: 8,
-                        top: 8,
+                        right: size.width * 0.020,
+                        top: visibleHeight * 0.010,
                         child: Container(
-                          padding: EdgeInsets.all(R.blockH * 0.5),
+                          padding: EdgeInsets.all(size.width * 0.005),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
-                            border: Border.all(color: _brandTeal, width: 1.5),
+                            border: Border.all(
+                              color: _brandTeal,
+                              width: size.width * 0.004,
+                            ),
                           ),
                           constraints: BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
+                            minWidth: size.width * 0.046,
+                            minHeight: visibleHeight * 0.023,
                           ),
                           child: Text(
                             '$count',
@@ -912,7 +961,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                 );
               },
             ),
-            SizedBox(width: R.blockH * 2.133),
+            SizedBox(width: size.width * 0.021),
           ],
         ),
 
@@ -931,17 +980,22 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
 
         floatingActionButton: _selectedIndex == 0
             ? Padding(
-                padding: EdgeInsets.only(bottom: R.blockV * 11.25),
+                padding: EdgeInsets.only(bottom: visibleHeight * 0.113),
                 child: FloatingActionButton.extended(
                   backgroundColor: Colors.red.shade600,
                   onPressed: _navigateToSOS,
-                  elevation: 4,
-                  icon: Icon(Icons.sos_rounded, color: Colors.white),
+                  elevation: size.width * 0.010,
+                  icon: Icon(
+                    Icons.sos_rounded,
+                    color: Colors.white,
+                    size: size.width * 0.056,
+                  ),
                   label: Text(
                     "EMERGENCY",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
+                      fontSize: size.width * 0.034,
                     ),
                   ),
                 ),
@@ -955,20 +1009,26 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   }
 
   Widget _buildConcaveNavBar() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final navHeight = visibleHeight * 0.106;
+
     return SizedBox(
-      height: R.blockV * 10.625,
+      height: navHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+            left: size.width * 0.0,
+            right: size.width * 0.0,
+            bottom: visibleHeight * 0.0,
             child: AnimatedBuilder(
               animation: _curveAnimation,
               builder: (context, child) {
                 return CustomPaint(
-                  size: Size(MediaQuery.of(context).size.width, 85),
+                  size: Size(size.width, navHeight),
                   painter: ConcaveNavPainter(
                     selectedIndex: _curveAnimation.value,
                     itemsCount: 4,
@@ -996,13 +1056,18 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final navHeight = visibleHeight * 0.106;
     final bool isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: R.blockH * 18.667,
-        height: R.blockV * 10.625,
+        width: size.width * 0.160,
+        height: navHeight,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
@@ -1010,10 +1075,10 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutBack,
-              top: isSelected ? 0 : 20,
+              top: isSelected ? visibleHeight * 0.0 : visibleHeight * 0.025,
               child: Container(
-                width: R.blockH * 13.333,
-                height: R.blockV * 6.25,
+                width: size.width * 0.133,
+                height: visibleHeight * 0.063,
                 decoration: BoxDecoration(
                   color: isSelected ? _accentGold : Colors.transparent,
                   shape: BoxShape.circle,
@@ -1023,12 +1088,12 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                   color: isSelected
                       ? Colors.white
                       : Colors.white.withValues(alpha: 0.5),
-                  size: 24,
+                  size: size.width * 0.067,
                 ),
               ),
             ),
             Positioned(
-              bottom: 12,
+              bottom: visibleHeight * 0.005,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: 1.0,
@@ -1036,7 +1101,7 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                   label,
                   style: TextStyle(
                     color: isSelected ? _accentGold : Colors.white70,
-                    fontSize: R.blockH * 2.5,
+                    fontSize: size.width * 0.025,
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,
@@ -1068,36 +1133,44 @@ class ConcaveNavPainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.fill;
     Path path = Path();
-    double barHeight = 65.0;
+    double barHeight = size.height * 0.765;
     double topOffset = size.height - barHeight;
     double sectionWidth = size.width / itemsCount;
-    double currentCenter = (selectedIndex * sectionWidth) + (sectionWidth / 2);
-    double notchRadius = 38.0;
+    double currentCenter =
+        (selectedIndex * sectionWidth) + (sectionWidth * 0.5);
+    double notchRadius = size.width * 0.097;
+    double notchPadding = size.width * 0.013;
+    double notchDepth = size.height * 0.471;
 
-    path.moveTo(0, topOffset);
-    path.lineTo(currentCenter - notchRadius - 5, topOffset);
+    path.moveTo(size.width * 0.0, topOffset);
+    path.lineTo(currentCenter - notchRadius - notchPadding, topOffset);
     path.cubicTo(
       currentCenter - notchRadius,
       topOffset,
-      currentCenter - notchRadius + 5,
-      topOffset + 40,
+      currentCenter - notchRadius + notchPadding,
+      topOffset + notchDepth,
       currentCenter,
-      topOffset + 40,
+      topOffset + notchDepth,
     );
     path.cubicTo(
-      currentCenter + notchRadius - 5,
-      topOffset + 40,
+      currentCenter + notchRadius - notchPadding,
+      topOffset + notchDepth,
       currentCenter + notchRadius,
       topOffset,
-      currentCenter + notchRadius + 5,
+      currentCenter + notchRadius + notchPadding,
       topOffset,
     );
     path.lineTo(size.width, topOffset);
     path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
+    path.lineTo(size.width * 0.0, size.height);
     path.close();
 
-    canvas.drawShadow(path, Colors.black.withValues(alpha: 0.15), 4.0, true);
+    canvas.drawShadow(
+      path,
+      Colors.black.withValues(alpha: 0.15),
+      size.width * 0.010,
+      true,
+    );
     canvas.drawPath(path, paint);
   }
 

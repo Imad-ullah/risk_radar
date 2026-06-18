@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:riskradar/services/providers/notification_count_provider.dart';
@@ -75,6 +76,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   String? _currentWorkerId;
   String? _currentSiteId;
   String? _linkedOfficerUid;
+  DateTime _resolvedTitleDate = DateTime.now();
 
   StreamSubscription<Position>? _positionSubscription;
 
@@ -85,6 +87,23 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
     "Resolved Hazards",
     "Settings",
   ];
+
+  String get _currentScreenTitle {
+    if (_selectedIndex == 3) {
+      return DateFormat('MMMM yyyy').format(_resolvedTitleDate);
+    }
+    return _screenTitles[_selectedIndex];
+  }
+
+  void _updateResolvedTitleDate(DateTime date) {
+    if (_resolvedTitleDate.year == date.year &&
+        _resolvedTitleDate.month == date.month) {
+      return;
+    }
+    setState(() {
+      _resolvedTitleDate = DateTime(date.year, date.month);
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // LIFECYCLE
@@ -855,7 +874,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
       _dashboardBody(),
       const WorkerOngoingHazardsScreen(),
       Container(),
-      const WorkerResolvedHazardsScreen(),
+      WorkerResolvedHazardsScreen(
+        onSelectedDateChanged: _updateResolvedTitleDate,
+      ),
       WorkerAppSettingsScreen(
         onAboutTap: (ctx) => Navigator.push(
           ctx,
@@ -881,7 +902,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
         scrolledUnderElevation: 0,
         centerTitle: true,
         title: Text(
-          _screenTitles[_selectedIndex],
+          _currentScreenTitle,
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         leading: _selectedIndex == 0

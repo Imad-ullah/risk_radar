@@ -1,9 +1,9 @@
 // lib/officers/screens/resolved_hazards_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -151,9 +151,12 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
       final response = await supabase
           .from('resolved_hazards')
-          .select(
-            '*, workers(first_name, last_name, work_type, profile_image_url), sites(name)',
-          )
+          .select('''
+            *,
+            workers:worker_id(first_name, last_name, work_type, profile_image_url),
+            resolver:assigned_to(first_name, last_name, designation, profile_image_url),
+            sites:current_site_id(name)
+          ''')
           .eq('officer_uid', officerUid ?? 0)
           .order('resolved_at', ascending: false)
           .range(pageStart, pageEnd);
@@ -297,7 +300,10 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDark
         ? const Color(0xFF121212)
@@ -314,24 +320,42 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
             _isLoading
                 ? Center(child: CircularProgressIndicator(color: _headerTeal))
                 : _error != null
-                ? Padding(
-                    padding: EdgeInsets.only(top: R.blockV * 27.5),
-                    child: Center(child: Text(_error!)),
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(top: visibleHeight * 0.220),
+                    children: [
+                      SizedBox(
+                        height: visibleHeight * 0.450,
+                        child: Center(child: Text(_error!)),
+                      ),
+                    ],
                   )
                 : _filteredHazards.isEmpty
-                ? Padding(
-                    padding: EdgeInsets.only(top: R.blockV * 27.5),
-                    child: _buildEmptyState(isDark),
+                ? RefreshIndicator(
+                    onRefresh: _refreshResolvedHazards,
+                    color: _headerTeal,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(top: visibleHeight * 0.220),
+                      children: [
+                        SizedBox(
+                          height: visibleHeight * 0.450,
+                          child: _buildEmptyState(isDark),
+                        ),
+                      ],
+                    ),
                   )
                 : RefreshIndicator(
                     onRefresh: _refreshResolvedHazards,
+                    color: _headerTeal,
                     child: ListView.builder(
                       controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(
-                        R.blockH * 5,
-                        R.blockV * 27.5,
-                        R.blockH * 5,
-                        R.blockV * 15,
+                        size.width * 0.025,
+                        visibleHeight * 0.260,
+                        size.width * 0.045,
+                        visibleHeight * 0.150,
                       ),
                       itemCount:
                           _filteredHazards.length + (_isLoadingMore ? 1 : 0),
@@ -339,7 +363,7 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                         if (index == _filteredHazards.length) {
                           return Padding(
                             padding: EdgeInsets.symmetric(
-                              vertical: R.blockV * 2,
+                              vertical: visibleHeight * 0.020,
                             ),
                             child: Center(
                               child: CircularProgressIndicator(
@@ -359,13 +383,13 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                   ),
 
             Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+              top: visibleHeight * 0.0,
+              left: size.width * 0.0,
+              right: size.width * 0.0,
               child: CustomPaint(
                 painter: HeaderCurvePainter(color: _headerTeal),
                 child: Container(
-                  padding: EdgeInsets.only(bottom: R.blockV * 6.25),
+                  padding: EdgeInsets.only(bottom: visibleHeight * 0.045),
                   child: SafeArea(
                     bottom: false,
                     child: Column(
@@ -375,48 +399,34 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                           children: [
                             IconButton(
                               icon: Icon(
-                                Icons.arrow_back_ios,
+                                Icons.arrow_back,
                                 color: Colors.white,
-                                size: 20,
+                                size: size.width * 0.056,
                               ),
                               onPressed: () => Navigator.pop(context),
                             ),
                             Expanded(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    DateFormat(
-                                      'MMMM yyyy',
-                                    ).format(_selectedDate),
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: R.blockH * 5.5,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(width: R.blockH * 12.8),
-                                ],
+                              child: Text(
+                                DateFormat('MMMM yyyy').format(_selectedDate),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: size.width * 0.052,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'Refresh',
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                color: Colors.white,
-                              ),
-                              onPressed: _refreshResolvedHazards,
-                            ),
+                            SizedBox(width: size.width * 0.120),
                           ],
                         ),
-                        SizedBox(height: R.blockV * 0.625),
+                        SizedBox(height: visibleHeight * 0.006),
                         SizedBox(
-                          height: R.blockV * 11.25,
+                          height: visibleHeight * 0.112,
                           child: RotatedBox(
                             quarterTurns: -1,
                             child: ListWheelScrollView.useDelegate(
                               controller: _calendarController,
-                              itemExtent: 65,
+                              itemExtent: size.width * 0.173,
                               perspective: 0.002,
                               diameterRatio: 1.5,
                               physics: const FixedExtentScrollPhysics(),
@@ -452,6 +462,10 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
   }
 
   Widget _buildDateCapsule(int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final today = DateTime.now();
     final date = today.subtract(Duration(days: 30 - index));
     final isSelected =
@@ -461,13 +475,13 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: R.blockH * 15.467,
-      margin: EdgeInsets.symmetric(horizontal: R.blockH * 1),
+      width: size.width * 0.155,
+      margin: EdgeInsets.symmetric(horizontal: size.width * 0.010),
       decoration: BoxDecoration(
         color: isSelected
             ? _selectedDateColor
             : Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(size.width * 0.077),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -476,16 +490,16 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
             DateFormat('d').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white,
-              fontSize: R.blockH * 5,
+              fontSize: size.width * 0.050,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: R.blockV * 0.5),
+          SizedBox(height: visibleHeight * 0.005),
           Text(
             DateFormat('E').format(date),
             style: TextStyle(
               color: isSelected ? _headerTeal : Colors.white60,
-              fontSize: R.blockH * 3,
+              fontSize: size.width * 0.030,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -500,6 +514,10 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
     Color timeColor,
     Color lineColor,
   ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final dateStr = hazard['resolved_at'] ?? hazard['created_at'];
     String timeDisplay = '--';
     if (dateStr != null) {
@@ -518,30 +536,38 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: R.blockH * 14.667,
-            child: Column(
-              children: [
-                Text(
-                  timeDisplay,
-                  style: TextStyle(
-                    color: timeColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: R.blockH * 3.25,
-                  ),
-                ),
-                SizedBox(height: R.blockV * 1),
-                Expanded(
-                  child: CustomPaint(
-                    painter: DashedLinePainter(color: lineColor),
-                  ),
-                ),
-              ],
+            width: size.width * 0.045,
+            child: Padding(
+              padding: EdgeInsets.only(top: visibleHeight * 0.025),
+              child: CustomPaint(
+                painter: DashedLinePainter(color: lineColor),
+              ),
             ),
           ),
+          SizedBox(width: size.width * 0.006),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: R.blockV * 2.5),
-              child: _buildTabbedGradientCard(hazard, index),
+              padding: EdgeInsets.only(bottom: visibleHeight * 0.015),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: size.width * 0.004,
+                      bottom: visibleHeight * 0.004,
+                    ),
+                    child: Text(
+                      timeDisplay,
+                      style: TextStyle(
+                        color: timeColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: size.width * 0.033,
+                      ),
+                    ),
+                  ),
+                  _buildTabbedGradientCard(hazard, index),
+                ],
+              ),
             ),
           ),
         ],
@@ -550,6 +576,11 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
   }
 
   Widget _buildTabbedGradientCard(Map<String, dynamic> hazard, int index) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String reportNumber = hazard['report_number']?.toString() ?? 'N/A';
 
     String siteName = 'Unknown';
@@ -590,6 +621,12 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
     final List<Color> gradientColors = _getGradientColors(severity);
     final String iconAsset = _getHazardIconPath(hazardType);
+    final resolver = hazard['resolver'] is Map
+        ? hazard['resolver'] as Map
+        : hazard['hse_worker'] is Map
+        ? hazard['hse_worker'] as Map
+        : null;
+    final String? resolverImage = resolver?['profile_image_url']?.toString();
 
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 400 + (index * 100)),
@@ -597,7 +634,10 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 30 * (1 - value)),
+          offset: Offset(
+            size.width * 0.0,
+            visibleHeight * 0.037 * (1 - value),
+          ),
           child: Opacity(opacity: value, child: child),
         );
       },
@@ -620,10 +660,10 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
           ),
           child: Container(
             padding: EdgeInsets.fromLTRB(
-              R.blockH * 4,
-              R.blockV * 1.5,
-              R.blockH * 4,
-              R.blockV * 2.5,
+              size.width * 0.034,
+              visibleHeight * 0.010,
+              size.width * 0.034,
+              visibleHeight * 0.016,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,18 +674,20 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                     // ✅ Report Number Tag
                     Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: R.blockH * 2,
-                        vertical: R.blockV * 0.5,
+                        horizontal: size.width * 0.018,
+                        vertical: visibleHeight * 0.003,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(
+                          size.width * 0.015,
+                        ),
                       ),
                       child: Text(
                         '#$reportNumber',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: R.blockH * 3,
+                          fontSize: size.width * 0.030,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -653,45 +695,85 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
 
                     // ✅ Media Icons (Profile Image entirely removed from here)
                     if (hasVoiceNotes) ...[
-                      SizedBox(width: R.blockH * 2.133),
+                      SizedBox(width: size.width * 0.021),
                       Icon(
                         Icons.mic_rounded,
-                        size: 14,
+                        size: size.width * 0.041,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ],
                     if (hasImages) ...[
-                      SizedBox(width: R.blockH * 2.133),
+                      SizedBox(width: size.width * 0.021),
                       Icon(
                         Icons.image_rounded,
-                        size: 14,
+                        size: size.width * 0.041,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ],
+                    Spacer(),
+                    Transform.translate(
+                      offset: Offset(
+                        size.width * 0.0,
+                        -(visibleHeight * 0.018),
+                      ),
+                      child: Container(
+                        width: size.width * 0.075,
+                        height: size.width * 0.075,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white24,
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.black,
+                            width: size.width * 0.005,
+                          ),
+                          image:
+                              resolverImage != null &&
+                                  resolverImage.trim().isNotEmpty
+                              ? DecorationImage(
+                                  image: CachedNetworkImageProvider(
+                                    resolverImage,
+                                  ),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child:
+                            resolverImage == null ||
+                                resolverImage.trim().isEmpty
+                            ? Icon(
+                                Icons.person,
+                                size: size.width * 0.041,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                    ),
                   ],
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.012),
 
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: R.blockH * 18.667,
-                      height: R.blockV * 8.75,
+                      width: size.width * 0.165,
+                      height: visibleHeight * 0.074,
                       alignment: Alignment.center,
                       child: SvgPicture.asset(
                         iconAsset,
                         fit: BoxFit.contain,
-                        width: R.blockH * 15.467,
-                        height: R.blockV * 7.25,
+                        width: size.width * 0.132,
+                        height: visibleHeight * 0.060,
                         placeholderBuilder: (context) => Icon(
                           Icons.warning_amber_rounded,
                           color: Colors.white,
-                          size: 50,
+                          size: size.width * 0.128,
                         ),
                       ),
                     ),
-                    SizedBox(width: R.blockH * 4.267),
+                    SizedBox(width: size.width * 0.032),
 
                     Expanded(
                       child: Column(
@@ -701,38 +783,38 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                             hazardType,
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: R.blockH * 4.25,
+                              fontSize: size.width * 0.043,
                               fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: R.blockV * 0.5),
+                          SizedBox(height: visibleHeight * 0.005),
                           Text(
                             description,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: R.blockH * 3.25,
+                              fontSize: size.width * 0.033,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: R.blockV * 0.75),
+                          SizedBox(height: visibleHeight * 0.006),
 
                           Row(
                             children: [
                               Icon(
                                 Icons.location_on,
-                                size: 12,
+                                size: size.width * 0.031,
                                 color: Colors.white.withValues(alpha: 0.7),
                               ),
-                              SizedBox(width: R.blockH * 1.067),
+                              SizedBox(width: size.width * 0.011),
                               Expanded(
                                 child: Text(
                                   'Site: $siteName',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.8),
-                                    fontSize: R.blockH * 3,
+                                    fontSize: size.width * 0.030,
                                     fontWeight: FontWeight.w600,
                                   ),
                                   maxLines: 1,
@@ -745,13 +827,21 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
                       ),
                     ),
 
+                    SizedBox(width: size.width * 0.018),
                     Container(
-                      padding: EdgeInsets.all(R.blockH * 1.5),
+                      padding: EdgeInsets.all(size.width * 0.015),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: size.width * 0.005,
+                        ),
                       ),
-                      child: Icon(Icons.check, size: 16, color: Colors.white),
+                      child: Icon(
+                        Icons.check,
+                        size: size.width * 0.041,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -764,18 +854,22 @@ class _ResolvedHazardsScreenState extends State<ResolvedHazardsScreen> {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.event_note,
-            size: 64,
+            size: size.width * 0.164,
             color: isDark ? Colors.white12 : Colors.black12,
           ),
-          SizedBox(height: R.blockV * 2),
+          SizedBox(height: visibleHeight * 0.020),
           Text(
-            "No hazards found",
+            "No hazards found for this day",
             style: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
           ),
         ],
@@ -796,15 +890,16 @@ class HeaderCurvePainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.fill;
 
+    final curveDepth = size.height * 0.180;
     final path = Path();
-    path.lineTo(0, size.height - 40);
+    path.lineTo(size.width * 0.0, size.height - curveDepth);
     path.quadraticBezierTo(
-      size.width / 2,
+      size.width * 0.5,
       size.height,
       size.width,
-      size.height - 40,
+      size.height - curveDepth,
     );
-    path.lineTo(size.width, 0);
+    path.lineTo(size.width, size.height * 0.0);
     path.close();
 
     canvas.drawPath(path, paint);
@@ -822,14 +917,16 @@ class DashedLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()
       ..color = color
-      ..strokeWidth = 1.5
+      ..strokeWidth = size.width * 0.020
       ..style = PaintingStyle.stroke;
 
-    double dashHeight = 5, dashSpace = 3, startY = 0;
+    double dashHeight = size.height * 0.040;
+    double dashSpace = size.height * 0.022;
+    double startY = size.height * 0.0;
     while (startY < size.height) {
       canvas.drawLine(
-        Offset(size.width / 2, startY),
-        Offset(size.width / 2, startY + dashHeight),
+        Offset(size.width * 0.5, startY),
+        Offset(size.width * 0.5, startY + dashHeight),
         paint,
       );
       startY += dashHeight + dashSpace;
@@ -854,14 +951,27 @@ class TabbedCardGradientPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-    const double radius = 20.0;
-    const double tabHeight = 40.0;
-    const double tabWidth = 115.0; // Wide enough for tag + icons
+    final double radius = size.width * 0.060;
+    final double tabHeight = size.height * 0.220;
+    final double tabWidth = size.width * 0.390;
+    final double tabShoulder = size.width * 0.045;
 
-    path.moveTo(0, radius);
-    path.quadraticBezierTo(0, 0, radius, 0);
-    path.lineTo(tabWidth - 20, 0);
-    path.cubicTo(tabWidth, 0, tabWidth, tabHeight, tabWidth + 20, tabHeight);
+    path.moveTo(size.width * 0.0, radius);
+    path.quadraticBezierTo(
+      size.width * 0.0,
+      size.height * 0.0,
+      radius,
+      size.height * 0.0,
+    );
+    path.lineTo(tabWidth - tabShoulder, size.height * 0.0);
+    path.cubicTo(
+      tabWidth,
+      size.height * 0.0,
+      tabWidth,
+      tabHeight,
+      tabWidth + tabShoulder,
+      tabHeight,
+    );
     path.lineTo(size.width - radius, tabHeight);
     path.quadraticBezierTo(
       size.width,
@@ -877,7 +987,12 @@ class TabbedCardGradientPainter extends CustomPainter {
       size.height,
     );
     path.lineTo(radius, size.height);
-    path.quadraticBezierTo(0, size.height, 0, size.height - radius);
+    path.quadraticBezierTo(
+      size.width * 0.0,
+      size.height,
+      size.width * 0.0,
+      size.height - radius,
+    );
     path.close();
 
     canvas.drawPath(path, paint);

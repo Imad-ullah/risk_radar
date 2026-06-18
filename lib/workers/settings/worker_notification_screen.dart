@@ -4,7 +4,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/workers/settings/worker_hazard_notifier.dart';
@@ -55,16 +54,31 @@ class WorkerNotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     const Color brandTeal = Color(0xFF1B3D3D);
+    const Color accentGold = Color(0xFFE6A050);
     final Color unreadColorLight = Colors.blue.shade50;
     final Color unreadColorDark = brandTeal.withValues(alpha: 0.1);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hazard Notifications'),
+        title: Text(
+          'Notifications',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: size.width * 0.044,
+          ),
+        ),
         backgroundColor: brandTeal,
         foregroundColor: Colors.white,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: Colors.white),
@@ -82,10 +96,10 @@ class WorkerNotificationScreen extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.mark_email_read,
-                      size: 20,
-                      color: Colors.black54,
+                      size: size.width * 0.053,
+                      color: accentGold,
                     ),
-                    SizedBox(width: R.blockH * 2.133),
+                    SizedBox(width: size.width * 0.021),
                     Text('Mark All as Read'),
                   ],
                 ),
@@ -94,8 +108,12 @@ class WorkerNotificationScreen extends StatelessWidget {
                 value: 'clear_all',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_sweep, size: 20, color: Colors.black54),
-                    SizedBox(width: R.blockH * 2.133),
+                    Icon(
+                      Icons.delete_sweep,
+                      size: size.width * 0.053,
+                      color: accentGold,
+                    ),
+                    SizedBox(width: size.width * 0.021),
                     Text('Clear All Notifications'),
                   ],
                 ),
@@ -117,22 +135,22 @@ class WorkerNotificationScreen extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.notifications_off_outlined,
-                    size: 80,
+                    size: size.width * 0.213,
                     color: Colors.grey.shade400,
                   ),
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.020),
                   Text(
                     'No hazard notifications yet.',
                     style: TextStyle(
-                      fontSize: R.blockH * 4.5,
+                      fontSize: size.width * 0.045,
                       color: Colors.grey,
                     ),
                   ),
-                  SizedBox(height: R.blockV * 1),
+                  SizedBox(height: visibleHeight * 0.010),
                   Text(
                     'You\'ll be notified when hazards are nearby.',
                     style: TextStyle(
-                      fontSize: R.blockH * 3.5,
+                      fontSize: size.width * 0.035,
                       color: Colors.grey,
                     ),
                   ),
@@ -143,7 +161,12 @@ class WorkerNotificationScreen extends StatelessWidget {
 
           return ListView.builder(
             itemCount: notifications.length,
-            padding: EdgeInsets.only(top: R.blockV * 1, bottom: R.blockV * 2.5),
+            padding: EdgeInsets.fromLTRB(
+              size.width * 0.0,
+              visibleHeight * 0.010,
+              size.width * 0.0,
+              visibleHeight * 0.025,
+            ),
             itemBuilder: (context, index) {
               final notification = notifications[index];
 
@@ -166,27 +189,34 @@ class WorkerNotificationScreen extends StatelessWidget {
                 elevation: notification.isRead ? 0.5 : 2,
                 color: cardColor,
                 margin: EdgeInsets.symmetric(
-                  horizontal: R.blockH * 2.5,
-                  vertical: R.blockV * 0.5,
+                  horizontal: size.width * 0.025,
+                  vertical: visibleHeight * 0.005,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(size.width * 0.027),
                   side: !notification.isRead && !isDark
-                      ? BorderSide(color: Colors.blue.shade200, width: 1)
+                      ? BorderSide(
+                          color: brandTeal.withValues(alpha: 0.22),
+                          width: size.width * 0.003,
+                        )
                       : BorderSide.none,
                 ),
                 child: ListTile(
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                    horizontal: size.width * 0.040,
+                    vertical: visibleHeight * 0.008,
                   ),
                   leading: Container(
-                    width: R.blockH * 12.8,
-                    height: R.blockV * 6,
-                    padding: EdgeInsets.all(R.blockH * 2.5),
+                    width: size.width * 0.128,
+                    height: visibleHeight * 0.060,
+                    padding: EdgeInsets.all(size.width * 0.025),
                     decoration: BoxDecoration(
                       color: severityColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: severityColor.withValues(alpha: 0.85),
+                        width: size.width * 0.004,
+                      ),
                     ),
                     child: SvgPicture.asset(
                       _getHazardIconPath(
@@ -198,19 +228,21 @@ class WorkerNotificationScreen extends StatelessWidget {
                   title: Text(
                     notification.title,
                     style: TextStyle(
+                      fontSize: size.width * 0.035,
                       fontWeight: notification.isRead
                           ? FontWeight.normal
                           : FontWeight.bold,
                     ),
                   ),
                   subtitle: Padding(
-                    padding: EdgeInsets.only(top: R.blockV * 0.5),
+                    padding: EdgeInsets.only(top: visibleHeight * 0.005),
                     child: Text(
                       '${notification.body}\n📍 ${notification.distance}m away\nSeverity: ${notification.severity.toUpperCase()}',
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isDark ? Colors.grey.shade300 : Colors.black87,
+                        fontSize: size.width * 0.030,
                         fontWeight: notification.isRead
                             ? FontWeight.normal
                             : FontWeight.w500,
@@ -220,7 +252,7 @@ class WorkerNotificationScreen extends StatelessWidget {
                   trailing: Text(
                     formattedTime,
                     style: TextStyle(
-                      fontSize: R.blockH * 3,
+                      fontSize: size.width * 0.030,
                       color: Colors.grey.shade600,
                     ),
                   ),

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
@@ -95,7 +94,10 @@ class _HSEWorkerNotificationScreenState
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final Color unreadColorLight = AppColors.brandTeal.withValues(alpha: 0.08);
     final Color unreadColorDark = AppColors.brandTeal.withValues(alpha: 0.18);
 
@@ -107,12 +109,15 @@ class _HSEWorkerNotificationScreenState
         foregroundColor: Colors.white,
         systemOverlayStyle: SystemUiOverlayStyle.light,
         title: Text(
-          'Hazard Notifications',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'Notifications',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: size.width * 0.044,
+          ),
         ),
         actions: [
           Padding(
-            padding: EdgeInsets.only(right: R.blockH * 2),
+            padding: EdgeInsets.only(right: size.width * 0.020),
             child: ListenableBuilder(
               listenable: workerHazardNotifier,
               builder: (BuildContext context, Widget? _) {
@@ -126,20 +131,20 @@ class _HSEWorkerNotificationScreenState
                         right: 0,
                         top: 6,
                         child: Container(
-                          padding: EdgeInsets.all(R.blockH * 0.5),
+                          padding: EdgeInsets.all(size.width * 0.005),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
                           ),
                           constraints: BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
+                            minWidth: size.width * 0.043,
+                            minHeight: size.width * 0.043,
                           ),
                           child: Text(
                             count.toString(),
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: R.blockH * 2.5,
+                              fontSize: size.width * 0.025,
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
@@ -168,10 +173,10 @@ class _HSEWorkerNotificationScreenState
                       children: [
                         Icon(
                           Icons.mark_email_read,
-                          size: 20,
-                          color: Colors.black54,
+                          size: size.width * 0.053,
+                          color: AppColors.accentGold,
                         ),
-                        SizedBox(width: R.blockH * 2.133),
+                        SizedBox(width: size.width * 0.021),
                         Text('Mark All as Read'),
                       ],
                     ),
@@ -182,10 +187,10 @@ class _HSEWorkerNotificationScreenState
                       children: [
                         Icon(
                           Icons.delete_sweep,
-                          size: 20,
-                          color: Colors.black54,
+                          size: size.width * 0.053,
+                          color: AppColors.accentGold,
                         ),
-                        SizedBox(width: R.blockH * 2.133),
+                        SizedBox(width: size.width * 0.021),
                         Text('Clear All Notifications'),
                       ],
                     ),
@@ -210,22 +215,22 @@ class _HSEWorkerNotificationScreenState
                 children: [
                   Icon(
                     Icons.notifications_off_outlined,
-                    size: 80,
+                    size: size.width * 0.213,
                     color: Colors.grey.shade400,
                   ),
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.020),
                   Text(
                     'No hazard notifications yet.',
                     style: TextStyle(
-                      fontSize: R.blockH * 4.5,
+                      fontSize: size.width * 0.045,
                       color: Colors.grey,
                     ),
                   ),
-                  SizedBox(height: R.blockV * 1),
+                  SizedBox(height: visibleHeight * 0.010),
                   Text(
                     'You\'ll be notified when tasks are assigned nearby.',
                     style: TextStyle(
-                      fontSize: R.blockH * 3.5,
+                      fontSize: size.width * 0.035,
                       color: Colors.grey,
                     ),
                   ),
@@ -237,10 +242,10 @@ class _HSEWorkerNotificationScreenState
           return ListView.builder(
             itemCount: notifications.length,
             padding: EdgeInsets.fromLTRB(
-              R.blockH * 0,
-              R.blockV * 1,
-              R.blockH * 0,
-              R.blockV * 15,
+              size.width * 0.0,
+              visibleHeight * 0.010,
+              size.width * 0.0,
+              visibleHeight * 0.150,
             ),
             itemBuilder: (BuildContext context, int index) {
               final WorkerNotification notification = notifications[index];
@@ -255,39 +260,42 @@ class _HSEWorkerNotificationScreenState
                 elevation: notification.isRead ? 0.5 : 2,
                 color: cardColor,
                 margin: EdgeInsets.symmetric(
-                  horizontal: R.blockH * 2.5,
-                  vertical: R.blockV * 0.5,
+                  horizontal: size.width * 0.025,
+                  vertical: visibleHeight * 0.005,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(size.width * 0.027),
                   side: !notification.isRead && !isDark
                       ? BorderSide(
                           color: AppColors.brandTeal.withValues(alpha: 0.22),
-                          width: 1,
+                          width: size.width * 0.003,
                         )
                       : BorderSide.none,
                 ),
                 child: ListTile(
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                    horizontal: size.width * 0.040,
+                    vertical: visibleHeight * 0.008,
                   ),
                   leading: Container(
-                    width: R.blockH * 12.8,
-                    height: R.blockV * 6,
-                    padding: EdgeInsets.all(R.blockH * 2.5),
+                    width: size.width * 0.128,
+                    height: visibleHeight * 0.060,
+                    padding: EdgeInsets.all(size.width * 0.025),
                     decoration: BoxDecoration(
                       color: severityColor.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: severityColor.withValues(alpha: 0.85),
-                        width: 1.4,
+                        width: size.width * 0.004,
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: severityColor.withValues(alpha: 0.20),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
+                          blurRadius: size.width * 0.021,
+                          offset: Offset(
+                            size.width * 0.0,
+                            visibleHeight * 0.002,
+                          ),
                         ),
                       ],
                     ),
@@ -301,19 +309,21 @@ class _HSEWorkerNotificationScreenState
                   title: Text(
                     notification.title,
                     style: TextStyle(
+                      fontSize: size.width * 0.035,
                       fontWeight: notification.isRead
                           ? FontWeight.normal
                           : FontWeight.bold,
                     ),
                   ),
                   subtitle: Padding(
-                    padding: EdgeInsets.only(top: R.blockV * 0.5),
+                    padding: EdgeInsets.only(top: visibleHeight * 0.005),
                     child: Text(
                       '${notification.body}\n${notification.distance}m away\nSeverity: ${notification.severity.toUpperCase()}',
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isDark ? Colors.grey.shade300 : Colors.black87,
+                        fontSize: size.width * 0.030,
                         fontWeight: notification.isRead
                             ? FontWeight.normal
                             : FontWeight.w500,
@@ -323,12 +333,26 @@ class _HSEWorkerNotificationScreenState
                   trailing: Text(
                     formattedTime,
                     style: TextStyle(
-                      fontSize: R.blockH * 3,
+                      fontSize: size.width * 0.030,
                       color: Colors.grey.shade600,
                     ),
                   ),
                   onTap: () async {
                     workerHazardNotifier.markAsRead(notification.hazardId);
+
+                    final hazardData = await fetchFullHazardData(
+                      notification.hazardId,
+                      sourceTable: notification.sourceTable,
+                    );
+                    if (hazardData != null && context.mounted) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HazardDetailsScreen(hazardData: hazardData),
+                        ),
+                      );
+                      return;
+                    }
 
                     final cached = await _findHazardInCache(
                       notification.hazardId,
@@ -347,18 +371,7 @@ class _HSEWorkerNotificationScreenState
                       return;
                     }
 
-                    final hazardData = await fetchFullHazardData(
-                      notification.hazardId,
-                      sourceTable: notification.sourceTable,
-                    );
-                    if (hazardData != null && context.mounted) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              HazardDetailsScreen(hazardData: hazardData),
-                        ),
-                      );
-                    } else if (context.mounted) {
+                    if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
@@ -397,9 +410,20 @@ class _HSEWorkerNotificationScreenState
 
   Map<String, dynamic> _normaliseCachedHazard(Map<String, dynamic> task) {
     final Object? worker = task['workers'];
-    final String reporterName = worker is Map<String, dynamic>
-        ? '${worker['first_name'] ?? ''} ${worker['last_name'] ?? ''}'.trim()
-        : task['reporter_name']?.toString() ?? 'Unknown';
+    final Map<dynamic, dynamic>? workerMap = worker is Map ? worker : null;
+    final String workerName = workerMap == null
+        ? ''
+        : '${workerMap['first_name'] ?? ''} ${workerMap['last_name'] ?? ''}'
+              .trim();
+    final String reporterName = workerName.isNotEmpty
+        ? workerName
+        : (task['reporter_name'] ??
+                  task['worker_name'] ??
+                  task['reporter_full_name'] ??
+                  task['created_by_name'] ??
+                  'Unknown')
+              .toString()
+              .trim();
 
     return {
       ...task,

@@ -14,7 +14,9 @@ import '../../shared/hazards/resolved_hazard_report_screen.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
 
 class WorkerResolvedHazardsScreen extends StatefulWidget {
-  const WorkerResolvedHazardsScreen({super.key});
+  final ValueChanged<DateTime>? onSelectedDateChanged;
+
+  const WorkerResolvedHazardsScreen({super.key, this.onSelectedDateChanged});
 
   @override
   State<WorkerResolvedHazardsScreen> createState() =>
@@ -296,16 +298,23 @@ class _WorkerResolvedHazardsScreenState
               loading
                   ? Center(child: CircularProgressIndicator(color: _headerTeal))
                   : _filteredHazards.isEmpty
-                  ? Padding(
-                      padding: EdgeInsets.only(top: visibleHeight * 0.275),
-                      child: _buildEmptyState(isDark),
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(top: visibleHeight * 0.220),
+                      children: [
+                        SizedBox(
+                          height: visibleHeight * 0.450,
+                          child: _buildEmptyState(isDark),
+                        ),
+                      ],
                     )
                   : ListView.builder(
                       controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(
-                        size.width * 0.050,
-                        visibleHeight * 0.275,
-                        size.width * 0.050,
+                        size.width * 0.025,
+                        visibleHeight * 0.220,
+                        size.width * 0.045,
                         visibleHeight * 0.150,
                       ),
                       itemCount:
@@ -340,39 +349,13 @@ class _WorkerResolvedHazardsScreenState
                 child: CustomPaint(
                   painter: HeaderCurvePainter(color: _headerTeal),
                   child: Container(
-                    padding: EdgeInsets.only(bottom: visibleHeight * 0.063),
+                    padding: EdgeInsets.only(bottom: visibleHeight * 0.045),
                     child: SafeArea(
                       bottom: false,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(height: visibleHeight * 0.013),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                DateFormat('MMMM yyyy').format(_selectedDate),
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: size.width * 0.055,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              // Subtle refresh indicator
-                              if (_isRefreshing) ...[
-                                SizedBox(width: size.width * 0.027),
-                                SizedBox(
-                                  width: size.width * 0.037,
-                                  height: visibleHeight * 0.018,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white54,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          SizedBox(height: visibleHeight * 0.019),
+                          SizedBox(height: visibleHeight * 0.018),
                           SizedBox(
                             height: visibleHeight * 0.112,
                             child: RotatedBox(
@@ -388,6 +371,7 @@ class _WorkerResolvedHazardsScreenState
                                   final date = today.subtract(
                                     Duration(days: 30 - index),
                                   );
+                                  widget.onSelectedDateChanged?.call(date);
                                   _filterHazardsByDate(date);
                                 },
                                 childDelegate: ListWheelChildBuilderDelegate(
@@ -486,30 +470,38 @@ class _WorkerResolvedHazardsScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: size.width * 0.147,
-            child: Column(
-              children: [
-                Text(
-                  timeDisplay,
-                  style: TextStyle(
-                    color: timeColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: size.width * 0.033,
-                  ),
-                ),
-                SizedBox(height: visibleHeight * 0.010),
-                Expanded(
-                  child: CustomPaint(
-                    painter: DashedLinePainter(color: lineColor),
-                  ),
-                ),
-              ],
+            width: size.width * 0.045,
+            child: Padding(
+              padding: EdgeInsets.only(top: visibleHeight * 0.025),
+              child: CustomPaint(
+                painter: DashedLinePainter(color: lineColor),
+              ),
             ),
           ),
+          SizedBox(width: size.width * 0.006),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: visibleHeight * 0.025),
-              child: _buildTabbedGradientCard(hazard, index),
+              padding: EdgeInsets.only(bottom: visibleHeight * 0.015),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: size.width * 0.004,
+                      bottom: visibleHeight * 0.004,
+                    ),
+                    child: Text(
+                      timeDisplay,
+                      style: TextStyle(
+                        color: timeColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: size.width * 0.033,
+                      ),
+                    ),
+                  ),
+                  _buildTabbedGradientCard(hazard, index),
+                ],
+              ),
             ),
           ),
         ],
@@ -574,15 +566,16 @@ class _WorkerResolvedHazardsScreenState
           ),
           child: Container(
             padding: EdgeInsets.fromLTRB(
-              size.width * 0.040,
-              visibleHeight * 0.015,
-              size.width * 0.040,
-              visibleHeight * 0.025,
+              size.width * 0.034,
+              visibleHeight * 0.010,
+              size.width * 0.034,
+              visibleHeight * 0.016,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (reportNumber != null && reportNumber.isNotEmpty) ...[
                       Container(
@@ -591,9 +584,9 @@ class _WorkerResolvedHazardsScreenState
                           vertical: visibleHeight * 0.004,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.2),
+                          color: Colors.black.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(
-                            size.width * 0.021,
+                            size.width * 0.015,
                           ),
                         ),
                         child: Text(
@@ -632,58 +625,64 @@ class _WorkerResolvedHazardsScreenState
                       ),
                     ],
                     Spacer(),
-                    SizedBox(
-                      height: visibleHeight * 0.035,
-                      width: size.width * 0.075,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            width: size.width * 0.005,
+                    Transform.translate(
+                      offset: Offset(size.width * 0.0, -(visibleHeight * 0.006)),
+                      child: SizedBox(
+                        height: visibleHeight * 0.035,
+                        width: size.width * 0.075,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.5)
+                                  : Colors.black,
+                              width: size.width * 0.005,
+                            ),
+                            image: officerImage != null
+                                ? DecorationImage(
+                                    image: CachedNetworkImageProvider(
+                                      officerImage,
+                                    ),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            color: Colors.white24,
                           ),
-                          image: officerImage != null
-                              ? DecorationImage(
-                                  image: CachedNetworkImageProvider(
-                                    officerImage,
-                                  ),
-                                  fit: BoxFit.cover,
+                          child: officerImage == null
+                              ? Icon(
+                                  Icons.security,
+                                  size: size.width * 0.041,
+                                  color: Colors.white,
                                 )
                               : null,
-                          color: Colors.white24,
                         ),
-                        child: officerImage == null
-                            ? Icon(
-                                Icons.security,
-                                size: size.width * 0.037,
-                                color: Colors.white,
-                              )
-                            : null,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: visibleHeight * 0.020),
+                SizedBox(height: visibleHeight * 0.012),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: size.width * 0.187,
-                      height: visibleHeight * 0.088,
+                      width: size.width * 0.165,
+                      height: visibleHeight * 0.074,
                       alignment: Alignment.center,
                       child: SvgPicture.asset(
                         iconAsset,
                         fit: BoxFit.contain,
-                        width: size.width * 0.155,
-                        height: visibleHeight * 0.073,
+                        width: size.width * 0.132,
+                        height: visibleHeight * 0.060,
                         placeholderBuilder: (context) => Icon(
                           Icons.warning_amber_rounded,
                           color: Colors.white,
-                          size: size.width * 0.133,
+                          size: size.width * 0.128,
                         ),
                       ),
                     ),
-                    SizedBox(width: size.width * 0.043),
+                    SizedBox(width: size.width * 0.032),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,6 +710,7 @@ class _WorkerResolvedHazardsScreenState
                         ],
                       ),
                     ),
+                    SizedBox(width: size.width * 0.018),
                     Container(
                       padding: EdgeInsets.all(size.width * 0.015),
                       decoration: BoxDecoration(
@@ -722,7 +722,7 @@ class _WorkerResolvedHazardsScreenState
                       ),
                       child: Icon(
                         Icons.check,
-                        size: size.width * 0.043,
+                        size: size.width * 0.041,
                         color: Colors.white,
                       ),
                     ),
@@ -832,7 +832,7 @@ class TabbedCardGradientPainter extends CustomPainter {
 
     final path = Path();
     const double radius = 20.0;
-    const double tabHeight = 40.0;
+    const double tabHeight = 28.0;
     const double tabWidth = 115.0;
 
     path.moveTo(0, radius);

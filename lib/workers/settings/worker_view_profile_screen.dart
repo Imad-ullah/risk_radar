@@ -235,6 +235,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
     final size = mediaQuery.size;
     final visibleHeight =
         size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+    final topBarHeight = mediaQuery.padding.top + visibleHeight * 0.070;
     final String? imageUrl = _profileText('profile_image_url');
     final String fullName =
         '${_profileText('first_name') ?? ''} '
@@ -252,7 +253,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
           top: 0,
           left: 0,
           right: 0,
-          height: visibleHeight * 0.310,
+          height: topBarHeight + visibleHeight * 0.275,
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.brandTeal,
@@ -266,10 +267,12 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
         Positioned.fill(
           child: SingleChildScrollView(
             padding: EdgeInsets.only(
-              top: visibleHeight * 0.078,
-              bottom: visibleHeight * 0.040,
+              top: topBarHeight + visibleHeight * 0.020,
+              bottom: visibleHeight * 0.020,
             ),
-            child: Column(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: size.height),
+              child: Column(
               children: <Widget>[
                 Center(
                   child: Stack(
@@ -298,7 +301,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                           child: Hero(
                             tag: imageUrl ?? 'profile_pic',
                             child: CircleAvatar(
-                              radius: size.width * 0.145,
+                              radius: size.width * 0.118,
                               backgroundColor: Colors.grey.shade300,
                               backgroundImage: avatarImage,
                               child: _updatingPhoto
@@ -309,7 +312,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                                   : avatarImage == null
                                   ? Icon(
                                       Icons.person,
-                                      size: size.width * 0.145,
+                                      size: size.width * 0.118,
                                       color: Colors.grey,
                                     )
                                   : null,
@@ -340,11 +343,11 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: visibleHeight * 0.012),
+                SizedBox(height: visibleHeight * 0.005),
                 Text(
                   fullName.isEmpty ? 'Worker Profile' : fullName,
                   style: TextStyle(
-                    fontSize: size.width * 0.052,
+                    fontSize: size.width * 0.046,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                     letterSpacing: 0.5,
@@ -359,10 +362,13 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                     letterSpacing: 1,
                   ),
                 ),
-                SizedBox(height: visibleHeight * 0.026),
+                SizedBox(height: visibleHeight * 0.012),
                 Container(
                   margin: EdgeInsets.symmetric(horizontal: size.width * 0.050),
-                  padding: EdgeInsets.all(size.width * 0.052),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width * 0.042,
+                    vertical: visibleHeight * 0.018,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(size.width * 0.053),
@@ -385,7 +391,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                           color: AppColors.brandTeal,
                         ),
                       ),
-                      SizedBox(height: visibleHeight * 0.018),
+                      SizedBox(height: visibleHeight * 0.011),
                       _buildReadOnlyField(
                         'First Name',
                         _profileText('first_name') ?? '',
@@ -424,16 +430,55 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),
         Positioned(
           top: 0,
-          left: size.width * 0.053,
-          child: SafeArea(
-            child: IconButton(
-              icon: Icon(Icons.arrow_back_ios, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+          left: 0,
+          right: 0,
+          child: Container(
+            height: topBarHeight,
+            color: AppColors.brandTeal,
+            padding: EdgeInsets.only(top: mediaQuery.padding.top),
+            child: SizedBox(
+              height: visibleHeight * 0.070,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    left: size.width * 0.055,
+                    right: size.width * 0.055,
+                    bottom: visibleHeight * 0.004,
+                    child: Container(
+                      height: visibleHeight * 0.0012,
+                      color: Colors.white.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  Positioned(
+                    left: size.width * 0.030,
+                    child: IconButton(
+                      iconSize: size.width * 0.058,
+                      padding: EdgeInsets.all(size.width * 0.010),
+                      constraints: BoxConstraints(
+                        minWidth: size.width * 0.090,
+                        minHeight: size.width * 0.090,
+                      ),
+                      icon: Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  Text(
+                    'Profile',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: size.width * 0.044,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -454,7 +499,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
     final visibleHeight =
         size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Padding(
-      padding: EdgeInsets.only(bottom: visibleHeight * 0.018),
+      padding: EdgeInsets.only(bottom: visibleHeight * 0.009),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -466,7 +511,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: visibleHeight * 0.006),
+          SizedBox(height: visibleHeight * 0.003),
           TextFormField(
             initialValue: value,
             readOnly: true,
@@ -484,7 +529,7 @@ class _WorkerEditProfileScreenState extends State<WorkerEditProfileScreen> {
               filled: true,
               fillColor: Colors.grey.shade50,
               contentPadding: EdgeInsets.symmetric(
-                vertical: visibleHeight * 0.014,
+                vertical: visibleHeight * 0.008,
                 horizontal: size.width * 0.050,
               ),
               border: OutlineInputBorder(

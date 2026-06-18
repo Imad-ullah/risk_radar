@@ -1,12 +1,5 @@
 // lib/workers/screens/hse_worker_app_settings_screen.dart
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
-import 'package:riskradar/services/logger_service.dart';
-import 'package:riskradar/services/repositories/auth_repository.dart';
-import 'package:riskradar/services/repositories/sync_repository.dart';
-import 'package:riskradar/services/sync_service.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'hse_worker_sites_screen.dart';
@@ -36,115 +29,6 @@ class HSEWorkerAppSettingsScreen extends StatefulWidget {
 class _HSEWorkerAppSettingsScreenState
     extends State<HSEWorkerAppSettingsScreen> {
   static const Color brandTeal = HSEWorkerAppSettingsScreen.brandTeal;
-  static const String _availabilityEnabledText =
-      'Available for new hazard assignments';
-  static const String _availabilityDisabledText =
-      'Paused for new hazard assignments';
-  static const String _availabilitySavedText =
-      'Availability update queued for sync';
-  static const String _availabilityFailedText = 'Failed to update availability';
-
-  final AuthRepository _authRepository = AuthRepository();
-  final SyncRepository _syncRepository = SyncRepository();
-
-  bool _isAvailable = true;
-  bool _isSavingAvailability = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAvailabilityFromCache();
-  }
-
-  void _loadAvailabilityFromCache() {
-    final Map<String, dynamic>? profile = _authRepository.getHseProfile();
-    final bool? cachedAvailability = _readBool(profile?['is_available']);
-    _isAvailable = cachedAvailability ?? true;
-  }
-
-  bool? _readBool(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is bool) {
-      return value;
-    }
-    if (value is num) {
-      return value != 0;
-    }
-    final String normalized = value.toString().trim().toLowerCase();
-    if (normalized == 'true' || normalized == '1') {
-      return true;
-    }
-    if (normalized == 'false' || normalized == '0') {
-      return false;
-    }
-    return null;
-  }
-
-  Future<void> _handleAvailabilityChanged(bool value) async {
-    if (_isSavingAvailability) {
-      return;
-    }
-
-    final String? userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      _showErrorSnackBar('Sign in again to update availability');
-      return;
-    }
-
-    final bool previousValue = _isAvailable;
-    setState(() {
-      _isAvailable = value;
-      _isSavingAvailability = true;
-    });
-
-    try {
-      await _cacheAvailability(userId: userId, isAvailable: value);
-      await _syncRepository.enqueueAction(
-        id: 'hse_availability_${userId}_${DateTime.now().millisecondsSinceEpoch}',
-        table: 'hse_workers',
-        action: 'update',
-        payload: {'id': userId, 'is_available': value},
-      );
-      unawaited(SyncService.instance.run());
-
-      if (!mounted) {
-        return;
-      }
-      _showInfoSnackBar(_availabilitySavedText);
-    } catch (e, s) {
-      LoggerService.error(_availabilityFailedText, e, s);
-      await _cacheAvailability(userId: userId, isAvailable: previousValue);
-
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isAvailable = previousValue;
-      });
-      _showErrorSnackBar(_availabilityFailedText);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingAvailability = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _cacheAvailability({
-    required String userId,
-    required bool isAvailable,
-  }) {
-    final Map<String, dynamic> currentProfile =
-        _authRepository.getHseProfile() ?? <String, dynamic>{};
-    return _authRepository.saveHseProfile({
-      ...currentProfile,
-      'id': userId,
-      'is_available': isAvailable,
-    });
-  }
 
   void _showInfoSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -173,15 +57,25 @@ class _HSEWorkerAppSettingsScreenState
   }
 
   Future<void> _handleSignOut(BuildContext context) async {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     // ✅ NEW THEMED DIALOG DESIGN
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: size.width * 0.085,
+          vertical: visibleHeight * 0.030,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size.width * 0.071),
+        ),
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        elevation: size.width * 0.0,
         child: Container(
-          padding: EdgeInsets.all(R.blockH * 6),
+          padding: EdgeInsets.all(size.width * 0.048),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
@@ -191,12 +85,12 @@ class _HSEWorkerAppSettingsScreenState
                 Color(0xDA1B3D3D), // brandTeal with values (alpha: 0.85)
               ],
             ),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(size.width * 0.071),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: Offset(0, 10),
+                blurRadius: size.width * 0.053,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.013),
               ),
             ],
           ),
@@ -204,7 +98,7 @@ class _HSEWorkerAppSettingsScreenState
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: EdgeInsets.all(R.blockH * 4),
+                padding: EdgeInsets.all(size.width * 0.032),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
@@ -212,28 +106,28 @@ class _HSEWorkerAppSettingsScreenState
                 child: Icon(
                   Icons.logout_rounded,
                   color: Colors.white,
-                  size: 32,
+                  size: size.width * 0.074,
                 ),
               ),
-              SizedBox(height: R.blockV * 2.5),
+              SizedBox(height: visibleHeight * 0.018),
               Text(
                 'Confirm Logout',
                 style: TextStyle(
-                  fontSize: R.blockH * 5.5,
+                  fontSize: size.width * 0.050,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              SizedBox(height: R.blockV * 1.5),
+              SizedBox(height: visibleHeight * 0.010),
               Text(
                 'Are you sure you want to log out of RiskRadar?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: R.blockH * 3.75,
+                  fontSize: size.width * 0.035,
                   color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
-              SizedBox(height: R.blockV * 3.5),
+              SizedBox(height: visibleHeight * 0.024),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -243,30 +137,30 @@ class _HSEWorkerAppSettingsScreenState
                     child: Text(
                       'Cancel',
                       style: TextStyle(
-                        fontSize: R.blockH * 4,
+                        fontSize: size.width * 0.040,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  SizedBox(width: R.blockH * 3.2),
+                  SizedBox(width: size.width * 0.032),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: brandTeal,
                       padding: EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                        horizontal: size.width * 0.064,
+                        vertical: visibleHeight * 0.011,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(size.width * 0.041),
                       ),
-                      elevation: 4,
+                      elevation: size.width * 0.011,
                     ),
                     child: Text(
                       'Logout',
                       style: TextStyle(
-                        fontSize: R.blockH * 4,
+                        fontSize: size.width * 0.040,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -316,7 +210,10 @@ class _HSEWorkerAppSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -325,8 +222,8 @@ class _HSEWorkerAppSettingsScreenState
         child: SingleChildScrollView(
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: R.blockH * 4,
-              vertical: R.blockV * 1.5,
+              horizontal: size.width * 0.040,
+              vertical: visibleHeight * 0.010,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -344,7 +241,7 @@ class _HSEWorkerAppSettingsScreenState
                     );
                   },
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.warning_amber_outlined,
                   iconColor: Colors.red.shade200,
@@ -352,41 +249,14 @@ class _HSEWorkerAppSettingsScreenState
                   subtitle: 'Update contacts and critical medical info',
                   onTap: () => _onEmergencyDetailsTap(context),
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.location_on_outlined,
                   title: 'Change Current Site',
                   subtitle: 'Select or switch your active work site',
                   onTap: () => _onChangeSiteTap(context),
                 ),
-                SizedBox(height: R.blockV * 2),
-                _CompactSettingsTile(
-                  icon: _isAvailable
-                      ? Icons.assignment_turned_in_outlined
-                      : Icons.pause_circle_outline_rounded,
-                  iconColor: _isAvailable
-                      ? AppColors.accentGold
-                      : Colors.white70,
-                  title: 'Availability',
-                  subtitle: _isAvailable
-                      ? _availabilityEnabledText
-                      : _availabilityDisabledText,
-                  enableTileTap: false,
-                  trailing: Switch(
-                    value: _isAvailable,
-                    onChanged: _isSavingAvailability
-                        ? null
-                        : _handleAvailabilityChanged,
-                    activeThumbColor: AppColors.accentGold,
-                    activeTrackColor: AppColors.brandTeal.withValues(
-                      alpha: 0.65,
-                    ),
-                    inactiveThumbColor: Colors.white,
-                    inactiveTrackColor: const Color(0xFF355F67),
-                  ),
-                  onTap: () {},
-                ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.color_lens_outlined,
                   title: isDark ? 'Dark Mode' : 'Light Mode',
@@ -402,7 +272,7 @@ class _HSEWorkerAppSettingsScreenState
                   ),
                   onTap: () {},
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
@@ -410,7 +280,7 @@ class _HSEWorkerAppSettingsScreenState
                   onTap: () =>
                       _showInfoSnackBar('Notification settings coming soon'),
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.security_outlined,
                   title: 'Privacy & Security',
@@ -418,14 +288,14 @@ class _HSEWorkerAppSettingsScreenState
                   onTap: () =>
                       _showInfoSnackBar('Privacy settings coming soon'),
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
                 _CompactSettingsTile(
                   icon: Icons.info_outline,
                   title: 'About App',
                   subtitle: 'Learn more about this application',
                   onTap: () => widget.onAboutTap(context),
                 ),
-                SizedBox(height: R.blockV * 4),
+                SizedBox(height: visibleHeight * 0.026),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -433,13 +303,13 @@ class _HSEWorkerAppSettingsScreenState
                       end: Alignment.bottomRight,
                       colors: <Color>[Colors.red.shade600, Colors.red.shade800],
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(size.width * 0.036),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.red.shade600.withValues(alpha: 0.32),
-                        blurRadius: 14,
-                        spreadRadius: 1,
-                        offset: Offset(0, 6),
+                        blurRadius: size.width * 0.037,
+                        spreadRadius: size.width * 0.003,
+                        offset: Offset(size.width * 0.0, visibleHeight * 0.008),
                       ),
                     ],
                   ),
@@ -448,23 +318,23 @@ class _HSEWorkerAppSettingsScreenState
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 56),
+                      minimumSize: Size(double.infinity, visibleHeight * 0.060),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(size.width * 0.036),
                       ),
                     ),
                     onPressed: () => _handleSignOut(context),
-                    icon: Icon(Icons.logout, size: 22),
+                    icon: Icon(Icons.logout, size: size.width * 0.053),
                     label: Text(
                       'Sign Out',
                       style: TextStyle(
-                        fontSize: R.blockH * 4,
+                        fontSize: size.width * 0.037,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
-                SizedBox(height: R.blockV * 2),
+                SizedBox(height: visibleHeight * 0.014),
               ],
             ),
           ),
@@ -495,7 +365,10 @@ class _CompactSettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final Color cardBase = isDark
@@ -504,11 +377,11 @@ class _CompactSettingsTile extends StatelessWidget {
 
     return InkWell(
       onTap: enableTileTap ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(size.width * 0.031),
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: R.blockH * 4,
-          vertical: R.blockV * 2,
+          horizontal: size.width * 0.040,
+          vertical: visibleHeight * 0.015,
         ),
         decoration: BoxDecoration(
           color: cardBase,
@@ -517,19 +390,23 @@ class _CompactSettingsTile extends StatelessWidget {
                 ? AppColors.surfaceTeal.withValues(alpha: 0.8)
                 : AppColors.brandTeal.withValues(alpha: 0.22),
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(size.width * 0.031),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-              blurRadius: 10,
-              offset: Offset(0, 4),
+              blurRadius: size.width * 0.027,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.005),
             ),
           ],
         ),
         child: Row(
           children: <Widget>[
-            Icon(icon, color: iconColor ?? Colors.white, size: 26),
-            SizedBox(width: R.blockH * 4.267),
+            Icon(
+              icon,
+              color: iconColor ?? Colors.white,
+              size: size.width * 0.064,
+            ),
+            SizedBox(width: size.width * 0.035),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,16 +414,16 @@ class _CompactSettingsTile extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: R.blockH * 4,
+                      fontSize: size.width * 0.039,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(height: R.blockV * 0.5),
+                  SizedBox(height: visibleHeight * 0.003),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: R.blockH * 3,
+                      fontSize: size.width * 0.029,
                       fontWeight: FontWeight.w500,
                       color: Colors.white.withValues(alpha: 0.74),
                     ),
@@ -557,7 +434,11 @@ class _CompactSettingsTile extends StatelessWidget {
             if (trailing != null)
               trailing!
             else
-              Icon(Icons.chevron_right, color: Colors.white70, size: 24),
+              Icon(
+                Icons.chevron_right,
+                color: Colors.white70,
+                size: size.width * 0.060,
+              ),
           ],
         ),
       ),
@@ -573,7 +454,10 @@ class ThemeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final trackLight = Colors.grey.shade300;
     final trackDark = Colors.grey.shade800;
 
@@ -583,9 +467,9 @@ class ThemeToggle extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        width: R.blockH * 22.933,
-        height: R.blockV * 4.75,
-        padding: EdgeInsets.symmetric(horizontal: R.blockH * 1.5),
+        width: size.width * 0.205,
+        height: visibleHeight * 0.041,
+        padding: EdgeInsets.symmetric(horizontal: size.width * 0.012),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isDark
@@ -594,12 +478,12 @@ class ThemeToggle extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(size.width * 0.064),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: Offset(0, 2),
+              blurRadius: size.width * 0.011,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.003),
             ),
           ],
         ),
@@ -609,10 +493,10 @@ class ThemeToggle extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: EdgeInsets.only(left: R.blockH * 2.5),
+                padding: EdgeInsets.only(left: size.width * 0.020),
                 child: Icon(
                   Icons.wb_sunny_rounded,
-                  size: 20,
+                  size: size.width * 0.046,
                   color: isDark ? Colors.white30 : Colors.orangeAccent.shade700,
                 ),
               ),
@@ -620,10 +504,10 @@ class ThemeToggle extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Padding(
-                padding: EdgeInsets.only(right: R.blockH * 2.5),
+                padding: EdgeInsets.only(right: size.width * 0.020),
                 child: Icon(
                   Icons.nightlight_round,
-                  size: 20,
+                  size: size.width * 0.046,
                   color: isDark ? Colors.indigoAccent.shade100 : Colors.black26,
                 ),
               ),
@@ -633,8 +517,8 @@ class ThemeToggle extends StatelessWidget {
               curve: Curves.easeInOut,
               alignment: isDark ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
-                width: R.blockH * 9.067,
-                height: R.blockV * 4.25,
+                width: size.width * 0.078,
+                height: visibleHeight * 0.036,
                 decoration: BoxDecoration(
                   color: isDark
                       ? Theme.of(context).colorScheme.primary
@@ -643,15 +527,15 @@ class ThemeToggle extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
+                      blurRadius: size.width * 0.011,
+                      offset: Offset(size.width * 0.0, visibleHeight * 0.003),
                     ),
                   ],
                 ),
                 child: Center(
                   child: Icon(
                     isDark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
-                    size: 18,
+                    size: size.width * 0.041,
                     color: isDark ? Colors.white : Colors.orangeAccent.shade700,
                   ),
                 ),

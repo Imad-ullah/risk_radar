@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -411,11 +410,17 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(MediaQuery.of(context).size.width * 0.061),
+        ),
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final mediaQuery = MediaQuery.of(context);
+        final size = mediaQuery.size;
+        final visibleHeight =
+            size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
             const panelBg = Color(0xFF123636);
@@ -431,8 +436,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                     return Container(
                       decoration: BoxDecoration(
                         color: panelBg,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(size.width * 0.061),
                         ),
                         border: Border.all(
                           color: AppColors.surfaceTeal.withValues(alpha: 0.7),
@@ -440,10 +445,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                       ),
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(
-                          R.blockH * 5,
-                          R.blockV * 2,
-                          R.blockH * 5,
-                          R.blockV * 2.5,
+                          size.width * 0.051,
+                          visibleHeight * 0.020,
+                          size.width * 0.051,
+                          visibleHeight * 0.025,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,12 +456,16 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                             // Handle bar
                             Center(
                               child: Container(
-                                width: R.blockH * 10.667,
-                                height: R.blockV * 0.5,
-                                margin: EdgeInsets.only(bottom: R.blockV * 2.5),
+                                width: size.width * 0.107,
+                                height: visibleHeight * 0.005,
+                                margin: EdgeInsets.only(
+                                  bottom: visibleHeight * 0.025,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white24,
-                                  borderRadius: BorderRadius.circular(2),
+                                  borderRadius: BorderRadius.circular(
+                                    size.width * 0.005,
+                                  ),
                                 ),
                               ),
                             ),
@@ -480,7 +489,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                     tempSeverity != null ||
                                     tempSortBy != 'newest')
                                   TextButton.icon(
-                                    icon: Icon(Icons.clear_all, size: 18),
+                                    icon: Icon(
+                                      Icons.clear_all,
+                                      size: size.width * 0.046,
+                                    ),
                                     label: Text("Clear All"),
                                     onPressed: () {
                                       setSheetState(() {
@@ -496,7 +508,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                   ),
                               ],
                             ),
-                            SizedBox(height: R.blockV * 2.5),
+                            SizedBox(height: visibleHeight * 0.025),
 
                             Expanded(
                               child: ListView(
@@ -509,8 +521,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                     icon: Icons.warning_amber_rounded,
                                     titleColor: primaryText,
                                     child: Wrap(
-                                      spacing: 8.0,
-                                      runSpacing: 8.0,
+                                      spacing: size.width * 0.020,
+                                      runSpacing: visibleHeight * 0.008,
                                       children: [
                                         _buildFilterChip(
                                           context: context,
@@ -552,7 +564,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                     ),
                                   ),
 
-                                  SizedBox(height: R.blockV * 3),
+                                  SizedBox(height: visibleHeight * 0.030),
 
                                   // Site Filter Section
                                   _buildFilterSection(
@@ -561,8 +573,8 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                     icon: Icons.location_on_outlined,
                                     titleColor: primaryText,
                                     child: Wrap(
-                                      spacing: 8.0,
-                                      runSpacing: 8.0,
+                                      spacing: size.width * 0.020,
+                                      runSpacing: visibleHeight * 0.008,
                                       children: [
                                         _buildFilterChip(
                                           context: context,
@@ -588,7 +600,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                     ),
                                   ),
 
-                                  SizedBox(height: R.blockV * 3),
+                                  SizedBox(height: visibleHeight * 0.030),
 
                                   // Sort Section
                                   _buildFilterSection(
@@ -629,7 +641,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                               ),
                             ),
 
-                            SizedBox(height: R.blockV * 2),
+                            SizedBox(height: visibleHeight * 0.020),
 
                             // Apply Button
                             SizedBox(
@@ -637,12 +649,14 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   padding: EdgeInsets.symmetric(
-                                    vertical: R.blockV * 2,
+                                    vertical: visibleHeight * 0.016,
                                   ),
                                   backgroundColor: AppColors.accentGold,
                                   foregroundColor: AppColors.brandTeal,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(
+                                      size.width * 0.031,
+                                    ),
                                   ),
                                   elevation: 0,
                                 ),
@@ -658,12 +672,15 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.filter_alt_rounded, size: 18),
-                                    SizedBox(width: R.blockH * 2.133),
+                                    Icon(
+                                      Icons.filter_alt_rounded,
+                                      size: size.width * 0.046,
+                                    ),
+                                    SizedBox(width: size.width * 0.021),
                                     Text(
                                       "Apply Filters",
                                       style: TextStyle(
-                                        fontSize: R.blockH * 4,
+                                        fontSize: size.width * 0.039,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -690,13 +707,17 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     required Color titleColor,
     required Widget child,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 20, color: AppColors.accentGold),
-            SizedBox(width: R.blockH * 2.133),
+            Icon(icon, size: size.width * 0.051, color: AppColors.accentGold),
+            SizedBox(width: size.width * 0.021),
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -706,7 +727,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
             ),
           ],
         ),
-        SizedBox(height: R.blockV * 1.5),
+        SizedBox(height: visibleHeight * 0.015),
         child,
       ],
     );
@@ -719,6 +740,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     required VoidCallback onTap,
     Color? color,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final chipColor = color ?? AppColors.brandTeal;
     const unselectedBg = Color(0x33FFFFFF);
     const unselectedBorder = Colors.white24;
@@ -726,18 +751,18 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(size.width * 0.051),
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: R.blockH * 4,
-          vertical: R.blockV * 1.25,
+          horizontal: size.width * 0.040,
+          vertical: visibleHeight * 0.012,
         ),
         decoration: BoxDecoration(
           color: isSelected ? chipColor : unselectedBg,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size.width * 0.051),
           border: Border.all(
             color: isSelected ? chipColor : unselectedBorder,
-            width: 2,
+            width: size.width * 0.005,
           ),
         ),
         child: Text(
@@ -745,7 +770,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
           style: TextStyle(
             color: isSelected ? Colors.white : unselectedText,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            fontSize: R.blockH * 3.5,
+            fontSize: size.width * 0.035,
           ),
         ),
       ),
@@ -762,25 +787,29 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
     required Color titleColor,
     required Color subtitleColor,
   }) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isSelected = value == groupValue;
 
     return InkWell(
       onTap: () => onChanged(value),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(size.width * 0.031),
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: R.blockH * 3,
-          vertical: R.blockV * 1.5,
+          horizontal: size.width * 0.030,
+          vertical: visibleHeight * 0.015,
         ),
-        margin: EdgeInsets.only(bottom: R.blockV * 1),
+        margin: EdgeInsets.only(bottom: visibleHeight * 0.010),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.brandTeal.withValues(alpha: 0.35)
               : Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(size.width * 0.031),
           border: Border.all(
             color: isSelected ? AppColors.accentGold : Colors.white24,
-            width: 2,
+            width: size.width * 0.005,
           ),
         ),
         child: Row(
@@ -807,14 +836,14 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: R.blockH * 3.75,
+                      fontSize: size.width * 0.037,
                       color: isSelected ? AppColors.accentGold : titleColor,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: R.blockH * 3.25,
+                      fontSize: size.width * 0.032,
                       color: subtitleColor,
                     ),
                   ),
@@ -828,29 +857,36 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
   }
 
   Widget _buildSubHeader() {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final count = filteredHazards.length;
     final hazardText = count == 1 ? "Hazard" : "Hazards";
 
     return Container(
       margin: EdgeInsets.fromLTRB(
-        R.blockH * 5,
-        R.blockV * 1.5,
-        R.blockH * 5,
-        R.blockV * 1,
+        size.width * 0.045,
+        visibleHeight * 0.015,
+        size.width * 0.045,
+        visibleHeight * 0.008,
       ),
       padding: EdgeInsets.fromLTRB(
-        R.blockH * 3.5,
-        R.blockV * 1,
-        R.blockH * 2,
-        R.blockV * 1,
+        size.width * 0.035,
+        visibleHeight * 0.008,
+        size.width * 0.020,
+        visibleHeight * 0.008,
       ),
-      constraints: BoxConstraints(minHeight: 56, maxHeight: 56),
+      constraints: BoxConstraints(
+        minHeight: visibleHeight * 0.065,
+        maxHeight: visibleHeight * 0.065,
+      ),
       decoration: BoxDecoration(
         color: isDark
             ? Color.lerp(AppColors.brandTeal, Colors.black, 0.35)!
             : Color.lerp(AppColors.brandTeal, Colors.white, 0.78)!,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(size.width * 0.031),
         border: Border.all(
           color: isDark
               ? AppColors.surfaceTeal.withValues(alpha: 0.8)
@@ -867,10 +903,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                   if (_hasActiveFilters) ...[
                     Icon(
                       Icons.filter_alt,
-                      size: 16,
+                      size: size.width * 0.041,
                       color: AppColors.accentGold,
                     ),
-                    SizedBox(width: R.blockH * 1.6),
+                    SizedBox(width: size.width * 0.016),
                   ],
                   Text(
                     "$count $hazardText",
@@ -888,13 +924,13 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
               onPressed: _clearFilters,
               style: TextButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.error,
-                padding: EdgeInsets.symmetric(horizontal: R.blockH * 3),
+                padding: EdgeInsets.symmetric(horizontal: size.width * 0.030),
               ),
               child: Text("Clear"),
             ),
-          SizedBox(width: R.blockH * 2.133),
+          SizedBox(width: size.width * 0.021),
           IconButton.filled(
-            icon: Icon(Icons.sort_rounded, size: 20),
+            icon: Icon(Icons.sort_rounded, size: size.width * 0.051),
             onPressed: _showFilterSheet,
             style: IconButton.styleFrom(
               backgroundColor: AppColors.accentGold,
@@ -908,7 +944,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
@@ -935,10 +974,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                   children: [
                                     Icon(
                                       Icons.check_circle_outline,
-                                      size: 64,
+                                      size: size.width * 0.164,
                                       color: Colors.grey.shade400,
                                     ),
-                                    SizedBox(height: R.blockV * 2),
+                                    SizedBox(height: visibleHeight * 0.020),
                                     Text(
                                       "No active hazards",
                                       style: Theme.of(context)
@@ -971,10 +1010,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                   children: [
                                     Icon(
                                       Icons.filter_alt_off,
-                                      size: 64,
+                                      size: size.width * 0.164,
                                       color: Colors.grey.shade400,
                                     ),
-                                    SizedBox(height: R.blockV * 2),
+                                    SizedBox(height: visibleHeight * 0.020),
                                     Text(
                                       "No hazards match filters",
                                       style: Theme.of(context)
@@ -984,7 +1023,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                                             color: Colors.grey.shade600,
                                           ),
                                     ),
-                                    SizedBox(height: R.blockV * 1),
+                                    SizedBox(height: visibleHeight * 0.010),
                                     TextButton(
                                       onPressed: _clearFilters,
                                       child: Text("Clear Filters"),
@@ -1003,10 +1042,10 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                           child: ListView.builder(
                             controller: _scrollController,
                             padding: EdgeInsets.fromLTRB(
-                              R.blockH * 3,
-                              R.blockV * 1.5,
-                              R.blockH * 3,
-                              R.blockV * 15,
+                              size.width * 0.030,
+                              visibleHeight * 0.015,
+                              size.width * 0.030,
+                              visibleHeight * 0.150,
                             ),
                             itemCount:
                                 filteredHazards.length +
@@ -1015,7 +1054,7 @@ class _ViewAssignedHazardsScreenState extends State<ViewAssignedHazardsScreen> {
                               if (index == filteredHazards.length) {
                                 return Padding(
                                   padding: EdgeInsets.symmetric(
-                                    vertical: R.blockV * 2,
+                                    vertical: visibleHeight * 0.020,
                                   ),
                                   child: Center(
                                     child: CircularProgressIndicator(
@@ -1131,16 +1170,24 @@ class _HazardCard extends StatelessWidget {
     return 'assets/hazards/fire_warning.svg';
   }
 
-  Widget _buildDetailRow({required IconData icon, required String text}) {
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String text,
+    required Size size,
+  }) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white.withAlpha(230), size: 16),
-        SizedBox(width: R.blockH * 2.133),
+        Icon(
+          icon,
+          color: Colors.white.withAlpha(230),
+          size: size.width * 0.041,
+        ),
+        SizedBox(width: size.width * 0.021),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-              fontSize: R.blockH * 3.5,
+              fontSize: size.width * 0.035,
               color: Colors.white,
               fontWeight: FontWeight.w500,
             ),
@@ -1153,7 +1200,10 @@ class _HazardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final reporter = hazard['reporter'];
     final reporterName = reporter != null
         ? "${capitalize(reporter['first_name'] ?? '')} ${capitalize(reporter['last_name'] ?? '')}"
@@ -1200,31 +1250,34 @@ class _HazardCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
+          offset: Offset(
+            size.width * 0.0,
+            visibleHeight * 0.025 * (1 - value),
+          ),
           child: Opacity(opacity: value, child: child),
         );
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: R.blockV * 2),
+        margin: EdgeInsets.only(bottom: visibleHeight * 0.014),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [primaryColor.withValues(alpha: 0.95), secondaryColor],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size.width * 0.041),
           boxShadow: [
             BoxShadow(
               color: primaryColor.withValues(alpha: 0.4),
-              blurRadius: 15,
-              offset: Offset(0, 8),
+              blurRadius: size.width * 0.038,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.010),
             ),
           ],
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(size.width * 0.041),
             onTap: () {
               Navigator.push(
                 context,
@@ -1234,7 +1287,7 @@ class _HazardCard extends StatelessWidget {
               );
             },
             child: Padding(
-              padding: EdgeInsets.all(R.blockH * 5),
+              padding: EdgeInsets.all(size.width * 0.040),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1242,22 +1295,24 @@ class _HazardCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: R.blockH * 14.933,
-                        height: R.blockV * 7,
+                        width: size.width * 0.125,
+                        height: size.width * 0.125,
                         decoration: BoxDecoration(
                           color: Colors.white.withAlpha(64),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.031,
+                          ),
                         ),
                         child: Center(
                           child: SvgPicture.asset(
                             _hazardSvgAsset(title),
-                            width: R.blockH * 8.533,
-                            height: R.blockV * 4,
+                            width: size.width * 0.085,
+                            height: visibleHeight * 0.040,
                             fit: BoxFit.contain,
                           ),
                         ),
                       ),
-                      SizedBox(width: R.blockH * 4.267),
+                      SizedBox(width: size.width * 0.032),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1270,27 +1325,29 @@ class _HazardCard extends StatelessWidget {
                                     title,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: R.blockH * 5,
+                                      fontSize: size.width * 0.047,
                                       color: Colors.white,
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: R.blockH * 2.133),
+                                SizedBox(width: size.width * 0.021),
                                 Container(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
+                                    horizontal: size.width * 0.025,
+                                    vertical: visibleHeight * 0.005,
                                   ),
                                   decoration: BoxDecoration(
                                     color: severityColor.withValues(
                                       alpha: 0.85,
                                     ),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(
+                                      size.width * 0.020,
+                                    ),
                                   ),
                                   child: Text(
                                     severity.toUpperCase(),
                                     style: TextStyle(
-                                      fontSize: R.blockH * 3,
+                                      fontSize: size.width * 0.030,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                       letterSpacing: 0.5,
@@ -1301,31 +1358,33 @@ class _HazardCard extends StatelessWidget {
                             ),
                             if (hasImages || hasVoiceNotes)
                               Padding(
-                                padding: EdgeInsets.only(top: R.blockV * 1),
+                                padding: EdgeInsets.only(
+                                  top: visibleHeight * 0.010,
+                                ),
                                 child: Row(
                                   children: [
                                     if (hasImages)
                                       Icon(
                                         Icons.photo_library_rounded,
-                                        size: 16,
+                                        size: size.width * 0.041,
                                         color: Colors.white.withAlpha(204),
                                       ),
                                     if (hasImages)
-                                      SizedBox(width: R.blockH * 1.067),
+                                      SizedBox(width: size.width * 0.011),
                                     if (hasImages)
                                       Text(
                                         images.length.toString(),
                                         style: TextStyle(
                                           color: Colors.white.withAlpha(204),
-                                          fontSize: R.blockH * 3,
+                                          fontSize: size.width * 0.030,
                                         ),
                                       ),
                                     if (hasImages && hasVoiceNotes)
-                                      SizedBox(width: R.blockH * 3.2),
+                                      SizedBox(width: size.width * 0.032),
                                     if (hasVoiceNotes)
                                       Icon(
                                         Icons.mic_rounded,
-                                        size: 16,
+                                        size: size.width * 0.041,
                                         color: Colors.white.withAlpha(204),
                                       ),
                                   ],
@@ -1337,50 +1396,58 @@ class _HazardCard extends StatelessWidget {
                     ],
                   ),
                   Padding(
-                    padding: EdgeInsets.symmetric(vertical: R.blockV * 1.5),
+                    padding: EdgeInsets.symmetric(
+                      vertical: visibleHeight * 0.012,
+                    ),
                     child: Divider(
                       color: Colors.white.withAlpha(77),
-                      height: 1,
+                      height: visibleHeight * 0.001,
                     ),
                   ),
                   _buildDetailRow(
                     icon: Icons.person_pin_circle_outlined,
                     text: "By: $reporterName",
+                    size: size,
                   ),
-                  SizedBox(height: R.blockV * 1),
+                  SizedBox(height: visibleHeight * 0.008),
                   _buildDetailRow(
                     icon: Icons.location_on_outlined,
                     text: "Site: $siteName",
+                    size: size,
                   ),
-                  SizedBox(height: R.blockV * 1),
+                  SizedBox(height: visibleHeight * 0.008),
                   _buildDetailRow(
                     icon: Icons.schedule_rounded,
                     text: timestamp,
+                    size: size,
                   ),
                   if (validTasks.isEmpty) ...[
-                    SizedBox(height: R.blockV * 1),
+                    SizedBox(height: visibleHeight * 0.008),
                     _buildDetailRow(
                       icon: Icons.person_off_outlined,
                       text: "Not yet assigned",
+                      size: size,
                     ),
                   ] else ...[
                     Padding(
-                      padding: EdgeInsets.symmetric(vertical: R.blockV * 1.5),
+                      padding: EdgeInsets.symmetric(
+                        vertical: visibleHeight * 0.012,
+                      ),
                       child: Divider(
                         color: Colors.white.withAlpha(77),
-                        height: 1,
+                        height: visibleHeight * 0.001,
                       ),
                     ),
                     Text(
                       "SITE INSPECTOR${validTasks.length > 1 ? 'S' : ''}",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: R.blockH * 3,
+                        fontSize: size.width * 0.030,
                         color: Colors.white.withAlpha(204),
                         letterSpacing: 0.8,
                       ),
                     ),
-                    SizedBox(height: R.blockV * 1.25),
+                    SizedBox(height: visibleHeight * 0.010),
                     ...validTasks.map((task) {
                       final worker = task['hse_worker'];
                       final workerName = worker != null
@@ -1391,11 +1458,13 @@ class _HazardCard extends StatelessWidget {
                       final status = task['status']?.toString() ?? 'unknown';
 
                       return Padding(
-                        padding: EdgeInsets.only(bottom: R.blockV * 1),
+                        padding: EdgeInsets.only(
+                          bottom: visibleHeight * 0.008,
+                        ),
                         child: Row(
                           children: [
                             CircleAvatar(
-                              radius: 16,
+                              radius: size.width * 0.041,
                               backgroundColor: Colors.white.withAlpha(64),
                               backgroundImage: profileImage != null
                                   ? CachedNetworkImageProvider(profileImage)
@@ -1408,36 +1477,38 @@ class _HazardCard extends StatelessWidget {
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: R.blockH * 3.5,
+                                        fontSize: size.width * 0.035,
                                       ),
                                     )
                                   : null,
                             ),
-                            SizedBox(width: R.blockH * 3.2),
+                            SizedBox(width: size.width * 0.032),
                             Expanded(
                               child: Text(
                                 workerName,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
-                                  fontSize: R.blockH * 3.75,
+                                  fontSize: size.width * 0.037,
                                   color: Colors.white,
                                 ),
                               ),
                             ),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
+                                horizontal: size.width * 0.025,
+                                vertical: visibleHeight * 0.005,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withAlpha(64),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(
+                                  size.width * 0.051,
+                                ),
                               ),
                               child: Text(
                                 status.replaceAll('_', ' ').toUpperCase(),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: R.blockH * 2.75,
+                                  fontSize: size.width * 0.027,
                                   color: Colors.white,
                                 ),
                               ),

@@ -626,9 +626,12 @@ class _ResolvedHazardReportScreenState
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(child: Text("Report not found.")),
       );
+    final Color screenBackground = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFF7F9FA);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: screenBackground,
       appBar: AppBar(
         title: Text(
           "HAZARD DETAILS",
@@ -779,18 +782,27 @@ class _ResolvedHazardReportScreenState
     final name = _formatName(userData);
     final String? imageUrl = userData?['profile_image_url'];
     final bool hasImage = imageUrl != null && imageUrl.trim().isNotEmpty;
+    final Color cardColor = isDark ? Theme.of(context).cardColor : Colors.white;
+    final Color borderColor = isDark
+        ? Colors.grey.shade800
+        : AppColors.brandTeal.withValues(alpha: 0.22);
 
     return Expanded(
       child: Container(
         padding: EdgeInsets.all(R.blockH * 3),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: cardColor,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: isDark
-                ? Colors.grey.shade800
-                : AppColors.brandTeal.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: borderColor),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
         ),
         child: Column(
           children: [
@@ -799,7 +811,7 @@ class _ResolvedHazardReportScreenState
               style: TextStyle(
                 fontSize: R.blockH * 2.25,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                color: isDark ? Colors.grey : Colors.grey.shade700,
               ),
             ),
             SizedBox(height: R.blockV * 1.25),
@@ -807,7 +819,7 @@ class _ResolvedHazardReportScreenState
               radius: 28,
               backgroundColor: isDark
                   ? Colors.grey.shade800
-                  : AppColors.backgroundLight,
+                  : const Color(0xFFEFF5F4),
               backgroundImage: hasImage
                   ? CachedNetworkImageProvider(imageUrl)
                   : null,
@@ -897,14 +909,25 @@ class _ResolvedHazardReportScreenState
 
   Widget _buildChartCard(bool isDark) {
     final double risk = _getSeverityValue(hazardData!['severity']);
+    final Color cardColor = isDark ? Theme.of(context).cardColor : Colors.white;
+    final Color borderColor = isDark
+        ? Colors.grey.shade800
+        : AppColors.brandTeal.withValues(alpha: 0.20);
     return Container(
       padding: EdgeInsets.all(R.blockH * 5),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: cardColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade800 : Colors.transparent,
-        ),
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -924,9 +947,7 @@ class _ResolvedHazardReportScreenState
                   ),
                   PieChartSectionData(
                     value: 1 - risk,
-                    color: isDark
-                        ? Colors.grey.shade800
-                        : AppColors.backgroundLight,
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                     radius: 12,
                     showTitle: false,
                   ),
@@ -944,7 +965,7 @@ class _ResolvedHazardReportScreenState
                   style: TextStyle(
                     fontSize: R.blockH * 2.5,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                    color: isDark ? Colors.grey : Colors.grey.shade700,
                   ),
                 ),
                 Text(
@@ -959,7 +980,7 @@ class _ResolvedHazardReportScreenState
                   "Risk level analyzed at original report.",
                   style: TextStyle(
                     fontSize: R.blockH * 2.75,
-                    color: Colors.grey,
+                    color: isDark ? Colors.grey : Colors.grey.shade600,
                   ),
                 ),
               ],
@@ -971,19 +992,30 @@ class _ResolvedHazardReportScreenState
   }
 
   Widget _buildAuditTable(bool isDark) {
+    final Color cardColor = isDark ? Theme.of(context).cardColor : Colors.white;
+    final Color borderColor = isDark
+        ? Colors.grey.shade800
+        : AppColors.brandTeal.withValues(alpha: 0.20);
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: cardColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade800 : Colors.transparent,
-        ),
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
         child: Table(
           border: TableBorder.all(
-            color: isDark ? Colors.grey.shade800 : AppColors.backgroundLight,
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
             width: 1,
           ),
           children: [
@@ -1095,38 +1127,50 @@ class _ResolvedHazardReportScreenState
         fontWeight: FontWeight.bold,
         color: isDark
             ? Colors.white54
-            : AppColors.brandTeal.withValues(alpha: 0.4),
+            : AppColors.brandTeal.withValues(alpha: 0.65),
         letterSpacing: 1.5,
       ),
     ),
   );
 
-  Widget _buildSimpleCard(String label, List<Widget> children, bool isDark) =>
-      Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(R.blockH * 4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: isDark ? Colors.grey.shade800 : Colors.transparent,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: R.blockH * 2.5,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
+  Widget _buildSimpleCard(String label, List<Widget> children, bool isDark) {
+    final Color cardColor = isDark ? Theme.of(context).cardColor : Colors.white;
+    final Color borderColor = isDark
+        ? Colors.grey.shade800
+        : AppColors.brandTeal.withValues(alpha: 0.20);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(R.blockH * 4),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: R.blockH * 2.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.grey : Colors.grey.shade700,
             ),
-            ...children,
-          ],
-        ),
-      );
+          ),
+          ...children,
+        ],
+      ),
+    );
+  }
 
   List<Widget> _buildVoiceList(String? url) => (url ?? "")
       .split(',')
@@ -1156,7 +1200,9 @@ class _ResolvedHazardReportScreenState
             l,
             style: TextStyle(
               fontSize: R.blockH * 2.75,
-              color: isHeader ? Colors.white : Colors.grey.shade600,
+              color: isHeader
+                  ? Colors.white
+                  : (isDark ? Colors.grey.shade400 : Colors.grey.shade800),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1169,7 +1215,7 @@ class _ResolvedHazardReportScreenState
               fontSize: R.blockH * 2.75,
               color: isHeader
                   ? Colors.white
-                  : (isDark ? Colors.white : AppColors.brandTeal),
+                  : (isDark ? Colors.white : Colors.black87),
               fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
             ),
           ),

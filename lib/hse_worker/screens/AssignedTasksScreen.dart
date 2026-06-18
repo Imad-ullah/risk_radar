@@ -4,7 +4,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -599,6 +598,10 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     String currentStatus,
   ) async {
     HapticFeedback.selectionClick();
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final assignmentId = task['assignment_id'];
     final statusLower = currentStatus.toLowerCase();
 
@@ -608,12 +611,12 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
         context: context,
         builder: (ctx) => Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(size.width * 0.071),
           ),
           backgroundColor: Colors.transparent,
-          elevation: 0,
+          elevation: size.width * 0.0,
           child: Container(
-            padding: EdgeInsets.all(R.blockH * 6),
+            padding: EdgeInsets.all(size.width * 0.060),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
@@ -623,12 +626,12 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                   Color(0xDA1B3D3D), // _tealColor with values (alpha: 0.85)
                 ],
               ),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(size.width * 0.071),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: Offset(0, 10),
+                  blurRadius: size.width * 0.051,
+                  offset: Offset(size.width * 0.0, visibleHeight * 0.013),
                 ),
               ],
             ),
@@ -636,7 +639,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: EdgeInsets.all(R.blockH * 4),
+                  padding: EdgeInsets.all(size.width * 0.040),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
@@ -644,28 +647,28 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                   child: Icon(
                     Icons.play_arrow_rounded,
                     color: Colors.white,
-                    size: 32,
+                    size: size.width * 0.082,
                   ),
                 ),
-                SizedBox(height: R.blockV * 2.5),
+                SizedBox(height: visibleHeight * 0.025),
                 Text(
                   'Start Task',
                   style: TextStyle(
-                    fontSize: R.blockH * 5.5,
+                    fontSize: size.width * 0.055,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: R.blockV * 1.5),
+                SizedBox(height: visibleHeight * 0.015),
                 Text(
                   'Start working on this task now?',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: R.blockH * 3.75,
+                    fontSize: size.width * 0.038,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
-                SizedBox(height: R.blockV * 3.5),
+                SizedBox(height: visibleHeight * 0.035),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -677,30 +680,32 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                       child: Text(
                         'Cancel',
                         style: TextStyle(
-                          fontSize: R.blockH * 4,
+                          fontSize: size.width * 0.040,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    SizedBox(width: R.blockH * 3.2),
+                    SizedBox(width: size.width * 0.032),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: _tealColor,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                          horizontal: size.width * 0.061,
+                          vertical: visibleHeight * 0.015,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.041,
+                          ),
                         ),
-                        elevation: 4,
+                        elevation: size.width * 0.010,
                       ),
                       child: Text(
                         'Start',
                         style: TextStyle(
-                          fontSize: R.blockH * 4,
+                          fontSize: size.width * 0.040,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -821,14 +826,17 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   }
 
   void _showFilterSheet() {
+    final size = MediaQuery.of(context).size;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(size.width * 0.051),
+        ),
       ),
       builder: (context) => Padding(
-        padding: EdgeInsets.all(R.blockH * 5),
+        padding: EdgeInsets.all(size.width * 0.050),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -836,12 +844,12 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
             Text(
               "Filter by Severity",
               style: TextStyle(
-                fontSize: R.blockH * 4.5,
+                fontSize: size.width * 0.045,
                 fontWeight: FontWeight.bold,
                 color: _tealColor,
               ),
             ),
-            SizedBox(height: R.blockV * 1.875),
+            SizedBox(height: size.height * 0.019),
             _buildFilterOption('all', 'All Tasks', Colors.black87),
             _buildFilterOption('high', 'High Severity', _errorColor),
             _buildFilterOption('moderate', 'Moderate Severity', _warningColor),
@@ -853,8 +861,9 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   }
 
   Widget _buildFilterOption(String value, String label, Color color) {
+    final size = MediaQuery.of(context).size;
     return ListTile(
-      leading: Icon(Icons.circle, color: color, size: 16),
+      leading: Icon(Icons.circle, color: color, size: size.width * 0.041),
       title: Text(label, style: TextStyle(fontWeight: FontWeight.w500)),
       trailing: _selectedFilter == value
           ? Icon(Icons.check, color: _tealColor)
@@ -870,7 +879,10 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDark
         ? const Color(0xFF121212)
@@ -887,16 +899,16 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
             child: Container(
               width: double.infinity,
               padding: EdgeInsets.fromLTRB(
-                R.blockH * 5,
-                R.blockV * 1.25,
-                R.blockH * 5,
-                R.blockV * 2.5,
+                size.width * 0.050,
+                visibleHeight * 0.013,
+                size.width * 0.050,
+                visibleHeight * 0.025,
               ),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: _tealColor,
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
+                  bottomLeft: Radius.circular(size.width * 0.077),
+                  bottomRight: Radius.circular(size.width * 0.077),
                 ),
               ),
               child: Row(
@@ -904,23 +916,25 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                   // Tabs
                   Expanded(
                     child: Container(
-                      height: R.blockV * 6.25,
+                      height: visibleHeight * 0.063,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(size.width * 0.038),
                       ),
                       child: TabBar(
                         controller: _tabController,
                         indicator: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(
+                            size.width * 0.038,
+                          ),
                         ),
                         indicatorSize: TabBarIndicatorSize.tab,
                         labelColor: _tealColor,
                         unselectedLabelColor: Colors.white70,
                         labelStyle: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: R.blockH * 3.5,
+                          fontSize: size.width * 0.035,
                         ),
                         dividerColor: Colors.transparent,
                         tabs: [
@@ -931,21 +945,21 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                     ),
                   ),
 
-                  SizedBox(width: R.blockH * 3.2),
+                  SizedBox(width: size.width * 0.032),
 
                   // Filter Button
                   Container(
-                    height: R.blockV * 6.25,
-                    width: R.blockH * 13.333,
+                    height: visibleHeight * 0.063,
+                    width: size.width * 0.133,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(size.width * 0.038),
                     ),
                     child: IconButton(
                       icon: Icon(
                         Icons.filter_list_rounded,
                         color: Colors.white,
-                        size: 24,
+                        size: size.width * 0.061,
                       ),
                       onPressed: _showFilterSheet,
                     ),
@@ -973,6 +987,11 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   }
 
   Widget _buildTaskList(List<Map<String, dynamic>> tasks, bool isActive) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
+
     if (tasks.isEmpty) {
       return RefreshIndicator(
         onRefresh: () =>
@@ -986,10 +1005,10 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                 children: [
                   Icon(
                     Icons.assignment_outlined,
-                    size: 64,
+                    size: size.width * 0.164,
                     color: Colors.grey.shade300,
                   ),
-                  SizedBox(height: R.blockV * 2),
+                  SizedBox(height: visibleHeight * 0.020),
                   Text(
                     "No tasks found",
                     style: TextStyle(color: Colors.grey.shade500),
@@ -1008,16 +1027,16 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
       child: ListView.builder(
         controller: isActive ? _activeScrollController : _queueScrollController,
         padding: EdgeInsets.fromLTRB(
-          R.blockH * 5,
-          R.blockV * 2.5,
-          R.blockH * 5,
-          R.blockV * 10,
+          size.width * 0.050,
+          visibleHeight * 0.025,
+          size.width * 0.050,
+          visibleHeight * 0.100,
         ),
         itemCount: tasks.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == tasks.length) {
             return Padding(
-              padding: EdgeInsets.symmetric(vertical: R.blockV * 2),
+              padding: EdgeInsets.symmetric(vertical: visibleHeight * 0.020),
               child: Center(
                 child: CircularProgressIndicator(color: _tealColor),
               ),
@@ -1030,6 +1049,10 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   }
 
   Widget _buildDesignCard(Map<String, dynamic> task, int index, bool isActive) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final severity = task['severity'] ?? 'low';
     final primaryColor = getPrimaryColor(severity);
     final secondaryColor = getSecondaryColor(severity);
@@ -1058,7 +1081,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 30 * (1 - value)),
+          offset: Offset(size.width * 0.0, visibleHeight * 0.038 * (1 - value)),
           child: Opacity(opacity: value, child: child),
         );
       },
@@ -1076,10 +1099,10 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
           );
         },
         child: Container(
-          height: R.blockV * 20.625,
-          margin: EdgeInsets.only(bottom: R.blockV * 2),
+          height: visibleHeight * 0.206,
+          margin: EdgeInsets.only(bottom: visibleHeight * 0.020),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(size.width * 0.061),
             gradient: LinearGradient(
               colors: [primaryColor, secondaryColor],
               begin: Alignment.topLeft,
@@ -1088,26 +1111,26 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
             boxShadow: [
               BoxShadow(
                 color: primaryColor.withValues(alpha: 0.4),
-                blurRadius: 12,
-                offset: Offset(0, 8),
+                blurRadius: size.width * 0.031,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.010),
               ),
             ],
           ),
           child: Stack(
             children: [
               Padding(
-                padding: EdgeInsets.all(R.blockH * 4),
+                padding: EdgeInsets.all(size.width * 0.040),
                 child: Row(
                   children: [
                     // Avatar
                     Container(
-                      width: R.blockH * 12.267,
-                      height: R.blockV * 5.75,
+                      width: size.width * 0.123,
+                      height: visibleHeight * 0.058,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.3),
-                          width: 2,
+                          width: size.width * 0.005,
                         ),
                         image: reporterImage != null
                             ? DecorationImage(
@@ -1122,12 +1145,12 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                           ? Center(
                               child: Text(
                                 hazardEmoji(hazardType),
-                                style: TextStyle(fontSize: R.blockH * 5.5),
+                                style: TextStyle(fontSize: size.width * 0.055),
                               ),
                             )
                           : null,
                     ),
-                    SizedBox(width: R.blockH * 3.733),
+                    SizedBox(width: size.width * 0.037),
 
                     // Texts
                     Expanded(
@@ -1143,7 +1166,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                                 hazardType,
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: R.blockH * 4.25,
+                                  fontSize: size.width * 0.043,
                                   fontWeight: FontWeight.bold,
                                 ),
                                 maxLines: 1,
@@ -1151,29 +1174,29 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                               ),
 
                               if (hasVoice || hasImage) ...[
-                                SizedBox(height: 2),
+                                SizedBox(height: visibleHeight * 0.003),
                                 Row(
                                   children: [
                                     if (hasVoice) ...[
                                       Icon(
                                         Icons.mic_rounded,
-                                        size: 14,
+                                        size: size.width * 0.036,
                                         color: Colors.white70,
                                       ),
                                       if (hasImage)
-                                        SizedBox(width: R.blockH * 2.133),
+                                        SizedBox(width: size.width * 0.021),
                                     ],
                                     if (hasImage)
                                       Icon(
                                         Icons.image_rounded,
-                                        size: 14,
+                                        size: size.width * 0.036,
                                         color: Colors.white70,
                                       ),
                                   ],
                                 ),
-                                SizedBox(height: 2),
+                                SizedBox(height: visibleHeight * 0.003),
                               ] else ...[
-                                SizedBox(height: R.blockV * 0.5),
+                                SizedBox(height: visibleHeight * 0.005),
                               ],
 
                               // Description
@@ -1181,7 +1204,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                                 description,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: R.blockH * 3,
+                                  fontSize: size.width * 0.030,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -1193,7 +1216,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                           Row(
                             children: [
                               _buildMiniStat(createdDate, "Date"),
-                              SizedBox(width: R.blockH * 4.267),
+                              SizedBox(width: size.width * 0.043),
                               Expanded(
                                 child: _buildMiniStat(reporterName, "Reporter"),
                               ),
@@ -1202,21 +1225,23 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                         ],
                       ),
                     ),
-                    SizedBox(width: R.blockH * 16),
+                    SizedBox(width: size.width * 0.160),
                   ],
                 ),
               ),
 
               // Right Curve
               Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: R.blockH * 26.667,
+                right: size.width * 0.0,
+                top: visibleHeight * 0.0,
+                bottom: visibleHeight * 0.0,
+                width: size.width * 0.267,
                 child: CustomPaint(
                   painter: CardRightCurvePainter(),
                   child: Container(
-                    padding: EdgeInsets.symmetric(vertical: R.blockV * 2.5),
+                    padding: EdgeInsets.symmetric(
+                      vertical: visibleHeight * 0.025,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1226,23 +1251,27 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: R.blockH * 2.75,
+                                  fontSize: size.width * 0.028,
                                 ),
                               )
                             : Icon(
                                 Icons.more_horiz,
                                 color: Colors.white.withValues(alpha: 0.6),
+                                size: size.width * 0.061,
                               ),
 
                         GestureDetector(
                           onTap: () => _showStatusChangeDialog(task, status),
                           child: Container(
-                            padding: EdgeInsets.all(R.blockH * 2),
+                            padding: EdgeInsets.all(size.width * 0.020),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                               border: isActive
-                                  ? Border.all(color: Colors.white, width: 1.5)
+                                  ? Border.all(
+                                      color: Colors.white,
+                                      width: size.width * 0.004,
+                                    )
                                   : null,
                             ),
                             child: Icon(
@@ -1250,7 +1279,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                                   ? Icons.check_rounded
                                   : Icons.play_arrow_rounded,
                               color: Colors.white,
-                              size: 28,
+                              size: size.width * 0.071,
                             ),
                           ),
                         ),
@@ -1259,7 +1288,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
                           isActive ? "Resolve" : "Start",
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: R.blockH * 2.5,
+                            fontSize: size.width * 0.025,
                           ),
                         ),
                       ],
@@ -1275,6 +1304,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
   }
 
   Widget _buildMiniStat(String value, String label) {
+    final size = MediaQuery.of(context).size;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1283,7 +1313,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: R.blockH * 3,
+            fontSize: size.width * 0.030,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -1292,7 +1322,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
           label,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.6),
-            fontSize: R.blockH * 2.5,
+            fontSize: size.width * 0.025,
           ),
         ),
       ],

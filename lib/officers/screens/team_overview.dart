@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:riskradar/utils/responsive.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -380,9 +379,15 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(MediaQuery.of(context).size.width * 0.051),
+        ),
       ),
       builder: (context) {
+        final mediaQuery = MediaQuery.of(context);
+        final size = mediaQuery.size;
+        final visibleHeight =
+            size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             void filterSites(String query) {
@@ -402,11 +407,14 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             }
 
             return ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(size.width * 0.051),
               ),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                filter: ImageFilter.blur(
+                  sigmaX: size.width * 0.038,
+                  sigmaY: size.width * 0.038,
+                ),
                 child: Container(
                   constraints: BoxConstraints(
                     maxHeight: MediaQuery.of(context).size.height * 0.7,
@@ -429,7 +437,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                     ),
                   ),
                   child: Padding(
-                    padding: EdgeInsets.all(R.blockH * 5),
+                    padding: EdgeInsets.all(size.width * 0.051),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,12 +445,12 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                         Text(
                           'Change Site for ${worker['first_name']}',
                           style: TextStyle(
-                            fontSize: R.blockH * 5.5,
+                            fontSize: size.width * 0.055,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
-                        SizedBox(height: R.blockV * 2),
+                        SizedBox(height: visibleHeight * 0.020),
                         // Removed unnecessary Focus widget
                         TextField(
                           controller: siteSearchController,
@@ -469,19 +477,22 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                               (255 * 0.1).round(),
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(
+                                size.width * 0.031,
+                              ),
                               borderSide: BorderSide.none,
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(
+                                size.width * 0.031,
+                              ),
                               borderSide: const BorderSide(
                                 color: Colors.white,
-                                width: 1.5,
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: R.blockV * 2),
+                        SizedBox(height: visibleHeight * 0.020),
                         Flexible(
                           child: filteredSites.isEmpty
                               ? Center(
@@ -530,7 +541,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                                   },
                                 ),
                         ),
-                        SizedBox(height: R.blockV * 2),
+                        SizedBox(height: visibleHeight * 0.020),
                         Row(
                           children: [
                             Expanded(
@@ -550,7 +561,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                                 child: Text('Cancel'),
                               ),
                             ),
-                            SizedBox(width: R.blockH * 3.2),
+                            SizedBox(width: size.width * 0.032),
                             Expanded(
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
@@ -685,6 +696,10 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     VoidCallback onTap,
     Color color,
   ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     const cardBase = Color(0xFF1B3D3D);
 
     return Expanded(
@@ -692,20 +707,20 @@ class _WorkersListScreenState extends State<WorkersListScreen>
         onTap: onTap,
         child: Container(
           padding: EdgeInsets.symmetric(
-            vertical: R.blockV * 3,
-            horizontal: R.blockH * 4,
+            vertical: visibleHeight * 0.019,
+            horizontal: size.width * 0.040,
           ),
           decoration: BoxDecoration(
             color: cardBase,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(size.width * 0.041),
             border: Border.all(
               color: AppColors.surfaceTeal.withValues(alpha: 0.8),
             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.24),
-                blurRadius: 10,
-                offset: Offset(0, 4),
+                blurRadius: size.width * 0.027,
+                offset: Offset(size.width * 0.0, visibleHeight * 0.005),
               ),
             ],
           ),
@@ -715,20 +730,18 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                 count.toString(),
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: R.blockH * 10.5,
+                  fontSize: size.width * 0.070,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
                 ),
               ),
-              SizedBox(height: R.blockV * 1),
+              SizedBox(height: visibleHeight * 0.006),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: R.blockH * 3.5,
+                  fontSize: size.width * 0.034,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
                 ),
               ),
             ],
@@ -754,6 +767,10 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     String tableName,
     int index,
   ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final firstName = worker['first_name'] ?? '';
     final lastName = worker['last_name'] ?? '';
     final name = "${capitalizeName(firstName)} ${capitalizeName(lastName)}"
@@ -772,15 +789,18 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
+          offset: Offset(
+            size.width * 0.0,
+            visibleHeight * 0.025 * (1 - value),
+          ),
           child: Opacity(opacity: value, child: child),
         );
       },
       child: Container(
         margin: EdgeInsets.only(
-          bottom: R.blockV * 1.5,
-          left: R.blockH * 1,
-          right: R.blockH * 1,
+          bottom: visibleHeight * 0.012,
+          left: size.width * 0.010,
+          right: size.width * 0.010,
         ),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -788,13 +808,13 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(size.width * 0.031),
           boxShadow: [
             BoxShadow(
               // ✅ Replaced withOpacity
               color: cardColor.withAlpha((255 * 0.3).round()),
-              blurRadius: 10,
-              offset: Offset(0, 4),
+              blurRadius: size.width * 0.027,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.005),
             ),
           ],
         ),
@@ -802,15 +822,15 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           color: Colors.transparent,
           child: Padding(
             padding: EdgeInsets.only(
-              left: R.blockH * 4,
-              top: R.blockV * 1,
-              bottom: R.blockV * 1,
-              right: R.blockH * 1,
+              left: size.width * 0.035,
+              top: visibleHeight * 0.010,
+              bottom: visibleHeight * 0.010,
+              right: size.width * 0.008,
             ),
             child: Row(
               children: [
                 _buildWorkerAvatar(worker),
-                SizedBox(width: R.blockH * 4.267),
+                SizedBox(width: size.width * 0.032),
                 Expanded(child: _buildWorkerInfo(name, subtitle, siteName)),
                 _buildWorkerMenu(worker, tableName),
               ],
@@ -822,11 +842,15 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildWorkerAvatar(Map<String, dynamic> worker) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Hero(
       tag: 'worker_${worker['id']}',
       child: Container(
-        width: R.blockH * 14.933,
-        height: R.blockV * 7,
+        width: size.width * 0.135,
+        height: size.width * 0.135,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           // ✅ Replaced withOpacity
@@ -835,8 +859,8 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             BoxShadow(
               // ✅ Replaced withOpacity
               color: Colors.black.withAlpha((255 * 0.2).round()),
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              blurRadius: size.width * 0.021,
+              offset: Offset(size.width * 0.0, visibleHeight * 0.005),
             ),
           ],
         ),
@@ -848,19 +872,30 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                   placeholder: (context, url) => Container(
                     color: Colors.grey.shade200,
                     child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth:
+                            MediaQuery.of(context).size.width * 0.005,
+                      ),
                     ),
                   ),
                   errorWidget: (context, url, error) =>
                       Icon(Icons.person, color: Colors.white),
                 ),
               )
-            : Icon(Icons.person, color: Colors.white, size: 28),
+            : Icon(
+                Icons.person,
+                color: Colors.white,
+                size: size.width * 0.070,
+              ),
       ),
     );
   }
 
   Widget _buildWorkerInfo(String name, String subtitle, String siteName) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -868,51 +903,51 @@ class _WorkersListScreenState extends State<WorkersListScreen>
         Text(
           name,
           style: TextStyle(
-            fontSize: R.blockH * 4,
+            fontSize: size.width * 0.039,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.2,
             color: Colors.white,
           ),
         ),
-        SizedBox(height: R.blockV * 0.5),
+        SizedBox(height: visibleHeight * 0.004),
         Container(
           padding: EdgeInsets.symmetric(
-            horizontal: R.blockH * 2,
-            vertical: R.blockV * 0.5,
+            horizontal: size.width * 0.020,
+            vertical: visibleHeight * 0.004,
           ),
           decoration: BoxDecoration(
             // ✅ Replaced withOpacity
             color: isDark
                 ? Colors.white.withAlpha((255 * 0.16).round())
                 : Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(size.width * 0.015),
           ),
           child: Text(
             subtitle,
             style: TextStyle(
-              fontSize: R.blockH * 3,
+              fontSize: size.width * 0.029,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
           ),
         ),
-        SizedBox(height: R.blockV * 0.75),
+        SizedBox(height: visibleHeight * 0.006),
         Row(
           children: [
             Icon(
               Icons.location_on_outlined,
               // ✅ Replaced withOpacity
               color: Colors.white70,
-              size: 14,
+              size: size.width * 0.036,
             ),
-            SizedBox(width: R.blockH * 1.067),
+            SizedBox(width: size.width * 0.011),
             Expanded(
               child: Text(
                 siteName,
                 style: TextStyle(
                   // ✅ Replaced withOpacity
                   color: Colors.white70,
-                  fontSize: R.blockH * 3,
+                  fontSize: size.width * 0.029,
                   fontWeight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -925,6 +960,10 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildWorkerMenu(Map<String, dynamic> worker, String tableName) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final menuBg = isDark
         ? const Color(0xFF1B3D3D)
@@ -932,11 +971,13 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     final menuText = isDark ? Colors.white : const Color(0xFF153336);
 
     return PopupMenuButton<String>(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(size.width * 0.036),
+      ),
       color: menuBg,
-      elevation: 12,
-      padding: EdgeInsets.all(R.blockH * 0),
-      constraints: BoxConstraints(minWidth: 190),
+      elevation: size.width * 0.031,
+      padding: EdgeInsets.all(size.width * 0.0),
+      constraints: BoxConstraints(minWidth: size.width * 0.485),
       onSelected: (value) {
         if (value == 'view_profile') {
           Navigator.push(
@@ -957,7 +998,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           value: 'view_profile',
           child: ListTile(
             dense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: R.blockH * 1.5),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.015,
+            ),
             leading: Icon(Icons.person_outline, color: menuText),
             title: Text('View Profile', style: TextStyle(color: menuText)),
           ),
@@ -966,20 +1009,24 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           value: 'change_site',
           child: ListTile(
             dense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: R.blockH * 1.5),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.015,
+            ),
             leading: Icon(Icons.unfold_more_outlined, color: menuText),
             title: Text('Change Site', style: TextStyle(color: menuText)),
           ),
         ),
         PopupMenuDivider(
-          height: R.blockV * 1.25,
+          height: visibleHeight * 0.012,
           color: isDark ? Colors.white24 : Colors.black12,
         ),
         PopupMenuItem<String>(
           value: 'delete',
           child: ListTile(
             dense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: R.blockH * 1.5),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.015,
+            ),
             leading: Icon(Icons.delete_outline, color: Colors.red),
             title: Text('Delete Worker', style: TextStyle(color: Colors.red)),
           ),
@@ -995,6 +1042,10 @@ class _WorkersListScreenState extends State<WorkersListScreen>
     GlobalKey key,
     String tableName,
   ) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final titleColor = Theme.of(context).colorScheme.onSurface;
     return Column(
       key: key,
@@ -1002,14 +1053,14 @@ class _WorkersListScreenState extends State<WorkersListScreen>
       children: [
         Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: R.blockH * 1,
-            vertical: R.blockV * 1,
+            horizontal: size.width * 0.010,
+            vertical: visibleHeight * 0.008,
           ),
           child: Row(
             children: [
               Container(
-                width: R.blockH * 1.067,
-                height: R.blockV * 3,
+                width: size.width * 0.011,
+                height: visibleHeight * 0.028,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -1023,10 +1074,10 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(size.width * 0.005),
                 ),
               ),
-              SizedBox(width: R.blockH * 3.2),
+              SizedBox(width: size.width * 0.032),
               Text(
                 title,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -1037,7 +1088,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
             ],
           ),
         ),
-        SizedBox(height: R.blockV * 1.5),
+        SizedBox(height: visibleHeight * 0.010),
         if (list.isEmpty)
           _buildEmptyState(tableName)
         else
@@ -1045,22 +1096,26 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           ...list.asMap().entries.map((entry) {
             return _buildWorkerCard(entry.value, tableName, entry.key);
           }),
-        SizedBox(height: R.blockV * 4),
+        SizedBox(height: visibleHeight * 0.026),
       ],
     );
   }
 
   Widget _buildEmptyState(String tableName) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     // ✅ RENAMED: Use Site Inspector title
     final typeName = tableName == 'workers' ? 'workers' : 'inspectors';
     return Container(
-      padding: EdgeInsets.all(R.blockH * 8),
-      margin: EdgeInsets.symmetric(horizontal: R.blockH * 1),
+      padding: EdgeInsets.all(size.width * 0.070),
+      margin: EdgeInsets.symmetric(horizontal: size.width * 0.010),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? const Color(0xFF0E2B33)
             : const Color(0xFFE3F1F3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(size.width * 0.031),
         // ✅ Replaced withOpacity
         border: Border.all(
           color: Theme.of(
@@ -1075,13 +1130,13 @@ class _WorkersListScreenState extends State<WorkersListScreen>
               _searchController.text.isEmpty
                   ? Icons.people_outline
                   : Icons.search_off,
-              size: 48,
+              size: size.width * 0.120,
               // ✅ Replaced withOpacity
               color: Theme.of(
                 context,
               ).colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
             ),
-            SizedBox(height: R.blockV * 1.5),
+            SizedBox(height: visibleHeight * 0.012),
             Text(
               _searchController.text.isEmpty
                   ? "No $typeName registered yet"
@@ -1099,10 +1154,13 @@ class _WorkersListScreenState extends State<WorkersListScreen>
 
   @override
   Widget build(BuildContext context) {
-    R.init(context);
     super.build(
       context,
     ); // Ensure super.build is called for AutomaticKeepAliveClientMixin
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -1121,14 +1179,16 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
-                    R.blockH * 5,
-                    R.blockV * 2.5,
-                    R.blockH * 5,
-                    R.blockV * 15,
+                    size.width * 0.045,
+                    visibleHeight * 0.018,
+                    size.width * 0.045,
+                    visibleHeight * 0.125,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: size.height),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       _buildSearchBar(isDark),
                       Text(
                         'Manage your workforce efficiently',
@@ -1137,7 +1197,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      SizedBox(height: R.blockV * 3),
+                      SizedBox(height: visibleHeight * 0.020),
                       Row(
                         children: [
                           _buildStatCard(
@@ -1146,7 +1206,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                             () => _scrollToKey(_workersKey),
                             const Color(0xFF0F5B63),
                           ),
-                          SizedBox(width: R.blockH * 4.267),
+                          SizedBox(width: size.width * 0.032),
                           _buildStatCard(
                             // ✅ RENAMED: HSE to Site Inspectors
                             'Site Inspectors',
@@ -1156,7 +1216,7 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                           ),
                         ],
                       ),
-                      SizedBox(height: R.blockV * 4),
+                      SizedBox(height: visibleHeight * 0.026),
                       _buildWorkerList(
                         'Workers',
                         _filteredWorkers,
@@ -1170,8 +1230,9 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                         _hseWorkersKey,
                         'hse_workers', // Keep internal table name
                       ),
-                      SizedBox(height: R.blockV * 2.5),
-                    ],
+                      SizedBox(height: visibleHeight * 0.020),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1180,12 +1241,16 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildLoadingState(bool isDark) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: EdgeInsets.all(R.blockH * 5),
+            padding: EdgeInsets.all(size.width * 0.051),
             decoration: BoxDecoration(
               color: isDark ? Colors.grey.shade800 : Colors.white,
               shape: BoxShape.circle,
@@ -1193,17 +1258,19 @@ class _WorkersListScreenState extends State<WorkersListScreen>
                 BoxShadow(
                   // ✅ Replaced withOpacity
                   color: Colors.black.withAlpha((255 * 0.1).round()),
-                  blurRadius: 20,
-                  offset: Offset(0, 10),
+                  blurRadius: size.width * 0.051,
+                  offset: Offset(size.width * 0.0, visibleHeight * 0.012),
                 ),
               ],
             ),
-            child: const CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0F5B63)),
+            child: CircularProgressIndicator(
+              strokeWidth: size.width * 0.008,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF0F5B63),
+              ),
             ),
           ),
-          SizedBox(height: R.blockV * 3),
+          SizedBox(height: visibleHeight * 0.025),
           Text('Loading Team...', style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),
@@ -1211,9 +1278,13 @@ class _WorkersListScreenState extends State<WorkersListScreen>
   }
 
   Widget _buildSearchBar(bool isDark) {
+    final mediaQuery = MediaQuery.of(context);
+    final size = mediaQuery.size;
+    final visibleHeight =
+        size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: R.blockV * 3),
+      padding: EdgeInsets.only(bottom: visibleHeight * 0.020),
       child: TextField(
         controller: _searchController,
         style: TextStyle(
@@ -1243,21 +1314,26 @@ class _WorkersListScreenState extends State<WorkersListScreen>
           fillColor: isDark
               ? Color.lerp(AppColors.brandTeal, Colors.black, 0.4)!
               : Color.lerp(AppColors.brandTeal, Colors.white, 0.78)!,
-          contentPadding: EdgeInsets.symmetric(vertical: R.blockV * 1.875),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: visibleHeight * 0.014,
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(size.width * 0.031),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(size.width * 0.031),
             borderSide: BorderSide(
               color: theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: 1,
+              width: size.width * 0.003,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: AppColors.brandTeal, width: 1.4),
+            borderRadius: BorderRadius.circular(size.width * 0.031),
+            borderSide: BorderSide(
+              color: AppColors.brandTeal,
+              width: size.width * 0.004,
+            ),
           ),
         ),
       ),

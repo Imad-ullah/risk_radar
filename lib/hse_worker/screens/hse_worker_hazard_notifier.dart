@@ -126,8 +126,8 @@ Future<Map<String, dynamic>?> fetchFullHazardData(
 
   const selectQuery = '''
     *,
-    reporter:worker_id(first_name,last_name,work_type),
-    hse_worker:assigned_to(first_name,last_name,designation,role)
+    reporter:worker_id(id,first_name,last_name,profile_image_url,work_type),
+    hse_worker:assigned_to(id,first_name,last_name,profile_image_url,designation,role)
   ''';
 
   Map<String, dynamic>? hazard;
@@ -175,6 +175,14 @@ Future<Map<String, dynamic>?> fetchFullHazardData(
     'voice_note_url': hazard['voice_note_url'],
     'reporter_name': _getReporterInfo(hazard['reporter']),
     'assigned_to': _getAssignedInfo(hazard['hse_worker']),
+    'workers': hazard['reporter'],
+    'assign_hazards': [
+      {
+        'status': hazard['status'],
+        'assigned_at': hazard['assigned_at'] ?? hazard['created_at'],
+        'hse_worker': hazard['hse_worker'],
+      },
+    ],
     'images':
         (hazard['image_url'] as String?)
             ?.split(',')
