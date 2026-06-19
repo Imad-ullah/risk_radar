@@ -284,6 +284,32 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     return _selectedImages.isEmpty ? _photoRequiredMessage : null;
   }
 
+  bool get _isReportReady =>
+      _validateHazardTypes() == null &&
+      _validateDescription(_descriptionController.text) == null &&
+      _validateSeverity() == null &&
+      _validateLocation() == null &&
+      _validateImages() == null;
+
+  String? _reportValidationMessage() {
+    final errors = <String>[];
+    for (final error in <String?>[
+      _validateHazardTypes(),
+      _validateDescription(_descriptionController.text),
+      _validateSeverity(),
+      _validateLocation(),
+      _validateImages(),
+    ]) {
+      if (error != null) errors.add(error);
+    }
+
+    if (errors.isEmpty) return null;
+    if (errors.length <= 2) return errors.join(' ');
+
+    final remaining = errors.length - 2;
+    return '${errors.take(2).join(' ')} +$remaining more.';
+  }
+
   bool _validateReportForm({required bool showErrors}) {
     final bool isTextValid = _formKey.currentState?.validate() ?? false;
     final String? hazardTypeError = _validateHazardTypes();
@@ -333,7 +359,10 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     }
 
     if (!_validateReportForm(showErrors: true)) {
-      _showSnack(_formValidationMessage, isError: true);
+      _showSnack(
+        _reportValidationMessage() ?? _formValidationMessage,
+        isError: true,
+      );
       resetSubmitting();
       return;
     }
@@ -812,7 +841,9 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
     final visibleHeight =
         size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
 
-    final canPressSubmit = !_isSubmitting && !_isRecording && !_isAudioPlaying;
+    final isReportReady = _isReportReady;
+    final canAttemptSubmit =
+        !_isSubmitting && !_isRecording && !_isAudioPlaying;
 
     final isInputDisabled = _isRecording || _isAudioPlaying;
     final inputBarHeight = visibleHeight * 0.060;
@@ -952,11 +983,11 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
             height: inputBarHeight,
             width: size.width * 0.130,
             child: ElevatedButton(
-              onPressed: canPressSubmit ? _submitHazard : null,
+              onPressed: canAttemptSubmit ? _submitHazard : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: canPressSubmit
+                backgroundColor: isReportReady
                     ? AppColors.accentGold
-                    : theme.disabledColor,
+                    : theme.disabledColor.withValues(alpha: 0.72),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(inputBarHeight / 2),
                 ),
@@ -973,7 +1004,7 @@ class _WorkerReportHazardScreenState extends State<WorkerReportHazardScreen> {
                     )
                   : Icon(
                       Icons.send,
-                      color: canPressSubmit
+                      color: isReportReady
                           ? AppColors.brandTeal
                           : theme.colorScheme.onSurface.withValues(alpha: 0.54),
                     ),
