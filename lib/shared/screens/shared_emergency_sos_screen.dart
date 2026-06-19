@@ -15,12 +15,14 @@ class SharedEmergencySOSScreen extends StatefulWidget {
   final String? linkedContractorId;
   final String? currentSiteId;
   final bool isWorker;
+  final bool isOfficer;
 
   const SharedEmergencySOSScreen({
     super.key,
     this.linkedContractorId,
     required this.currentSiteId,
     this.isWorker = true,
+    this.isOfficer = false,
   });
 
   @override
@@ -139,7 +141,62 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
       final userId = supabase.auth.currentUser!.id;
       final List<Map<String, dynamic>> loadedContacts = [];
 
-      if (widget.isWorker) {
+      if (widget.isOfficer) {
+        _userRole = "Officer / Contractor";
+
+        final officerContacts = await supabase
+            .from('officer_emergency_contacts')
+            .select(
+              'contact_name, relationship, personal, ambulance, fire_brigade',
+            )
+            .eq('officer_id', userId)
+            .maybeSingle();
+
+        if (officerContacts != null) {
+          final personalNumbers = officerContacts['personal']
+              ?.toString()
+              .split(',')
+              .map((number) => number.trim())
+              .where((number) => number.isNotEmpty)
+              .toList();
+          final contactName = officerContacts['contact_name']
+              ?.toString()
+              .trim();
+          final relationship = officerContacts['relationship']
+              ?.toString()
+              .trim();
+
+          for (int index = 0; index < (personalNumbers?.length ?? 0); index++) {
+            loadedContacts.add({
+              'name':
+                  contactName != null && contactName.isNotEmpty && index == 0
+                  ? _capitalize(contactName)
+                  : 'Emergency Contact ${index + 1}',
+              'number': personalNumbers![index],
+              'label':
+                  relationship != null &&
+                      relationship.isNotEmpty &&
+                      index == 0
+                  ? _capitalize(relationship)
+                  : 'Personal Contact',
+              'icon': Icons.person,
+            });
+          }
+
+          _addServiceContact(
+            loadedContacts,
+            name: 'Ambulance',
+            number: officerContacts['ambulance'],
+            icon: Icons.medical_services,
+          );
+          _addServiceContact(
+            loadedContacts,
+            name: 'Fire Brigade',
+            number: officerContacts['fire_brigade'],
+            icon: Icons.local_fire_department,
+          );
+        }
+      } else if (widget.isWorker) {
         _userRole = "Site Worker";
 
         final workerContactRes = await supabase
@@ -298,6 +355,24 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
     }
   }
 
+  void _addServiceContact(
+    List<Map<String, dynamic>> contacts, {
+    required String name,
+    required dynamic number,
+    required IconData icon,
+  }) {
+    final value = number?.toString().trim() ?? '';
+    if (value.isEmpty) {
+      return;
+    }
+    contacts.add({
+      'name': name,
+      'number': value,
+      'label': 'Emergency Service',
+      'icon': icon,
+    });
+  }
+
   String _capitalize(String text) {
     if (text.isEmpty) return "";
     return text
@@ -330,8 +405,7 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
         maxLength: 120,
       );
 
-      await supabase.from('site_alerts').insert({
-        'site_id': widget.currentSiteId,
+      final alertData = {
         'reporter_uid': user.id,
         'role': role,
         'alert_type': 'SOS',
@@ -340,7 +414,39 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
         'status': 'ACTIVE',
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'message': message,
-      });
+      };
+
+      if (widget.isOfficer && widget.currentSiteId == null) {
+        final officer = await supabase
+            .from('officers')
+            .select('officer_uid')
+            .eq('id', user.id)
+            .maybeSingle();
+        final officerUid = officer?['officer_uid'];
+        final sites = officerUid == null
+            ? <Map<String, dynamic>>[]
+            : List<Map<String, dynamic>>.from(
+                await supabase
+                    .from('sites')
+                    .select('id')
+                    .eq('officer_uid', officerUid),
+              );
+
+        if (sites.isEmpty) {
+          throw StateError('No managed sites found for this contractor.');
+        }
+
+        await supabase.from('site_alerts').insert(
+          sites
+              .map((site) => {...alertData, 'site_id': site['id']})
+              .toList(),
+        );
+      } else {
+        await supabase.from('site_alerts').insert({
+          ...alertData,
+          'site_id': widget.currentSiteId,
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -352,6 +458,16 @@ class _SharedEmergencySOSScreenState extends State<SharedEmergencySOSScreen>
       }
     } catch (e) {
       debugPrint("Alert failed: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Emergency alert could not be broadcast. Please use the direct call contacts.',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 

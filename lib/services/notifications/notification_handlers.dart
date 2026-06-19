@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../firebase_options.dart';
 import '../../officers/notifications/officer_hazard_notifier.dart'
     as officer_notifier;
+import '../../workers/settings/worker_hazard_notifier.dart' as worker_notifier;
 import '../../shared/hazards/hazard_details_screen.dart';
 import '../../shared/navigation/app_navigator.dart';
 import '../../shared/services/sos_overlay_service.dart';
@@ -56,6 +57,12 @@ class NotificationHandlers {
       final buttonKey = receivedAction.buttonKeyPressed;
       final sourceTable =
           receivedAction.payload?['sourceTable']?.toString() ?? 'hazards';
+      final notificationType =
+          receivedAction.payload?['notificationType']?.toString();
+      final notificationTitle = receivedAction.payload?['title']?.toString();
+      final notificationBody = receivedAction.payload?['body']?.toString();
+      final notificationSeverity =
+          receivedAction.payload?['severity']?.toString();
 
       if (hazardId == null) {
         debugPrint('No hazardId in notification payload');
@@ -65,9 +72,16 @@ class NotificationHandlers {
       debugPrint('Action: $buttonKey for hazard: $hazardId');
 
       if (buttonKey.isEmpty || buttonKey == 'DETAILS') {
+        if (notificationType == 'worker_proximity') {
+          worker_notifier.workerHazardNotifier.markAsRead(hazardId);
+        }
         final hazardData = await NotificationHazardDataService.fetchHazardData(
           hazardId,
           preferredSourceTable: sourceTable,
+          notificationType: notificationType,
+          title: notificationTitle,
+          body: notificationBody,
+          severity: notificationSeverity,
         );
         if (hazardData != null) {
           await _openHazardDetails(hazardData);
@@ -128,8 +142,23 @@ class NotificationHazardDataService {
   static Future<Map<String, dynamic>?> fetchHazardData(
     String hazardId, {
     required String preferredSourceTable,
+    String? notificationType,
+    String? title,
+    String? body,
+    String? severity,
   }) async {
     try {
+      if (notificationType == 'worker_proximity') {
+        final workerHazard = await worker_notifier.fetchFullHazardData(
+          hazardId,
+          sourceTable: preferredSourceTable,
+          hazardType: title,
+          description: body,
+          severity: severity,
+        );
+        return workerHazard;
+      }
+
       // Reuse officer notifier mapping and honor the notification payload first.
       final orderedSources = preferredSourceTable == 'assign_hazards'
           ? const ['assign_hazards', 'hazards']

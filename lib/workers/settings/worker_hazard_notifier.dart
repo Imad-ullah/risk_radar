@@ -1,6 +1,7 @@
 // lib/workers/settings/worker_hazard_notifier.dart
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -19,6 +20,31 @@ int generateSafeNotificationId(String uuid) {
     hash = ((hash << 5) + hash) + uuid.codeUnitAt(i);
   }
   return hash.abs() % 2147483647;
+}
+
+String workerProximityDistanceLabel(int distance) {
+  const proximityRadiusMeters = 25;
+  if (distance <= 0) return '';
+  if (distance <= proximityRadiusMeters) {
+    return 'within ${proximityRadiusMeters}m';
+  }
+  return '${distance}m away';
+}
+
+String? _cleanNotificationBody(String? body) {
+  final trimmed = body?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+
+  return trimmed
+      .replaceAll(
+        RegExp(r'\s*\(within\s+\d+\s*m\)\s*$', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(r'\s*within\s+\d+\s*m\s*$', caseSensitive: false),
+        '',
+      )
+      .trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +142,9 @@ String _getAssignedInfo(Map<String, dynamic>? w) {
 Future<Map<String, dynamic>?> fetchFullHazardData(
   String hazardId, {
   required String sourceTable,
+  String? hazardType,
+  String? description,
+  String? severity,
 }) async {
   final supabase = Supabase.instance.client;
   final fallbackTable = sourceTable == 'hazards' ? 'assign_hazards' : 'hazards';
@@ -147,6 +176,33 @@ Future<Map<String, dynamic>?> fetchFullHazardData(
           .maybeSingle();
     } catch (e) {
       debugPrint('⚠️ Fallback table fetch failed: $e');
+    }
+  }
+
+  if (hazard == null &&
+      fallbackTable == 'assign_hazards' &&
+      hazardType != null &&
+      hazardType.isNotEmpty) {
+    try {
+      var query = supabase
+          .from('assign_hazards')
+          .select(selectQuery)
+          .eq('hazard_type', hazardType);
+
+      final cleanDescription = _cleanNotificationBody(description);
+      if (cleanDescription != null && cleanDescription.isNotEmpty) {
+        query = query.eq('description', cleanDescription);
+      }
+      if (severity != null && severity.isNotEmpty) {
+        query = query.eq('severity', severity);
+      }
+
+      final rows = await query.order('created_at', ascending: false).limit(1);
+      if (rows.isNotEmpty) {
+        hazard = Map<String, dynamic>.from(rows.first);
+      }
+    } catch (e) {
+      debugPrint('Assignment field fallback failed: $e');
     }
   }
 
@@ -208,8 +264,10 @@ class WorkerHazardNotifier extends ChangeNotifier {
 
   // Throttling
   DateTime? _lastProximityCheck;
+  DateTime? _lastLocationUpload;
   static const Duration _proximityThrottle = Duration(seconds: 30);
-  static const double _proximityRadiusMeters = 10.0; // ✅ 10m FOR TESTING
+  static const Duration _locationUploadInterval = Duration(seconds: 5);
+  static const double _proximityRadiusMeters = 25.0;
 
   final List<WorkerNotificationItem> _notifications = [];
   List<WorkerNotificationItem> get notifications =>
@@ -285,6 +343,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
     _listenForAssignments();
     _listenForLiveHazards();
     await _startLocationTracking();
+    await _triggerImmediateProximityCheck();
   }
 
   void stopChecking() {
@@ -312,6 +371,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
     _retryCount.clear();
     _offlineHazardCache.clear();
     _lastProximityCheck = null;
+    _lastLocationUpload = null;
     _lastKnownPosition = null;
   }
 
@@ -417,8 +477,32 @@ class WorkerHazardNotifier extends ChangeNotifier {
         ),
       );
       _lastKnownPosition = pos;
+      await _publishCurrentLocation(pos);
       await _checkNearbyHazards(pos);
     } catch (_) {}
+  }
+
+  Future<void> _publishCurrentLocation(Position position) async {
+    final workerId = _currentWorkerId;
+    if (workerId == null || workerId.isEmpty || !_isOnline) return;
+
+    final now = DateTime.now();
+    if (_lastLocationUpload != null &&
+        now.difference(_lastLocationUpload!) < _locationUploadInterval) {
+      return;
+    }
+    _lastLocationUpload = now;
+
+    try {
+      await _supabase.from('user_locations').upsert({
+        'user_id': workerId,
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+      }, onConflict: 'user_id');
+    } catch (e) {
+      _lastLocationUpload = null;
+      debugPrint('[WorkerNotifier] Could not publish worker location: $e');
+    }
   }
 
   Future<void> _startLocationTracking() async {
@@ -431,16 +515,37 @@ class WorkerHazardNotifier extends ChangeNotifier {
           perm == LocationPermission.deniedForever)
         return;
 
+      final LocationSettings settings;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        settings = AndroidSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 1,
+          intervalDuration: Duration(seconds: 5),
+          foregroundNotificationConfig: ForegroundNotificationConfig(
+            notificationTitle: 'RiskRadar safety monitoring',
+            notificationText:
+                'Location monitoring is active for nearby hazard alerts.',
+            notificationChannelName: 'Nearby Hazard Monitoring',
+            enableWifiLock: true,
+            enableWakeLock: true,
+            setOngoing: true,
+          ),
+        );
+      } else {
+        settings = const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 1,
+        );
+      }
+
       _posSub?.cancel();
       _posSub =
           Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.medium,
-              distanceFilter: 2, // ✅ REQUIRED FOR 10M TESTING
-            ),
+            locationSettings: settings,
           ).listen((pos) {
             if (_currentWorkerId == null) return;
             _lastKnownPosition = pos;
+            unawaited(_publishCurrentLocation(pos));
 
             final now = DateTime.now();
             if (_lastProximityCheck != null &&
@@ -513,40 +618,6 @@ class WorkerHazardNotifier extends ChangeNotifier {
         // ✅ Keep offline cache updated with new assignments
         newAssign['sourceTable'] = 'assign_hazards';
         _offlineHazardCache[id] = newAssign;
-
-        if (_permanentlyNotified.contains(id)) return;
-        if (!_processingQueue.add(id)) return;
-
-        try {
-          _permanentlyNotified.add(id);
-
-          await _createNotification(
-            hazardId: id,
-            sourceTable: 'assign_hazards',
-            title: 'New Task Assigned!',
-            body:
-                newAssign['description'] ??
-                'You have been assigned a new hazard.',
-            severity: newAssign['severity'] ?? 'moderate',
-            imageUrl: newAssign['image_url'],
-            distance: 0,
-          );
-        } catch (e) {
-          _permanentlyNotified.remove(id);
-          await _scheduleRetry(
-            hazardId: id,
-            sourceTable: 'assign_hazards',
-            title: 'New Task Assigned!',
-            body:
-                newAssign['description'] ??
-                'You have been assigned a new hazard.',
-            severity: newAssign['severity'] ?? 'moderate',
-            distance: 0,
-            imageUrl: newAssign['image_url'],
-          );
-        } finally {
-          _processingQueue.remove(id);
-        }
       },
     );
 
@@ -891,7 +962,10 @@ class WorkerHazardNotifier extends ChangeNotifier {
       color = Colors.orange;
     }
 
-    final notifBody = distance > 0 ? '$body\n📍 ${distance}m away' : body;
+    final distanceLabel = workerProximityDistanceLabel(distance);
+    final notifBody = distanceLabel.isNotEmpty
+        ? '$body\n📍 $distanceLabel'
+        : body;
 
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
@@ -899,7 +973,14 @@ class WorkerHazardNotifier extends ChangeNotifier {
         channelKey: 'Hazards Details',
         title: title,
         body: notifBody,
-        payload: {'hazardId': hazardId, 'sourceTable': sourceTable},
+        payload: {
+          'hazardId': hazardId,
+          'sourceTable': sourceTable,
+          'title': title,
+          'body': body,
+          'severity': severity,
+          'notificationType': 'worker_proximity',
+        },
         color: color,
         icon: 'resource://drawable/ic_notification',
         notificationLayout: (imageUrl != null && imageUrl.isNotEmpty)

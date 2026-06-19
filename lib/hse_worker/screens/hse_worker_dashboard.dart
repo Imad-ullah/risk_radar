@@ -1,6 +1,7 @@
 // lib/hse_workers/screens/hse_worker_dashboard.dart
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:riskradar/utils/responsive.dart';
 import 'package:flutter/services.dart';
@@ -159,6 +160,12 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
         currentSiteId = profile['current_site_id']?.toString();
 
         if (tasks != null) {
+          workerHazardNotifier.removeInactiveTaskNotifications(
+            tasks
+                .map((task) => task['id']?.toString() ?? '')
+                .where((id) => id.isNotEmpty)
+                .toSet(),
+          );
           activeTasks = 0;
           queueTasks = 0;
           for (final task in tasks) {
@@ -677,37 +684,40 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
                     ),
                     SizedBox(height: R.blockV * 3.125),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildThemedCard(
-                            icon: Icons.assignment_turned_in,
-                            title: "$activeTaskCount Active",
-                            subtitle: "Tasks in progress",
-                            buttonText: "View All",
-                            onTap: () => _onItemTapped(1),
-                            showProgress: true,
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildThemedCard(
+                              icon: Icons.assignment_turned_in,
+                              title: "$activeTaskCount Active",
+                              subtitle: "Tasks in progress",
+                              buttonText: "View All",
+                              onTap: () => _onItemTapped(1),
+                              showProgress: true,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: R.blockH * 4.267),
-                        Expanded(
-                          child: _buildThemedCard(
-                            icon: Icons.engineering,
-                            title: "$teamCount",
-                            subtitle: "Total Workforce",
-                            buttonText: "View Workforce",
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HSETeamMembersScreen(
-                                  currentSiteId: currentSiteId,
+                          SizedBox(width: R.blockH * 4.267),
+                          Expanded(
+                            child: _buildThemedCard(
+                              icon: Icons.engineering,
+                              title: "$teamCount",
+                              subtitle: "Total Workforce",
+                              buttonText: "View Workforce",
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HSETeamMembersScreen(
+                                    currentSiteId: currentSiteId,
+                                  ),
                                 ),
                               ),
+                              showProgress: false,
                             ),
-                            showProgress: false,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
 
                     // Bottom padding for FAB + nav bar
@@ -751,7 +761,9 @@ class _HSEWorkerHomeScreenState extends State<HSEWorkerHomeScreen>
         size.height - mediaQuery.padding.top - mediaQuery.padding.bottom;
 
     return Container(
-      height: visibleHeight * 0.225,
+      constraints: BoxConstraints(
+        minHeight: math.max(visibleHeight * 0.225, 174),
+      ),
       padding: EdgeInsets.all(size.width * 0.050),
       decoration: BoxDecoration(
         color: _brandTeal,

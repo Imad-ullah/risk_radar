@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -78,8 +77,6 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   String? _linkedOfficerUid;
   DateTime _resolvedTitleDate = DateTime.now();
 
-  StreamSubscription<Position>? _positionSubscription;
-
   final List<String> _screenTitles = [
     "Dashboard",
     "Ongoing Hazards",
@@ -128,13 +125,11 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
     );
 
     _loadAllData();
-    _startLocationTracking();
     workerHazardNotifier.startChecking();
   }
 
   @override
   void dispose() {
-    _positionSubscription?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -406,31 +401,6 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen>
   // ══════════════════════════════════════════════════════════════════════════
   // LOCATION TRACKING — fire and forget, offline-safe
   // ══════════════════════════════════════════════════════════════════════════
-
-  Future<void> _startLocationTracking() async {
-    _positionSubscription =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 20,
-          ),
-        ).listen((pos) {
-          if (_currentWorkerId != null) {
-            // Best-effort upsert — silently swallowed if offline
-            supabase
-                .from('user_locations')
-                .upsert({
-                  'user_id': _currentWorkerId,
-                  'latitude': pos.latitude,
-                  'longitude': pos.longitude,
-                  'updated_at': DateTime.now().toIso8601String(),
-                }, onConflict: 'user_id')
-                .catchError((e) {
-                  debugPrint('ℹ️ [Location] Offline upsert skipped: $e');
-                });
-          }
-        });
-  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // SOS NAVIGATION

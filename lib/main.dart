@@ -30,11 +30,20 @@ const AndroidNotificationChannel _sosNotificationChannel =
     AndroidNotificationChannel(
       'sos_alerts_critical',
       'SOS Critical Alerts',
-      description: 'Critical SOS and hazard foreground alerts',
+      description: 'Critical emergency SOS alerts',
       importance: Importance.max,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('sos_alarm'),
       audioAttributesUsage: AudioAttributesUsage.alarm,
+    );
+
+const AndroidNotificationChannel _hazardNotificationChannel =
+    AndroidNotificationChannel(
+      'hazard_alerts',
+      'Hazard Alerts',
+      description: 'Hazard reports, assignments, and nearby hazard alerts',
+      importance: Importance.high,
+      playSound: true,
     );
 
 void main() async {
@@ -80,8 +89,9 @@ Future<void> _initializeForegroundPushNotifications() async {
   final androidPlugin = _localNotificationsPlugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
-      >();
+  >();
   await androidPlugin?.createNotificationChannel(_sosNotificationChannel);
+  await androidPlugin?.createNotificationChannel(_hazardNotificationChannel);
 
   final messaging = FirebaseMessaging.instance;
   await messaging.requestPermission(alert: true, badge: true, sound: true);
@@ -135,6 +145,10 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
     await SosOverlayService.showFromPayload(Map<String, dynamic>.from(data));
     return;
   }
+  if (data['notification_type']?.toString() == 'worker_proximity') {
+    // The worker notification service owns proximity deduplication and display.
+    return;
+  }
 
   final title =
       data['title']?.toString() ?? notification?.title ?? 'RiskRadar Alert';
@@ -145,18 +159,15 @@ Future<void> _showForegroundNotification(RemoteMessage message) async {
       '';
 
   const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-    'sos_alerts_critical',
-    'SOS Critical Alerts',
-    channelDescription: 'Critical SOS and hazard foreground alerts',
-    importance: Importance.max,
+    'hazard_alerts',
+    'Hazard Alerts',
+    channelDescription:
+        'Hazard reports, assignments, and nearby hazard alerts',
+    importance: Importance.high,
     priority: Priority.high,
     icon: '@mipmap/ic_launcher',
     playSound: true,
-    sound: RawResourceAndroidNotificationSound('sos_alarm'),
-    audioAttributesUsage: AudioAttributesUsage.alarm,
     enableVibration: true,
-    category: AndroidNotificationCategory.alarm,
-    fullScreenIntent: true,
   );
   const NotificationDetails notificationDetails = NotificationDetails(
     android: androidDetails,

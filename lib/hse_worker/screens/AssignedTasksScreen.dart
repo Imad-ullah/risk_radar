@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -19,6 +20,7 @@ import 'package:riskradar/shared/hazards/hazard_details_screen.dart'
 import 'package:riskradar/shared/models/hazard.dart';
 
 import 'hse_worker_resolution_form_screen.dart';
+import 'hse_worker_hazard_notifier.dart';
 
 class AssignedTasksScreen extends StatefulWidget {
   const AssignedTasksScreen({super.key});
@@ -534,6 +536,9 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
           .eq('id', assignmentId);
 
       await _updateTaskInLocalCache(assignmentId, updateData);
+      if (newStatus == 'resolved') {
+        workerHazardNotifier.removeNotification(assignmentId);
+      }
       await fetchTasks(showBlockingLoader: false, resetPagination: true);
 
       scaffoldMessenger.showSnackBar(
@@ -567,6 +572,9 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
     Map<String, dynamic> updateData,
   ) async {
     await _updateTaskInLocalCache(assignmentId, updateData);
+    if (updateData['status'] == 'resolved') {
+      workerHazardNotifier.removeNotification(assignmentId);
+    }
     await _syncRepository.enqueueAction(
       id: 'hse_status_${assignmentId}_${DateTime.now().millisecondsSinceEpoch}',
       table: 'assign_hazards',
@@ -1099,7 +1107,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen>
           );
         },
         child: Container(
-          height: visibleHeight * 0.206,
+          height: math.max(visibleHeight * 0.206, 152),
           margin: EdgeInsets.only(bottom: visibleHeight * 0.020),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(size.width * 0.061),

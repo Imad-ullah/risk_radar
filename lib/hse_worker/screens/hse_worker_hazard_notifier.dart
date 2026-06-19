@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:riskradar/shared/navigation/app_navigator.dart';
 import 'package:riskradar/services/app_config.dart';
@@ -30,6 +31,7 @@ class WorkerNotification {
   final String title;
   final String body;
   final String severity;
+  final String notificationType;
   final String? imageUrl;
   final int distance;
   final DateTime timestamp;
@@ -41,6 +43,7 @@ class WorkerNotification {
     required this.title,
     required this.body,
     required this.severity,
+    this.notificationType = WorkerHazardNotifier.assignmentNotificationType,
     this.imageUrl,
     required this.distance,
     required this.timestamp,
@@ -73,12 +76,16 @@ Future<void> onWorkerActionReceivedMethod(ReceivedAction receivedAction) async {
   final String? hazardId = receivedAction.payload?['hazardId'];
   final String sourceTable =
       receivedAction.payload?['sourceTable'] ?? 'hazards';
+  final String? notificationType = receivedAction.payload?['notificationType'];
 
   if (hazardId == null) return;
 
   if (receivedAction.buttonKeyPressed == '' ||
       receivedAction.buttonKeyPressed == 'DETAILS') {
-    workerHazardNotifier.markAsRead(hazardId);
+    workerHazardNotifier.markAsRead(
+      hazardId,
+      notificationType: notificationType,
+    );
     final hazardData = await fetchFullHazardData(
       hazardId,
       sourceTable: sourceTable,
@@ -93,7 +100,10 @@ Future<void> onWorkerActionReceivedMethod(ReceivedAction receivedAction) async {
       });
     }
   } else if (receivedAction.buttonKeyPressed == 'NOTED') {
-    workerHazardNotifier.markAsRead(hazardId);
+    workerHazardNotifier.markAsRead(
+      hazardId,
+      notificationType: notificationType,
+    );
   }
 }
 
@@ -238,6 +248,11 @@ Future<bool> _canCurrentHseWorkerAccessHazard(
 // WorkerHazardNotifier Class
 // ---------------------------------------------------------------------------
 class WorkerHazardNotifier extends ChangeNotifier {
+  static const String _notifiedHazardsKeyPrefix = 'hse_notified_hazard_ids_v1_';
+  static const int _maxPersistedHazardIds = 1000;
+  static const String assignmentNotificationType = 'assignment';
+  static const String proximityNotificationType = 'proximity';
+
   final _supabase = Supabase.instance.client;
 
   // Subscriptions
@@ -268,24 +283,62 @@ class WorkerHazardNotifier extends ChangeNotifier {
   // Throttling
   DateTime? _lastProximityCheck;
   static const Duration _proximityThrottle = Duration(seconds: 30);
-  static const double _proximityRadiusMeters = 10.0; // ✅ 10m FOR TESTING
+  static const double _proximityRadiusMeters = 25.0;
 
   final List<WorkerNotification> _notifications = [];
   List<WorkerNotification> get notifications =>
       List.unmodifiable(_notifications);
-  int get unreadCount => _notifications.where((n) => !n.isRead).length;
+  int get unreadCount => _notifications
+      .where((notification) => !notification.isRead)
+      .map(
+        (notification) => _notificationKey(
+          notification.hazardId,
+          notification.notificationType,
+        ),
+      )
+      .where((key) => key.isNotEmpty)
+      .toSet()
+      .length;
+
+  String _normalizeNotificationType(String? notificationType) {
+    final cleanType = notificationType?.trim();
+    if (cleanType == null || cleanType.isEmpty) {
+      return assignmentNotificationType;
+    }
+    if (cleanType == 'hse_proximity' || cleanType == 'officer_proximity') {
+      return proximityNotificationType;
+    }
+    return cleanType;
+  }
+
+  String _notificationKey(String hazardId, String? notificationType) {
+    final normalizedId = hazardId.trim();
+    if (normalizedId.isEmpty) return '';
+    return '${_normalizeNotificationType(notificationType)}:$normalizedId';
+  }
 
   void clearNotifications() {
     _notifications.clear();
     notifyListeners();
   }
 
-  void markAsRead(String hazardId) {
-    final idx = _notifications.indexWhere(
-      (n) => n.hazardId == hazardId && !n.isRead,
-    );
-    if (idx != -1) {
-      _notifications[idx].isRead = true;
+  void markAsRead(String hazardId, {String? notificationType}) {
+    var changed = false;
+    final normalizedType = notificationType == null
+        ? null
+        : _normalizeNotificationType(notificationType);
+    for (final notification in _notifications) {
+      final sameHazard = notification.hazardId.trim() == hazardId.trim();
+      final sameType =
+          normalizedType == null ||
+          _normalizeNotificationType(notification.notificationType) ==
+              normalizedType;
+      if (sameHazard && sameType && !notification.isRead) {
+        notification.isRead = true;
+        changed = true;
+      }
+    }
+    if (changed) {
       notifyListeners();
     }
   }
@@ -297,23 +350,108 @@ class WorkerHazardNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isAlreadyNotified(String hazardId) {
-    return _permanentlyNotified.contains(hazardId);
+  bool isAlreadyNotified(
+    String hazardId, {
+    String notificationType = assignmentNotificationType,
+  }) {
+    final key = _notificationKey(hazardId, notificationType);
+    return key.isNotEmpty && _permanentlyNotified.contains(key);
   }
 
   void addNotificationFromFCM(WorkerNotification notification) {
-    if (_notifications.any((n) => n.hazardId == notification.hazardId)) {
+    final hazardId = notification.hazardId.trim();
+    final key = _notificationKey(hazardId, notification.notificationType);
+    if (hazardId.isEmpty ||
+        key.isEmpty ||
+        _permanentlyNotified.contains(key) ||
+        _notifications.any(
+          (n) => _notificationKey(n.hazardId, n.notificationType) == key,
+        )) {
       return;
     }
 
-    _permanentlyNotified.add(notification.hazardId);
+    _permanentlyNotified.add(key);
+    unawaited(_persistNotifiedHazards());
     _notifications.insert(0, notification);
     notifyListeners();
+  }
+
+  String? get _notifiedHazardsStorageKey {
+    final workerId = _currentWorkerId;
+    if (workerId == null || workerId.isEmpty) return null;
+    return '$_notifiedHazardsKeyPrefix$workerId';
+  }
+
+  Future<void> _loadPersistedNotifiedHazards() async {
+    final key = _notifiedHazardsStorageKey;
+    if (key == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedIds = prefs.getStringList(key) ?? const <String>[];
+      _permanentlyNotified
+        ..clear()
+        ..addAll(savedIds.map((id) => id.trim()).where((id) => id.isNotEmpty));
+    } catch (e) {
+      debugPrint('⚠️ Could not restore HSE notification IDs: $e');
+    }
+  }
+
+  Future<void> _rememberNotifiedHazard(
+    String hazardId, {
+    required String notificationType,
+  }) async {
+    final key = _notificationKey(hazardId, notificationType);
+    if (key.isEmpty) return;
+    _permanentlyNotified.add(key);
+    await _persistNotifiedHazards();
+  }
+
+  Future<void> _forgetNotifiedHazard(
+    String hazardId, {
+    required String notificationType,
+  }) async {
+    final key = _notificationKey(hazardId, notificationType);
+    if (key.isEmpty) return;
+    _permanentlyNotified.remove(key);
+    await _persistNotifiedHazards();
+  }
+
+  Future<void> _persistNotifiedHazards() async {
+    final key = _notifiedHazardsStorageKey;
+    if (key == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = _permanentlyNotified.toList(growable: false);
+      final retainedIds = ids.length <= _maxPersistedHazardIds
+          ? ids
+          : ids.sublist(ids.length - _maxPersistedHazardIds);
+      await prefs.setStringList(key, retainedIds);
+    } catch (e) {
+      debugPrint('⚠️ Could not persist HSE notification IDs: $e');
+    }
   }
 
   void removeNotification(String hazardId) {
     _notifications.removeWhere((n) => n.hazardId == hazardId);
     notifyListeners();
+  }
+
+  void removeInactiveTaskNotifications(Set<String> activeTaskIds) {
+    final normalizedActiveIds = activeTaskIds
+        .map((hazardId) => hazardId.trim())
+        .where((hazardId) => hazardId.isNotEmpty)
+        .toSet();
+    final previousLength = _notifications.length;
+    _notifications.removeWhere(
+      (notification) =>
+          notification.sourceTable == 'assign_hazards' &&
+          !normalizedActiveIds.contains(notification.hazardId.trim()),
+    );
+    if (_notifications.length != previousLength) {
+      notifyListeners();
+    }
   }
 
   Future<void> startChecking() async {
@@ -328,6 +466,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
 
     await _cleanupResources();
     _currentWorkerId = workerAuthId;
+    await _loadPersistedNotifiedHazards();
     await _loadCurrentSite();
 
     _supabase.auth.onAuthStateChange.listen((data) {
@@ -345,6 +484,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
     _listenForLiveHazards();
     _startPollingFallback();
     await _startLocationTracking();
+    await _triggerImmediateProximityCheck();
   }
 
   void stopChecking() {
@@ -616,40 +756,48 @@ class WorkerHazardNotifier extends ChangeNotifier {
     newAssign['sourceTable'] = 'assign_hazards';
     _offlineHazardCache[id] = newAssign;
 
-    if (_permanentlyNotified.contains(id)) {
+    const notificationType = assignmentNotificationType;
+    final notificationKey = _notificationKey(id, notificationType);
+    if (_permanentlyNotified.contains(notificationKey)) {
       return;
     }
-    if (!_processingQueue.add(id)) {
+    if (!_processingQueue.add(notificationKey)) {
       return;
     }
 
     try {
-      _permanentlyNotified.add(id);
+      await _rememberNotifiedHazard(
+        id,
+        notificationType: notificationType,
+      );
 
       await _createNotification(
         hazardId: id,
         sourceTable: 'assign_hazards',
-        title: 'New Task Assigned!',
-        body:
-            newAssign['description'] ?? 'You have been assigned a new hazard.',
+        notificationType: notificationType,
+        title: 'Assigned Hazard',
+        body: newAssign['description'] ?? 'A hazard has been assigned to you.',
         severity: newAssign['severity'] ?? 'moderate',
         imageUrl: newAssign['image_url'],
         distance: 0,
       );
     } catch (e) {
-      _permanentlyNotified.remove(id);
+      await _forgetNotifiedHazard(
+        id,
+        notificationType: notificationType,
+      );
       await _scheduleRetry(
         hazardId: id,
         sourceTable: 'assign_hazards',
-        title: 'New Task Assigned!',
-        body:
-            newAssign['description'] ?? 'You have been assigned a new hazard.',
+        notificationType: notificationType,
+        title: 'Assigned Hazard',
+        body: newAssign['description'] ?? 'A hazard has been assigned to you.',
         severity: newAssign['severity'] ?? 'moderate',
         distance: 0,
         imageUrl: newAssign['image_url'],
       );
     } finally {
-      _processingQueue.remove(id);
+      _processingQueue.remove(notificationKey);
     }
   }
 
@@ -683,38 +831,48 @@ class WorkerHazardNotifier extends ChangeNotifier {
         newAssign['sourceTable'] = 'assign_hazards';
         _offlineHazardCache[id] = newAssign;
 
-        if (_permanentlyNotified.contains(id)) return;
-        if (!_processingQueue.add(id)) return;
+        const notificationType = assignmentNotificationType;
+        final notificationKey = _notificationKey(id, notificationType);
+        if (_permanentlyNotified.contains(notificationKey)) return;
+        if (!_processingQueue.add(notificationKey)) return;
 
         try {
-          _permanentlyNotified.add(id);
+          await _rememberNotifiedHazard(
+            id,
+            notificationType: notificationType,
+          );
 
           await _createNotification(
             hazardId: id,
             sourceTable: 'assign_hazards',
-            title: 'New Task Assigned!',
+            notificationType: notificationType,
+            title: 'Assigned Hazard',
             body:
                 newAssign['description'] ??
-                'You have been assigned a new hazard.',
+                'A hazard has been assigned to you.',
             severity: newAssign['severity'] ?? 'moderate',
             imageUrl: newAssign['image_url'],
             distance: 0,
           );
         } catch (e) {
-          _permanentlyNotified.remove(id);
+          await _forgetNotifiedHazard(
+            id,
+            notificationType: notificationType,
+          );
           await _scheduleRetry(
             hazardId: id,
             sourceTable: 'assign_hazards',
-            title: 'New Task Assigned!',
+            notificationType: notificationType,
+            title: 'Assigned Hazard',
             body:
                 newAssign['description'] ??
-                'You have been assigned a new hazard.',
+                'A hazard has been assigned to you.',
             severity: newAssign['severity'] ?? 'moderate',
             distance: 0,
             imageUrl: newAssign['image_url'],
           );
         } finally {
-          _processingQueue.remove(id);
+          _processingQueue.remove(notificationKey);
         }
       },
     );
@@ -802,7 +960,9 @@ class WorkerHazardNotifier extends ChangeNotifier {
   Future<void> _notifyIfLiveHazardIsNearby(Map<String, dynamic> hazard) async {
     final id = hazard['id']?.toString();
     if (id == null || id.isEmpty) return;
-    if (_permanentlyNotified.contains(id)) return;
+    const notificationType = proximityNotificationType;
+    final notificationKey = _notificationKey(id, notificationType);
+    if (_permanentlyNotified.contains(notificationKey)) return;
 
     final lat = _asDouble(hazard['latitude']);
     final lng = _asDouble(hazard['longitude']);
@@ -819,7 +979,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
     );
     if (distance > _proximityRadiusMeters) return;
 
-    if (!_processingQueue.add(id)) return;
+    if (!_processingQueue.add(notificationKey)) return;
 
     final rawDesc = hazard['description']?.toString().trim();
     final body = rawDesc != null && rawDesc.isNotEmpty
@@ -827,11 +987,15 @@ class WorkerHazardNotifier extends ChangeNotifier {
         : 'A new hazard was reported near you. Stay safe!';
 
     try {
-      _permanentlyNotified.add(id);
+      await _rememberNotifiedHazard(
+        id,
+        notificationType: notificationType,
+      );
 
       await _createNotification(
         hazardId: id,
         sourceTable: 'hazards',
+        notificationType: notificationType,
         title: hazard['hazard_type']?.toString() ?? 'Nearby Hazard',
         body: body,
         severity: hazard['severity']?.toString() ?? 'low',
@@ -839,10 +1003,14 @@ class WorkerHazardNotifier extends ChangeNotifier {
         distance: distance.round(),
       );
     } catch (e) {
-      _permanentlyNotified.remove(id);
+      await _forgetNotifiedHazard(
+        id,
+        notificationType: notificationType,
+      );
       await _scheduleRetry(
         hazardId: id,
         sourceTable: 'hazards',
+        notificationType: notificationType,
         title: hazard['hazard_type']?.toString() ?? 'Nearby Hazard',
         body: body,
         severity: hazard['severity']?.toString() ?? 'low',
@@ -850,7 +1018,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
         imageUrl: hazard['image_url']?.toString(),
       );
     } finally {
-      _processingQueue.remove(id);
+      _processingQueue.remove(notificationKey);
     }
   }
 
@@ -963,8 +1131,10 @@ class WorkerHazardNotifier extends ChangeNotifier {
       final id = hazard['id']?.toString();
       if (id == null) continue;
 
-      if (_permanentlyNotified.contains(id)) continue;
-      if (!_processingQueue.add(id)) continue;
+      const notificationType = proximityNotificationType;
+      final notificationKey = _notificationKey(id, notificationType);
+      if (_permanentlyNotified.contains(notificationKey)) continue;
+      if (!_processingQueue.add(notificationKey)) continue;
 
       final sourceTable = hazard['sourceTable'] as String;
       final rawDesc = (hazard['description'] as String?)?.trim();
@@ -973,11 +1143,15 @@ class WorkerHazardNotifier extends ChangeNotifier {
           : 'A hazard is nearby. Stay safe!';
 
       try {
-        _permanentlyNotified.add(id);
+        await _rememberNotifiedHazard(
+          id,
+          notificationType: notificationType,
+        );
 
         await _createNotification(
           hazardId: id,
           sourceTable: sourceTable,
+          notificationType: notificationType,
           title: hazard['hazard_type'] ?? 'Nearby Hazard',
           body: body,
           severity: hazard['severity'] ?? 'low',
@@ -986,10 +1160,14 @@ class WorkerHazardNotifier extends ChangeNotifier {
               .round(), // Or calculate exact if preferred
         );
       } catch (e) {
-        _permanentlyNotified.remove(id);
+        await _forgetNotifiedHazard(
+          id,
+          notificationType: notificationType,
+        );
         await _scheduleRetry(
           hazardId: id,
           sourceTable: sourceTable,
+          notificationType: notificationType,
           title: hazard['hazard_type'] ?? 'Nearby Hazard',
           body: body,
           severity: hazard['severity'] ?? 'low',
@@ -997,7 +1175,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
           imageUrl: hazard['image_url'],
         );
       } finally {
-        _processingQueue.remove(id);
+        _processingQueue.remove(notificationKey);
       }
     }
   }
@@ -1005,20 +1183,22 @@ class WorkerHazardNotifier extends ChangeNotifier {
   Future<void> _scheduleRetry({
     required String hazardId,
     required String sourceTable,
+    required String notificationType,
     required String title,
     required String body,
     required String severity,
     required int distance,
     String? imageUrl,
   }) async {
-    final attempts = _retryCount[hazardId] ?? 0;
+    final notificationKey = _notificationKey(hazardId, notificationType);
+    final attempts = _retryCount[notificationKey] ?? 0;
 
     if (attempts >= _maxRetries) {
-      _retryCount.remove(hazardId);
+      _retryCount.remove(notificationKey);
       return;
     }
 
-    _retryCount[hazardId] = attempts + 1;
+    _retryCount[notificationKey] = attempts + 1;
     final delay = Duration(seconds: (2 << attempts));
 
     await Future.delayed(delay);
@@ -1026,20 +1206,26 @@ class WorkerHazardNotifier extends ChangeNotifier {
     if (_currentWorkerId == null) return;
 
     try {
+      await _rememberNotifiedHazard(
+        hazardId,
+        notificationType: notificationType,
+      );
       await _createNotification(
         hazardId: hazardId,
         sourceTable: sourceTable,
+        notificationType: notificationType,
         title: title,
         body: body,
         severity: severity,
         imageUrl: imageUrl,
         distance: distance,
       );
-      _retryCount.remove(hazardId);
+      _retryCount.remove(notificationKey);
     } catch (e) {
       await _scheduleRetry(
         hazardId: hazardId,
         sourceTable: sourceTable,
+        notificationType: notificationType,
         title: title,
         body: body,
         severity: severity,
@@ -1052,13 +1238,22 @@ class WorkerHazardNotifier extends ChangeNotifier {
   Future<void> _createNotification({
     required String hazardId,
     required String sourceTable,
+    required String notificationType,
     required String title,
     required String body,
     required String severity,
     required int distance,
     String? imageUrl,
   }) async {
-    if (_notifications.any((n) => n.hazardId == hazardId)) return;
+    final notificationKey = _notificationKey(hazardId, notificationType);
+    if (notificationKey.isEmpty ||
+        _notifications.any(
+          (n) =>
+              _notificationKey(n.hazardId, n.notificationType) ==
+              notificationKey,
+        )) {
+      return;
+    }
 
     Color color = Colors.green;
     final sev = severity.toLowerCase();
@@ -1072,11 +1267,18 @@ class WorkerHazardNotifier extends ChangeNotifier {
 
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
-        id: generateSafeNotificationId(hazardId), // ✅ DJB2 HASH
+        id: generateSafeNotificationId(notificationKey),
         channelKey: 'Hazards Details',
         title: title,
         body: notifBody,
-        payload: {'hazardId': hazardId, 'sourceTable': sourceTable},
+        payload: {
+          'hazardId': hazardId,
+          'sourceTable': sourceTable,
+          'notificationType': _normalizeNotificationType(notificationType),
+          'title': title,
+          'body': body,
+          'severity': severity,
+        },
         color: color,
         icon: 'resource://drawable/ic_notification',
         notificationLayout: (imageUrl != null && imageUrl.isNotEmpty)
@@ -1097,6 +1299,7 @@ class WorkerHazardNotifier extends ChangeNotifier {
         title: title,
         body: body,
         severity: severity,
+        notificationType: _normalizeNotificationType(notificationType),
         distance: distance,
         timestamp: DateTime.now(),
         isRead: false,

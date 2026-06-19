@@ -223,7 +223,9 @@ class _HSEWorkerAppSettingsScreenState
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: size.width * 0.040,
-              vertical: visibleHeight * 0.010,
+            ).copyWith(
+              top: visibleHeight * 0.010,
+              bottom: visibleHeight * 0.135,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

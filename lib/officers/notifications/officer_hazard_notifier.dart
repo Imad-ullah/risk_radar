@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:riskradar/shared/hazards/hazard_details_screen.dart';
@@ -362,18 +363,27 @@ Future<void> _moveCachedHazardToResolved(
 
 // Main Notifier Class
 class OfficerHazardNotifier extends ChangeNotifier {
+  static const String _notifiedHazardsKeyPrefix =
+      'officer_proximity_notified_hazard_ids_v2_';
+  static const int _maxPersistedHazardIds = 1000;
+  static const double _proximityRadiusMeters = 25.0;
+  static const Duration _liveScanInterval = Duration(seconds: 15);
+  static const Duration _locationUploadInterval = Duration(seconds: 5);
+
   final supabase = Supabase.instance.client;
 
   StreamSubscription<Position>? _posSub;
-  RealtimeChannel? _insertChannel;
+  Timer? _liveScanTimer;
+  DateTime? _lastLocationUpload;
 
-  // CRITICAL FIX: Separate tracking for shown notifications vs internal log
-  final Set<String> _permanentlyNotified =
-      {}; // Never cleared, persists across sessions
+  // Separate tracking for shown notifications vs the visible notification log.
+  // This set is also saved locally so an app restart does not re-alert old
+  // active hazards during the officer proximity scan.
+  final Set<String> _permanentlyNotified = {};
   final Set<String> _processingQueue = {}; // Prevent duplicate processing
 
+  String? _currentOfficerAuthId;
   String? _customOfficerUid;
-  bool _hazardListenerActive = false;
 
   // Persistent Notification Log
   final List<OfficerNotification> _notifications = [];
@@ -416,21 +426,70 @@ class OfficerHazardNotifier extends ChangeNotifier {
 
   // Public method for FCM to add notifications
   void addNotificationFromFCM(OfficerNotification notification) {
-    if (_notifications.any((n) => n.hazardId == notification.hazardId)) {
-      debugPrint(
-        '⏭️ Skipping duplicate FCM notification: ${notification.hazardId}',
-      );
+    final hazardId = notification.hazardId.trim();
+    if (hazardId.isEmpty ||
+        _permanentlyNotified.contains(hazardId) ||
+        _notifications.any((n) => n.hazardId == hazardId)) {
+      debugPrint('⏭️ Skipping duplicate FCM notification: $hazardId');
       return;
     }
 
-    _permanentlyNotified.add(notification.hazardId);
+    _permanentlyNotified.add(hazardId);
+    unawaited(_persistNotifiedHazards());
     _notifications.add(notification);
     notifyListeners();
   }
 
   // Public method to check if hazard already notified
   bool isAlreadyNotified(String hazardId) {
-    return _permanentlyNotified.contains(hazardId);
+    return _permanentlyNotified.contains(hazardId.trim());
+  }
+
+  String? get _notifiedHazardsStorageKey {
+    final officerAuthId = _currentOfficerAuthId;
+    if (officerAuthId == null || officerAuthId.isEmpty) return null;
+    return '$_notifiedHazardsKeyPrefix$officerAuthId';
+  }
+
+  Future<void> _loadPersistedNotifiedHazards() async {
+    final key = _notifiedHazardsStorageKey;
+    if (key == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedIds = prefs.getStringList(key) ?? const <String>[];
+      _permanentlyNotified
+        ..clear()
+        ..addAll(savedIds.map((id) => id.trim()).where((id) => id.isNotEmpty));
+      debugPrint(
+        '✅ Restored ${_permanentlyNotified.length} officer notification IDs.',
+      );
+    } catch (e) {
+      debugPrint('⚠️ Could not restore officer notification IDs: $e');
+    }
+  }
+
+  Future<void> _rememberNotifiedHazard(String hazardId) async {
+    final normalizedId = hazardId.trim();
+    if (normalizedId.isEmpty) return;
+    _permanentlyNotified.add(normalizedId);
+    await _persistNotifiedHazards();
+  }
+
+  Future<void> _persistNotifiedHazards() async {
+    final key = _notifiedHazardsStorageKey;
+    if (key == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = _permanentlyNotified.toList(growable: false);
+      final retainedIds = ids.length <= _maxPersistedHazardIds
+          ? ids
+          : ids.sublist(ids.length - _maxPersistedHazardIds);
+      await prefs.setStringList(key, retainedIds);
+    } catch (e) {
+      debugPrint('⚠️ Could not persist officer notification IDs: $e');
+    }
   }
 
   String _toTitleCase(String input) {
@@ -451,7 +510,7 @@ class OfficerHazardNotifier extends ChangeNotifier {
   }
 
   String _buildNearbyBody(Map<String, dynamic> hazard) {
-    return 'A hazard is nearby. Stay safe!\nWithin a 10 m radius.';
+    return 'A hazard is nearby. Stay safe!\nWithin ${_proximityRadiusMeters.round()} m.';
   }
 
   /// Start realtime & location-based monitoring
@@ -461,6 +520,9 @@ class OfficerHazardNotifier extends ChangeNotifier {
       debugPrint('❌ No logged-in officer.');
       return;
     }
+
+    _currentOfficerAuthId = officerAuthId;
+    await _loadPersistedNotifiedHazards();
 
     try {
       final officerData = await supabase
@@ -484,8 +546,6 @@ class OfficerHazardNotifier extends ChangeNotifier {
 
     debugPrint('✅ Using custom officer_uid: $_customOfficerUid');
 
-    _listenForNewHazards();
-
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
@@ -497,109 +557,76 @@ class OfficerHazardNotifier extends ChangeNotifier {
     }
 
     _posSub?.cancel();
+    _liveScanTimer?.cancel();
     _posSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 2,
       ),
-    ).listen((pos) => _checkNearbyHazards(pos, _customOfficerUid!));
+    ).listen((pos) async {
+      await _publishOfficerLocation(pos);
+      await _checkNearbyHazards(pos, _customOfficerUid!);
+    });
+
+    _liveScanTimer = Timer.periodic(_liveScanInterval, (_) {
+      unawaited(_triggerImmediateProximityCheck());
+    });
+
+    await _triggerImmediateProximityCheck();
 
     debugPrint('✅ Officer monitoring started.');
   }
 
-  void stopChecking() {
-    _posSub?.cancel();
-    _insertChannel?.unsubscribe();
-    _customOfficerUid = null;
-    _hazardListenerActive = false;
-    _processingQueue.clear();
-    debugPrint('🛑 Officer monitoring stopped.');
+  Future<void> _triggerImmediateProximityCheck() async {
+    final officerUid = _customOfficerUid;
+    if (officerUid == null) return;
+
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      );
+      await _publishOfficerLocation(pos);
+      await _checkNearbyHazards(pos, officerUid);
+    } catch (e) {
+      debugPrint('⚠️ Officer immediate proximity check failed: $e');
+    }
   }
 
-  // Listen for ONLY new hazards assigned to this officer
-  void _listenForNewHazards() {
-    if (_hazardListenerActive) return;
-    _hazardListenerActive = true;
+  Future<void> _publishOfficerLocation(Position pos) async {
+    final officerAuthId = _currentOfficerAuthId ?? supabase.auth.currentUser?.id;
+    if (officerAuthId == null || officerAuthId.isEmpty) return;
 
-    final officerId = _customOfficerUid;
-    if (officerId == null) {
-      debugPrint('⚠️ Cannot start hazard listener: Officer ID is null.');
+    final now = DateTime.now();
+    if (_lastLocationUpload != null &&
+        now.difference(_lastLocationUpload!) < _locationUploadInterval) {
       return;
     }
 
-    _insertChannel?.unsubscribe();
-    _insertChannel = supabase.channel('hazard-inserts-$officerId');
+    _lastLocationUpload = now;
+    try {
+      await supabase.from('user_locations').upsert({
+        'user_id': officerAuthId,
+        'latitude': pos.latitude,
+        'longitude': pos.longitude,
+        'updated_at': now.toUtc().toIso8601String(),
+      }, onConflict: 'user_id');
+    } catch (e) {
+      debugPrint('âš ï¸ Could not publish officer location: $e');
+    }
+  }
 
-    _insertChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: 'public',
-      table: 'hazards',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'officer_uid',
-        value: officerId,
-      ),
-      callback: (payload) async {
-        final newHaz = payload.newRecord;
-
-        final id = newHaz['id'].toString();
-
-        if (_permanentlyNotified.contains(id)) {
-          debugPrint('⏭️ Skipping already notified hazard: $id');
-          return;
-        }
-
-        if (_processingQueue.contains(id)) {
-          debugPrint('⏳ Already processing hazard: $id');
-          return;
-        }
-
-        _processingQueue.add(id);
-
-        try {
-          await Future.delayed(const Duration(milliseconds: 500));
-
-          final hazardData = await fetchFullHazardData(
-            id,
-            sourceTable: 'hazards',
-          );
-          if (hazardData == null) {
-            debugPrint(
-              '⚠️ Skipping notification for hazard $id - not found in database',
-            );
-            _processingQueue.remove(id);
-            return;
-          }
-
-          _permanentlyNotified.add(id);
-
-          await _createNotification(
-            hazardId: id,
-            sourceTable: 'hazards',
-            title:
-                '${_toTitleCase(newHaz['hazard_type']?.toString() ?? 'Hazard')} Reported',
-            body:
-                newHaz['description'] ??
-                'A new hazard was reported for your site. Open to review and assign promptly.',
-            severity: newHaz['severity'] ?? 'low',
-            imageUrl: newHaz['image_url'],
-          );
-        } finally {
-          _processingQueue.remove(id);
-        }
-      },
-    );
-
-    _insertChannel!.subscribe((status, [error]) {
-      if (status == RealtimeSubscribeStatus.closed ||
-          status == RealtimeSubscribeStatus.channelError) {
-        _hazardListenerActive = false;
-        if (_customOfficerUid != null) {
-          Future.delayed(const Duration(seconds: 2), _listenForNewHazards);
-        }
-      }
-    });
-    debugPrint('✅ Listening for new hazards assigned to $officerId.');
+  void stopChecking() {
+    _posSub?.cancel();
+    _liveScanTimer?.cancel();
+    _posSub = null;
+    _liveScanTimer = null;
+    _lastLocationUpload = null;
+    _currentOfficerAuthId = null;
+    _customOfficerUid = null;
+    _processingQueue.clear();
+    debugPrint('🛑 Officer monitoring stopped.');
   }
 
   // Proximity-based hazard check
@@ -631,32 +658,38 @@ class OfficerHazardNotifier extends ChangeNotifier {
         if (_permanentlyNotified.contains(id)) continue;
         if (_processingQueue.contains(id)) continue;
 
+        final hazardLat = h['latitude'];
+        final hazardLng = h['longitude'];
+        if (hazardLat == null || hazardLng == null) continue;
+
         final dist = Geolocator.distanceBetween(
           lat,
           lng,
-          (h['latitude'] as num).toDouble(),
-          (h['longitude'] as num).toDouble(),
+          (hazardLat as num).toDouble(),
+          (hazardLng as num).toDouble(),
         );
 
-        if (dist <= 10) {
+        if (dist <= _proximityRadiusMeters) {
           _processingQueue.add(id);
-          _permanentlyNotified.add(id);
+          try {
+            await _rememberNotifiedHazard(id);
 
-          // Track the correct table origin so the click-through goes to the right place
-          final src = h.containsKey('assigned_at')
-              ? 'assign_hazards'
-              : 'hazards';
+            // Track the correct table origin so the click-through goes to the right place
+            final src = h.containsKey('assigned_at')
+                ? 'assign_hazards'
+                : 'hazards';
 
-          await _createNotification(
-            hazardId: id,
-            sourceTable: src,
-            title: _buildNearbyTitle(h),
-            body: _buildNearbyBody(h),
-            severity: h['severity'] ?? 'low',
-            imageUrl: h['image_url'],
-          );
-
-          _processingQueue.remove(id);
+            await _createNotification(
+              hazardId: id,
+              sourceTable: src,
+              title: _buildNearbyTitle(h),
+              body: '${_buildNearbyBody(h)}\n${dist.round()} m away.',
+              severity: h['severity'] ?? 'low',
+              imageUrl: h['image_url'],
+            );
+          } finally {
+            _processingQueue.remove(id);
+          }
         }
       }
     } catch (e) {

@@ -17,6 +17,7 @@ class EmergencyPermissionDialog {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        scrollable: true,
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         contentPadding: EdgeInsets.fromLTRB(
@@ -142,7 +143,9 @@ class EmergencyPermissionDialog {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1B3D3D),
                       side: const BorderSide(color: Color(0xFF1B3D3D)),
-                      padding: EdgeInsets.symmetric(vertical: R.blockV * 1.75),
+                      padding: EdgeInsets.symmetric(
+                        vertical: R.blockV * 1.75,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -160,7 +163,9 @@ class EmergencyPermissionDialog {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1B3D3D),
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: R.blockV * 1.75),
+                      padding: EdgeInsets.symmetric(
+                        vertical: R.blockV * 1.75,
+                      ),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

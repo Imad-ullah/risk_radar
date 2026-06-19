@@ -8,7 +8,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:riskradar/workers/settings/worker_hazard_notifier.dart';
 import 'package:riskradar/services/repositories/hazard_repository.dart';
-import 'package:riskradar/services/logger_service.dart';
 
 import '../../shared/hazards/hazard_details_screen.dart';
 
@@ -16,6 +15,15 @@ class WorkerNotificationScreen extends StatelessWidget {
   const WorkerNotificationScreen({super.key});
 
   static final HazardRepository _hazardRepository = HazardRepository();
+  static const int _proximityRadiusMeters = 25;
+
+  String _distanceLabel(WorkerNotificationItem notification) {
+    if (notification.distance <= 0) return '';
+    if (notification.distance <= _proximityRadiusMeters) {
+      return 'within ${_proximityRadiusMeters}m';
+    }
+    return '${notification.distance}m away';
+  }
 
   String _getHazardIconPath(String text) {
     final normalized = text.toLowerCase();
@@ -237,7 +245,7 @@ class WorkerNotificationScreen extends StatelessWidget {
                   subtitle: Padding(
                     padding: EdgeInsets.only(top: visibleHeight * 0.005),
                     child: Text(
-                      '${notification.body}\n📍 ${notification.distance}m away\nSeverity: ${notification.severity.toUpperCase()}',
+                      '${notification.body}\n📍 ${_distanceLabel(notification)}\nSeverity: ${notification.severity.toUpperCase()}',
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -276,6 +284,9 @@ class WorkerNotificationScreen extends StatelessWidget {
     final freshHazard = await _fetchAndParseHazardData(
       notification.hazardId,
       notification.sourceTable,
+      title: notification.title,
+      body: notification.body,
+      severity: notification.severity,
     );
     if (freshHazard != null) {
       if (context.mounted) {
@@ -467,13 +478,17 @@ class WorkerNotificationScreen extends StatelessWidget {
 
   Future<Map<String, dynamic>?> _fetchAndParseHazardData(
     String hazardId,
-    String sourceTable,
-  ) async {
+    String sourceTable, {
+    String? title,
+    String? body,
+    String? severity,
+  }) async {
     final supabase = Supabase.instance.client;
     final currentUserId = supabase.auth.currentUser?.id;
 
     try {
       Map<String, dynamic>? rawHazard;
+      var resolvedSourceTable = sourceTable;
 
       if (sourceTable == 'assign_hazards') {
         rawHazard = await supabase
@@ -481,6 +496,15 @@ class WorkerNotificationScreen extends StatelessWidget {
             .select()
             .eq('id', hazardId)
             .maybeSingle();
+
+        if (rawHazard == null) {
+          rawHazard = await _fetchAssignedHazardByNotificationFields(
+            supabase,
+            hazardType: title,
+            description: body,
+            severity: severity,
+          );
+        }
       } else {
         rawHazard = await supabase
             .from('hazards')
@@ -488,36 +512,26 @@ class WorkerNotificationScreen extends StatelessWidget {
             .eq('id', hazardId)
             .maybeSingle();
 
-        if (rawHazard != null) {
-          try {
-            final assignments = await supabase
-                .from('assign_hazards')
-                .select('''
-                  *,
-                  hse_worker:assigned_to (
-                    id,
-                    first_name,
-                    last_name,
-                    profile_image_url,
-                    designation,
-                    role
-                  )
-                ''')
-                .eq('hazard_id', hazardId);
-            rawHazard['assign_hazards'] = assignments;
-          } catch (e, s) {
-            LoggerService.error(
-              '[Notification] Unable to load assignment inspectors',
-              e,
-              s,
-            );
+        if (rawHazard == null) {
+          rawHazard = await _fetchAssignedHazardByNotificationFields(
+            supabase,
+            hazardType: title,
+            description: body,
+            severity: severity,
+          );
+          if (rawHazard != null) {
+            resolvedSourceTable = 'assign_hazards';
           }
         }
+
+        // assign_hazards has no original hazards-table id link in this schema.
+        // If the row was moved there, the field fallback above returns the
+        // newest assigned copy including its hse_worker relation.
       }
 
       if (rawHazard == null) return null;
 
-      return _parseHazardData(rawHazard, sourceTable, currentUserId);
+      return _parseHazardData(rawHazard, resolvedSourceTable, currentUserId);
     } on SocketException {
       debugPrint('ℹ️ [Notification] Offline — cannot fetch hazard details.');
       return null;
@@ -525,6 +539,65 @@ class WorkerNotificationScreen extends StatelessWidget {
       debugPrint('⚠️ [Notification] Fetch error: $e');
       return null;
     }
+  }
+
+  Future<Map<String, dynamic>?> _fetchAssignedHazardByNotificationFields(
+    SupabaseClient supabase, {
+    String? hazardType,
+    String? description,
+    String? severity,
+  }) async {
+    final cleanHazardType = hazardType?.trim();
+    final cleanDescription = _cleanNotificationBody(description);
+    final cleanSeverity = severity?.trim();
+
+    if (cleanHazardType == null || cleanHazardType.isEmpty) return null;
+
+    var query = supabase
+        .from('assign_hazards')
+        .select('''
+          *,
+          reporter:worker_id (
+            id,
+            first_name,
+            last_name,
+            work_type,
+            profile_image_url
+          ),
+          hse_worker:assigned_to (
+            id,
+            first_name,
+            last_name,
+            profile_image_url,
+            designation,
+            role
+          )
+        ''')
+        .eq('hazard_type', cleanHazardType);
+
+    if (cleanDescription != null && cleanDescription.isNotEmpty) {
+      query = query.eq('description', cleanDescription);
+    }
+    if (cleanSeverity != null && cleanSeverity.isNotEmpty) {
+      query = query.eq('severity', cleanSeverity);
+    }
+
+    final rows = await query.order('created_at', ascending: false).limit(1);
+
+    if (rows.isEmpty) return null;
+
+    final hazard = Map<String, dynamic>.from(rows.first);
+    return hazard;
+  }
+
+  static String? _cleanNotificationBody(String? body) {
+    final trimmed = body?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+
+    return trimmed
+        .replaceAll(RegExp(r'\s*\(within\s+\d+\s*m\)\s*$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*within\s+\d+\s*m\s*$', caseSensitive: false), '')
+        .trim();
   }
 
   String _capitalizeName(String name) {

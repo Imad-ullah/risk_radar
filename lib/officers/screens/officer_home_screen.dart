@@ -222,6 +222,7 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen>
           currentSiteId: null,
           linkedContractorId: supabase.auth.currentUser!.id,
           isWorker: false,
+          isOfficer: true,
         ),
       ),
     );

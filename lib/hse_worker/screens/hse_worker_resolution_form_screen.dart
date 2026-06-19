@@ -15,6 +15,8 @@ import 'package:riskradar/shared/security/input_sanitizer.dart';
 import 'package:riskradar/shared/theme/app_colors.dart';
 import 'package:riskradar/shared/widgets/risk_radar_loader.dart';
 
+import 'hse_worker_hazard_notifier.dart';
+
 class HseWorkerResolutionFormScreen extends StatefulWidget {
   const HseWorkerResolutionFormScreen({super.key, required this.hazard});
 
@@ -309,6 +311,9 @@ class _HseWorkerResolutionFormScreenState
     );
     await _hazardRepository.markHseTasksResolvedLocally(resolvedIdentifiers);
     await _hazardRepository.saveHseAssignedTasks(cachedTasks);
+    for (final String identifier in resolvedIdentifiers) {
+      workerHazardNotifier.removeNotification(identifier);
+    }
 
     final List<Map<String, Object?>> resolvedTasks =
         (await _hazardRepository.getHseResolvedHazards() ??

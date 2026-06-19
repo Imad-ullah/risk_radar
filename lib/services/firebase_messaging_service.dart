@@ -7,6 +7,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:riskradar/firebase_options.dart';
 import 'package:riskradar/officers/notifications/officer_hazard_notifier.dart';
+import 'package:riskradar/services/local_storage_service.dart';
 import 'package:riskradar/services/repositories/auth_repository.dart';
 import 'package:riskradar/hse_worker/screens/hse_worker_hazard_notifier.dart'
     as hse_notifications;
@@ -18,6 +19,7 @@ import 'package:riskradar/workers/settings/worker_hazard_notifier.dart'
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await _ensureFirebaseInitialized();
+  await LocalStorageService.instance.init();
   await FirebaseMessagingService.ensureLocalNotificationsInitialized();
 
   debugPrint('Background message received: ${message.messageId}');
@@ -129,6 +131,21 @@ class FirebaseMessagingService {
     final severity = data['severity']?.toString() ?? 'low';
     final imageUrl = data['image_url']?.toString();
     final sourceTable = data['source_table']?.toString() ?? 'hazards';
+    final notificationType = data['notification_type']?.toString();
+    final role = AuthRepository().getRole();
+    if (notificationType == 'worker_proximity' && role != 'worker') {
+      debugPrint('Ignoring worker proximity notification for role: $role');
+      return;
+    }
+    if (sourceTable == 'assign_hazards' && role != 'hse_worker') {
+      debugPrint('Ignoring non-HSE assignment local notification: $hazardId');
+      return;
+    }
+    if ((data['title']?.toString() ?? message.notification?.title) ==
+        'New Hazard Reported!') {
+      debugPrint('Ignoring contractor new-hazard local notification: $hazardId');
+      return;
+    }
 
     final notificationId = hazardId.isNotEmpty
         ? hazardId.hashCode
@@ -143,6 +160,11 @@ class FirebaseMessagingService {
         payload: {
           if (hazardId.isNotEmpty) 'hazardId': hazardId,
           'sourceTable': sourceTable,
+          'title': title,
+          'body': body,
+          'severity': severity,
+          if (notificationType != null && notificationType.isNotEmpty)
+            'notificationType': notificationType,
         },
         color: _severityColor(severity),
         icon: 'resource://drawable/ic_notification',
@@ -191,10 +213,25 @@ class FirebaseMessagingService {
     final severity = data['severity'] ?? 'low';
     final imageUrl = data['image_url'];
     final sourceTable = data['source_table'] ?? 'hazards';
+    final notificationType = data['notification_type']?.toString();
+    final distance =
+        int.tryParse(data['distance_meters']?.toString() ?? '') ?? 0;
 
     if (hazardId.isEmpty) return;
-
     final role = AuthRepository().getRole();
+    if (notificationType == 'worker_proximity' && role != 'worker') {
+      debugPrint('Ignoring worker proximity FCM for role: $role');
+      return;
+    }
+    if (sourceTable == 'assign_hazards' && role != 'hse_worker') {
+      debugPrint('Ignoring non-HSE assignment FCM notification: $hazardId');
+      return;
+    }
+    if (title == 'New Hazard Reported!') {
+      debugPrint('Ignoring contractor new-hazard FCM notification: $hazardId');
+      return;
+    }
+
     if (role == 'worker') {
       if (worker_notifications.workerHazardNotifier.isAlreadyNotified(
         hazardId,
@@ -210,13 +247,31 @@ class FirebaseMessagingService {
           title: title,
           body: body,
           severity: severity,
-          distance: 0,
+          distance: distance,
           timestamp: DateTime.now(),
         ),
       );
+      if (notificationType == 'worker_proximity') {
+        await showLocalNotificationFromMessage(message);
+      }
     } else if (role == 'hse_worker') {
-      if (hse_notifications.workerHazardNotifier.isAlreadyNotified(hazardId)) {
-        debugPrint('Skipping duplicate HSE FCM notification: $hazardId');
+      final hseNotificationType =
+          notificationType ==
+                  hse_notifications
+                      .WorkerHazardNotifier
+                      .proximityNotificationType ||
+              notificationType == 'hse_proximity' ||
+              notificationType == 'officer_proximity'
+          ? hse_notifications.WorkerHazardNotifier.proximityNotificationType
+          : hse_notifications.WorkerHazardNotifier.assignmentNotificationType;
+
+      if (hse_notifications.workerHazardNotifier.isAlreadyNotified(
+        hazardId,
+        notificationType: hseNotificationType,
+      )) {
+        debugPrint(
+          'Skipping duplicate HSE $hseNotificationType FCM notification: $hazardId',
+        );
         return;
       }
 
@@ -227,6 +282,7 @@ class FirebaseMessagingService {
           title: title,
           body: body,
           severity: severity,
+          notificationType: hseNotificationType,
           imageUrl: imageUrl,
           distance: 0,
           timestamp: DateTime.now(),
@@ -268,10 +324,14 @@ class FirebaseMessagingService {
     final hazardId = message.data['hazard_id'];
     if (hazardId != null) {
       final role = AuthRepository().getRole();
+      final notificationType = message.data['notification_type']?.toString();
       if (role == 'worker') {
         worker_notifications.workerHazardNotifier.markAsRead(hazardId);
       } else if (role == 'hse_worker') {
-        hse_notifications.workerHazardNotifier.markAsRead(hazardId);
+        hse_notifications.workerHazardNotifier.markAsRead(
+          hazardId,
+          notificationType: notificationType,
+        );
       } else {
         officerHazardNotifier.markAsRead(hazardId);
       }
